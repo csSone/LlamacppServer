@@ -1,0 +1,2330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llama.cpp 模型管理系统</title>
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjU2IiBpZD0ic2NyZWVuc2hvdC1lZjk0ZmJiMC1kYmFiLTgwZWQtODAwNi04OTQyOTkwMGVkYmYiIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgZmlsbD0ibm9uZSIgdmVyc2lvbj0iMS4xIj48ZyBpZD0ic2hhcGUtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0Mjk5MDBlZGJmIiByeD0iMCIgcnk9IjAiPjxnIGlkPSJzaGFwZS1lZjk0ZmJiMC1kYmFiLTgwZWQtODAwNi04OTQyMTU3NTVjM2EiPjxnIGNsYXNzPSJmaWxscyIgaWQ9ImZpbGxzLWVmOTRmYmIwLWRiYWItODBlZC04MDA2LTg5NDIxNTc1NWMzYSI+PHJlY3Qgcng9IjAiIHJ5PSIwIiB4PSIwIiB5PSIwIiB0cmFuc2Zvcm09Im1hdHJpeCgxLjAwMDAwMCwgMC4wMDAwMDAsIDAuMDAwMDAwLCAxLjAwMDAwMCwgMC4wMDAwMDAsIDAuMDAwMDAwKSIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiIHN0eWxlPSJmaWxsOiByZ2IoMjcsIDMxLCAzMik7IGZpbGwtb3BhY2l0eTogMTsiLz48L2c+PC9nPjxnIGlkPSJzaGFwZS1lZjk0ZmJiMC1kYmFiLTgwZWQtODAwNi04OTQyMjM2M2VmM2YiIHJ4PSIwIiByeT0iMCI+PGcgaWQ9InNoYXBlLWVmOTRmYmIwLWRiYWItODBlZC04MDA2LTg5NDIyMzYzZWY0MCI+PGcgY2xhc3M9ImZpbGxzIiBpZD0iZmlsbHMtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0MjIzNjNlZjQwIj48cGF0aCBkPSJNMTcxLjY2NTAwODU0NDkyMTg4LDk5LjUzMDI1MDU0OTMxNjRMMTU5Ljc5OTUzMDAyOTI5Njg4LDEyMC42MjQ2ODcxOTQ4MjQyMkMxNDQuMTU0NTEwNDk4MDQ2ODgsMTA4LjU4MzI5MDEwMDA5NzY2LDEyMC45NTA0MTY1NjQ5NDE0LDEwNi44MjU0MTY1NjQ5NDE0LDEwNS4zMDUzOTcwMzM2OTE0LDExOS43NDU3NTA0MjcyNDYxQzgwLjA3OTgxMTA5NjE5MTQsMTQwLjU3NjUyMjgyNzE0ODQ0LDgxLjgzNzYyMzU5NjE5MTQsMTg4Ljc0MjI2Mzc5Mzk0NTMsMTIxLjEyNjE5NzgxNDk0MTQsMTg5LjAwNTg3NDYzMzc4OTA2QzEzMi4xMTMwMDY1OTE3OTY4OCwxODkuMDA1ODc0NjMzNzg5MDYsMTQxLjQyOTY1Njk4MjQyMTg4LDE4My44MjAxMTQxMzU3NDIyLDE1MS40NDk2NzY1MTM2NzE4OCwxODAuMzkyMzQ5MjQzMTY0MDZMMTU2LjcyMzM1ODE1NDI5Njg4LDIwMS4zOTg4NDk0ODczMDQ3QzE0Ny44NDU5MTY3NDgwNDY4OCwyMDUuNTI5ODkxOTY3NzczNDQsMTM4Ljc5MjkzODIzMjQyMTg4LDIwOS43NDg3MzM1MjA1MDc4LDEyOS4wMzY4MzQ3MTY3OTY4OCwyMTEuMDY3MTIzNDEzMDg1OTRDNDAuMDg4MzUyMjAzMzY5MTQsMjIzLjE5NjQ1NjkwOTE3OTcsNDUuMTg2MDA4NDUzMzY5MTQsOTQuNzg0MDA0MjExNDI1NzgsMTI1LjYwODg2MzgzMDU2NjQsODguMTA0MDcyNTcwODAwNzhDMTQyLjQ4NDM0NDQ4MjQyMTg4LDg2LjY5NzgyMjU3MDgwMDc4LDE1Ny4zMzgzNDgzODg2NzE4OCw5MS4wOTI0NzU4OTExMTMyOCwxNzEuNzUzMTQzMzEwNTQ2ODgsOTkuNTMwMjUwNTQ5MzE2NFoiIGNsYXNzPSJzdDAiIHN0eWxlPSJmaWxsOiByZ2IoMjU1LCAxMzAsIDU0KTsgZmlsbC1vcGFjaXR5OiAxOyIvPjwvZz48L2c+PGcgaWQ9InNoYXBlLWVmOTRmYmIwLWRiYWItODBlZC04MDA2LTg5NDIyMzYzZWY0MSI+PGcgY2xhc3M9ImZpbGxzIiBpZD0iZmlsbHMtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0MjIzNjNlZjQxIj48cGF0aCBkPSJNMTEwLjIyNzI3MjAzMzY5MTQsNzkuMzE0NzA0ODk1MDE5NTNDOTYuNjkxODcxNjQzMDY2NCw4My4zNTc4NTY3NTA0ODgyOCw4NC4xMjMyNjgxMjc0NDE0LDkwLjgyODgzNDUzMzY5MTQsNzQuNjMwNTkyMzQ2MTkxNCwxMDEuMjg4MTI0MDg0NDcyNjZDNzIuODcyNzc5ODQ2MTkxNCw4MC4wMTc4Mjk4OTUwMTk1Myw3Ny42MTg4NzM1OTYxOTE0LDM3LjAzNzkzNzE2NDMwNjY0LDEwMS4yNjIxODQxNDMwNjY0LDI4LjYwMDEwMzM3ODI5NTlDMTA0Ljc3ODA1MzI4MzY5MTQsMjcuMzY5NjQ5ODg3MDg0OTYsMTE2LjgxOTU1NzE4OTk0MTQsMjQuMjkzMzcxMjAwNTYxNTIzLDExNi40Njc5OTQ2ODk5NDE0LDMwLjUzMzc4ODY4MTAzMDI3M0MxMTYuMTE2MTg4MDQ5MzE2NCwzNi43NzQyNjUyODkzMDY2NCwxMDcuNzY2MzM0NTMzNjkxNCw0Ny40OTcyMjY3MTUwODc4OSwxMDUuNzQ1MDk0Mjk5MzE2NCw1My4yOTgyMzY4NDY5MjM4M0MxMDIuMjI5MjI1MTU4NjkxNCw2My40OTM4Njk3ODE0OTQxNCwxMDUuNDgxMTc4MjgzNjkxNCw3MC41MjUzNTI0NzgwMjczNCwxMTAuMzE1NDA2Nzk5MzE2NCw3OS40MDI2NTY1NTUxNzU3OFoiIGNsYXNzPSJzdDAiIHN0eWxlPSJmaWxsOiByZ2IoMjU1LCAxMzAsIDU0KTsgZmlsbC1vcGFjaXR5OiAxOyIvPjwvZz48L2c+PGcgaWQ9InNoYXBlLWVmOTRmYmIwLWRiYWItODBlZC04MDA2LTg5NDIyMzYzZWY0MiI+PGcgY2xhc3M9ImZpbGxzIiBpZD0iZmlsbHMtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0MjIzNjNlZjQyIj48cGF0aCBkPSJNMTQzLjYyNjkyMjYwNzQyMTg4LDEyNy42NTYyMTE4NTMwMjczNEwxNDMuNjI2OTIyNjA3NDIxODgsMTQzLjQ3NzA2NjA0MDAzOTA2TDE1Ny42ODk5MTA4ODg2NzE4OCwxNDMuNDc3MDY2MDQwMDM5MDZMMTU3LjY4OTkxMDg4ODY3MTg4LDE1NS43ODIxODA3ODYxMzI4TDE0My42MjY5MjI2MDc0MjE4OCwxNTUuNzgyMTgwNzg2MTMyOEwxNDMuNjI2OTIyNjA3NDIxODgsMTcwLjcyNDA3NTMxNzM4MjhMMTMwLjQ0Mjg0MDU3NjE3MTg4LDE3MC43MjQwNzUzMTczODI4TDEzMC40NDI4NDA1NzYxNzE4OCwxNTUuNzgyMTgwNzg2MTMyOEwxMTUuNTAwOTUzNjc0MzE2NCwxNTUuNzgyMTgwNzg2MTMyOEwxMTUuNTAwOTUzNjc0MzE2NCwxNDMuNDc3MDY2MDQwMDM5MDZMMTI5LjEyNDQ4MTIwMTE3MTg4LDE0My40NzcwNjYwNDAwMzkwNkwxMzAuNDQyODQwNTc2MTcxODgsMTQyLjE1ODY3NjE0NzQ2MDk0TDEzMC40NDI4NDA1NzYxNzE4OCwxMjcuNjU2MjExODUzMDI3MzRMMTQzLjYyNjkyMjYwNzQyMTg4LDEyNy42NTYyMTE4NTMwMjczNFoiIGNsYXNzPSJzdDAiIHN0eWxlPSJmaWxsOiByZ2IoMjU1LCAxMzAsIDU0KTsgZmlsbC1vcGFjaXR5OiAxOyIvPjwvZz48L2c+PGcgaWQ9InNoYXBlLWVmOTRmYmIwLWRiYWItODBlZC04MDA2LTg5NDIyMzYzZWY0MyI+PGcgY2xhc3M9ImZpbGxzIiBpZD0iZmlsbHMtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0MjIzNjNlZjQzIj48cGF0aCBkPSJNMTkxLjk2ODIzMTIwMTE3MTg4LDEyNy42NTYyMTE4NTMwMjczNEwxOTEuOTY4MjMxMjAxMTcxODgsMTQyLjE1ODY3NjE0NzQ2MDk0TDE5My4yODY4MzQ3MTY3OTY4OCwxNDMuNDc3MDY2MDQwMDM5MDZMMjA2LjkxMDM2OTg3MzA0Njg4LDE0My40NzcwNjYwNDAwMzkwNkwyMDYuOTEwMzY5ODczMDQ2ODgsMTU1Ljc4MjE4MDc4NjEzMjhMMTkxLjk2ODIzMTIwMTE3MTg4LDE1NS43ODIxODA3ODYxMzI4TDE5MS45NjgyMzEyMDExNzE4OCwxNzAuNzI0MDc1MzE3MzgyOEwxNzguNzg0MzkzMzEwNTQ2ODgsMTcwLjcyNDA3NTMxNzM4MjhMMTc4Ljc4NDM5MzMxMDU0Njg4LDE1NS43ODIxODA3ODYxMzI4TDE2NC43MjE0MDUwMjkyOTY4OCwxNTUuNzgyMTgwNzg2MTMyOEwxNjQuNzIxNDA1MDI5Mjk2ODgsMTQzLjQ3NzA2NjA0MDAzOTA2TDE3OC43ODQzOTMzMTA1NDY4OCwxNDMuNDc3MDY2MDQwMDM5MDZMMTc4Ljc4NDM5MzMxMDU0Njg4LDEyNy42NTYyMTE4NTMwMjczNEwxOTEuOTY4MjMxMjAxMTcxODgsMTI3LjY1NjIxMTg1MzAyNzM0WiIgY2xhc3M9InN0MCIgc3R5bGU9ImZpbGw6IHJnYigyNTUsIDEzMCwgNTQpOyBmaWxsLW9wYWNpdHk6IDE7Ii8+PC9nPjwvZz48ZyBpZD0ic2hhcGUtZWY5NGZiYjAtZGJhYi04MGVkLTgwMDYtODk0MjIzNjNlZjQ0Ij48ZyBjbGFzcz0iZmlsbHMiIGlkPSJmaWxscy1lZjk0ZmJiMC1kYmFiLTgwZWQtODAwNi04OTQyMjM2M2VmNDQiPjxwYXRoIGQ9Ik0xNTMuMjA3NDg5MDEzNjcxODgsMzguMDkyNjU1MTgxODg0NzY2QzE1NC45NjU1NDU2NTQyOTY4OCw0MC43Mjk0NjU0ODQ2MTkxNCwxNDUuMDMzNDE2NzQ4MDQ2ODgsNTIuMDY3NzA3MDYxNzY3NTgsMTQzLjQ1MTE0MTM1NzQyMTg4LDU0Ljk2ODE3Mzk4MDcxMjg5QzEzOC44ODA4Mjg4NTc0MjE4OCw2My41ODE3OTA5MjQwNzIyNjYsMTQxLjk1NzAwMDczMjQyMTg4LDY4LjUwMzgyMjMyNjY2MDE2LDE0NS4zODQ3MzUxMDc0MjE4OCw3Ni42Nzc5MjUxMDk4NjMyOEMxMzUuNDUyODUwMzQxNzk2ODgsNzUuMTgzNzIzNDQ5NzA3MDMsMTI2LjIyNDA5ODIwNTU2NjQsNzYuNDE0MjUzMjM0ODYzMjgsMTE2LjM3OTg1OTkyNDMxNjQsNzcuNTU2ODMxMzU5ODYzMjhDMTE4LjU3NzM2OTY4OTk0MTQsNTguNjU5NzMyODE4NjAzNTE2LDEyOS4yMTI2MTU5NjY3OTY4OCwzMS4xNDkwNTM1NzM2MDg0LDE1My4yMDc0ODkwMTM2NzE4OCwzOC4wOTI2NTUxODE4ODQ3NjZaIiBjbGFzcz0ic3QwIiBzdHlsZT0iZmlsbDogcmdiKDI1NSwgMTMwLCA1NCk7IGZpbGwtb3BhY2l0eTogMTsiLz48L2c+PC9nPjwvZz48L2c+PC9zdmc+"/>
+    <link rel="stylesheet" href="css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6cf7;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --background-color: #f5f7fa;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --transition-speed: 0.3s;
+            --max-content-width: 1200px;
+            --stats-height: 80px;
+            --sticky-subheader-height: 64px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--background-color);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 顶部统计区域（包含工具栏） */
+        .stats-header {
+            max-width: var(--max-content-width);
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #eee; /* 与主内容区域的分割线 */
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .app-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .app-title i {
+            margin-right: 10px;
+            font-size: 28px;
+        }
+
+        .stats-info {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark-color);
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        .settings-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* 主内容区域 */
+        .main-container {
+            max-width: var(--max-content-width);
+            width: 100%;
+            margin: 0 auto;
+            padding: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 模型列表 */
+        .models-section {
+            background: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-top: 0;
+        }
+
+        .section-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: var(--stats-height);
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            max-width: var(--max-content-width);
+            background: white;
+            z-index: 99;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .refresh-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .refresh-btn:hover {
+            background: #3a5bd9;
+            transform: translateY(-2px);
+        }
+
+        .shutdown-btn {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .shutdown-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* 模型列表样式 */
+        .models-list {
+            padding: 0;
+            flex: 1;
+            overflow-y: auto;
+            /* 移除固定最小高度，让内容自然撑开 */
+        }
+
+        .model-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color var(--transition-speed);
+        }
+
+        .model-item:last-child {
+            border-bottom: none;
+        }
+
+        .model-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .model-name-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            min-width: 0; /* 允许文本截断 */
+        }
+
+        .model-icon {
+            width: 40px;
+            height: 40px;
+            /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            color: white;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .model-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .vision-badge {
+            color: var(--info-color);
+            margin-left: 8px;
+        }
+
+        .model-info-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .model-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .model-info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .model-info-label {
+            font-size: 12px;
+            color: var(--secondary-color);
+            margin-top: 2px;
+        }
+
+        .model-status {
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .model-status.running {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+        }
+
+        .model-status.stopped {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+        }
+
+        .model-status.loading {
+            background: rgba(255, 193, 7, 0.1);
+            color: var(--warning-color);
+        }
+
+        .model-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 20px;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--light-color);
+            color: var(--secondary-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed);
+        }
+
+        .action-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: #3a5bd9;
+        }
+
+        .action-btn.danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .action-btn.danger:hover {
+            background: #c82333;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--secondary-color);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* 加载状态 */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 95%;
+            animation: modalSlideIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #loadModelModal .modal-content {
+            max-width: 900px;
+            width: 95%;
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+        #loadModelModal .modal-body { overflow-y: auto; }
+
+        #settingsModal .modal-content {
+            max-width: 900px;
+            width: 95%;
+            height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--secondary-color);
+            transition: color var(--transition-speed);
+        }
+
+        .modal-close:hover {
+            color: var(--dark-color);
+        }
+
+        .modal-body {
+            padding: 20px;
+            flex: 1;
+            overflow: hidden;
+        }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            height: 100%;
+        }
+        .settings-panel {
+            border: 1px solid #eee;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        .settings-panel .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+        .settings-panel .panel-body {
+            padding: 16px;
+            flex: 1;
+            overflow: hidden;
+        }
+        @media (max-width: 768px) {
+            .settings-grid { grid-template-columns: 1fr; }
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            transition: all var(--transition-speed);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+        }
+
+        .form-text {
+            font-size: 12px;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .form-check-input {
+            margin-right: 8px;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3a5bd9;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        /* 通知提示 */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 3000;
+        }
+
+        .toast {
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 300px;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--info-color);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success-color);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger-color);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning-color);
+        }
+
+        .toast.info .toast-icon {
+            color: var(--info-color);
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            color: var(--secondary-color);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--secondary-color);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .stats-container {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .stats-info {
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .model-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .model-info-container {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .model-actions {
+                margin-left: 0;
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部统计区域（包含工具栏） -->
+    <header class="stats-header">
+        <div class="stats-container">
+            <div class="app-title">
+                <i class="fas fa-brain"></i>
+                <span>Llama.cpp 模型管理系统</span>
+            </div>
+            <div class="stats-info">
+                <div class="stat-item">
+                    <div class="stat-value" id="loadedModelsCount">0</div>
+                    <div class="stat-label">已加载模型</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalModelsCount">0</div>
+                    <div class="stat-label">模型总数</div>
+                </div>
+                <div class="stat-item">
+                    <button class="shutdown-btn" onclick="shutdownService()" title="停止服务">
+                        <i class="fas fa-power-off"></i>
+                        停止服务
+                    </button>
+                </div>
+                <div class="stat-item">
+                    <button class="settings-btn" onclick="openSettingsModal()" title="设置">
+                        <i class="fas fa-cog"></i>
+                        设置
+                    </button>
+                </div>
+                <div class="stat-item">
+                    <button class="settings-btn" onclick="window.location.href='/console.html'" title="控制台">
+                        <i class="fas fa-terminal"></i>
+                        控制台
+                    </button>
+                </div>
+                <div class="stat-item">
+                    <button class="refresh-btn" onclick="refreshModels()" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                        刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区域 -->
+    <main class="main-container">
+        <section class="models-section">
+            <div class="models-search" style="padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; background: #fff;">
+                <input type="text" id="modelSearchInput" class="form-control" placeholder="搜索模型名称…" style="max-width:360px;">
+                <button class="btn btn-secondary" onclick="clearModelSearch()"><i class="fas fa-times"></i> 清除</button>
+            </div>
+            <div class="models-list" id="modelsList">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 加载模型模态框 -->
+    <div class="modal" id="loadModelModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">加载模型</h3>
+                <button class="modal-close" onclick="closeModal('loadModelModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="loadModelForm">
+                    <div class="form-group">
+                        <label class="form-label" for="modelId">模型ID:</label>
+                        <input type="text" class="form-control" id="modelId" name="modelId" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="ctxSize">上下文大小 (ctx-size):</label>
+                        <input type="number" class="form-control" id="ctxSize" name="ctxSize" min="1" placeholder="例如: 2048" value="32768">
+                        <small class="form-text">模型的最大上下文长度，影响能处理的文本长度</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="batchSize">批处理大小 (batch-size):</label>
+                        <input type="number" class="form-control" id="batchSize" name="batchSize" min="1" placeholder="例如: 512" value="1024">
+                        <small class="form-text">批处理大小，影响处理效率</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="ubatchSize">微批处理大小 (ubatch-size):</label>
+                        <input type="number" class="form-control" id="ubatchSize" name="ubatchSize" min="1" placeholder="例如: 512" value="2048">
+                        <small class="form-text">微批处理大小，用于更细粒度的控制</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="temperature">temperature:</label>
+                        <input type="number" step="0.01" class="form-control" id="temperature" name="temperature" placeholder="例如: 0.7" value="0.7">
+                        <small class="form-text">采样温度，控制随机性</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="topP">top_p:</label>
+                        <input type="number" step="0.01" class="form-control" id="topP" name="topP" placeholder="例如: 0.95" value="0.95">
+                        <small class="form-text">核采样概率阈值</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="topK">top_k:</label>
+                        <input type="number" class="form-control" id="topK" name="topK" min="1" placeholder="例如: 40" value="40">
+                        <small class="form-text">采样候选的数量上限</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="minP">min_p:</label>
+                        <input type="number" step="0.01" class="form-control" id="minP" name="minP" placeholder="例如: 0.05" value="0.05">
+                        <small class="form-text">最小概率阈值</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="presencePenalty">presence_penalty:</label>
+                        <input type="number" step="0.01" class="form-control" id="presencePenalty" name="presencePenalty" placeholder="例如: 0.0" value="0.0">
+                        <small class="form-text">惩罚重复出现的token</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="llamaBinPathSelect">选择llama.cpp版本:</label>
+                        <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
+                        <small class="form-text">从已配置的llama.cpp路径中选择一个用于加载模型</small>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="noMmap" name="noMmap">
+                        <label class="form-check-label" for="noMmap">
+                            禁用内存映射 (no-mmap)
+                        </label>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="mlock" name="mlock">
+                        <label class="form-check-label" for="mlock">
+                            锁定内存 (mlock)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="embedding" name="embedding">
+                        <label class="form-check-label" for="embedding">
+                            开启Embedding模式
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="reranking" name="reranking">
+                        <label class="form-check-label" for="reranking">
+                            开启Reranking模式
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('loadModelModal')">取消</button>
+                <button class="btn btn-primary" onclick="submitLoadModel()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">系统设置</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-grid">
+                    <div class="settings-panel">
+                        <div class="panel-header">模型目录</div>
+                        <div class="panel-body">
+                            <form id="settingsFormLeft">
+                                <div class="form-group">
+                                    <label class="form-label" for="modelPathInput">添加目录</label>
+                                    <input type="text" class="form-control" id="modelPathInput" placeholder="例如: /home/mark/Models/Q8">
+                                    <div style="margin-top:10px; display:flex; gap:10px;">
+                                        <button type="button" class="btn btn-primary" onclick="addModelPath()"><i class="fas fa-plus"></i> 添加目录</button>
+                                        <button type="button" class="btn btn-secondary" onclick="clearModelPathInput()"><i class="fas fa-eraser"></i> 清空输入</button>
+                                    </div>
+                                    <small class="form-text">支持多个模型根目录，将合并检索其中所有GGUF模型</small>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">当前目录列表</label>
+                                    <div id="modelPathListContainer" class="form-text" style="max-height:40vh; overflow:auto; border:1px solid #eee; padding:10px; background:#fafafa; margin-top:10px;"></div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="settings-panel">
+                        <div class="panel-header">llama.cpp 路径</div>
+                        <div class="panel-body">
+                            <form id="settingsFormRight">
+                                <div class="form-group">
+                                    <label class="form-label" for="llamaCppPath">添加/移除</label>
+                                    <input type="text" class="form-control" id="llamaCppPath" name="llamaCppPath" placeholder="例如: C:/Users/Mark/llama.cpp/llama.cpp-master">
+                                    <small class="form-text">输入一个已编译的llama.cpp文件夹路径，添加后不做有效性检查</small>
+                                    <div style="margin-top:10px; display:flex; gap:10px;">
+                                        <button type="button" class="btn btn-primary" onclick="addLlamaCppPath()"><i class="fas fa-plus"></i> 添加路径</button>
+                                        <button type="button" class="btn btn-secondary" onclick="removeLlamaCppPath()"><i class="fas fa-minus"></i> 移除路径</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">当前llama.cpp路径列表</label>
+                                    <div id="llamaCppListContainer" class="form-text" style="max-height:40vh; overflow:auto; border:1px solid #eee; padding:10px; background:#fafafa"></div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('settingsModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // WebSocket连接
+        let websocket = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        const reconnectInterval = 5000; // 5秒
+        
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            try {
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = function(event) {
+                    console.log('WebSocket连接已建立');
+                    showToast('连接成功', 'WebSocket连接已建立', 'success');
+                    reconnectAttempts = 0;
+                    
+                    // 发送连接成功消息给后台，确认连接可用
+                    const connectMessage = JSON.stringify({
+                        type: 'connect',
+                        message: 'WebSocket连接已成功建立',
+                        timestamp: new Date().toISOString()
+                    });
+                    websocket.send(connectMessage);
+                    console.log('已发送连接确认消息:', connectMessage);
+                };
+                
+                websocket.onmessage = function(event) {
+                    console.log('收到WebSocket消息:', event.data);
+                    handleWebSocketMessage(event.data);
+                };
+                
+                websocket.onclose = function(event) {
+                    console.log('WebSocket连接已关闭:', event.code, event.reason);
+                    showToast('连接断开', 'WebSocket连接已断开', 'warning');
+                    
+                    // 尝试重连
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        console.log(`尝试重连 (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                        setTimeout(initWebSocket, reconnectInterval);
+                    } else {
+                        showToast('连接失败', '无法建立WebSocket连接，请刷新页面重试', 'error');
+                    }
+                };
+                
+                websocket.onerror = function(error) {
+                    console.error('WebSocket错误:', error);
+                    showToast('连接错误', 'WebSocket连接发生错误', 'error');
+                };
+            } catch (error) {
+                console.error('创建WebSocket连接失败:', error);
+                showToast('连接失败', '无法创建WebSocket连接', 'error');
+            }
+        }
+        
+        // 处理WebSocket消息
+        function handleWebSocketMessage(message) {
+            try {
+                // 尝试解析JSON消息
+                const data = JSON.parse(message);
+                
+                // 根据消息类型处理
+                if (data.type) {
+                    switch (data.type) {
+                        case 'welcome':
+                            console.log('收到欢迎消息:', data.message);
+                            break;
+                        case 'connect_ack':
+                            console.log('收到连接确认响应:', data.message);
+                            showToast('连接确认', 'WebSocket连接已确认可用', 'success');
+                            break;
+                        case 'heartbeat':
+                            console.log('收到心跳:', data.timestamp);
+                            break;
+                        case 'modelLoad':
+                            handleModelLoadEvent(data);
+                            break;
+                        case 'modelStop':
+                            handleModelStopEvent(data);
+                            break;
+                        case 'notification':
+                            showToast(data.title || '通知', data.message || '', data.level || 'info');
+                            break;
+                        case 'model_status':
+                            handleModelStatusUpdate(data);
+                            break;
+                        default:
+                            console.log('未知消息类型:', data.type);
+                    }
+                } else {
+                    // 简单文本消息
+                    showToast('服务器消息', message, 'info');
+                }
+            } catch (error) {
+                // 不是JSON格式的消息，直接显示
+                showToast('服务器消息', message, 'info');
+            }
+        }
+        
+        // 处理模型状态更新
+        function handleModelStatusUpdate(data) {
+            if (data.modelId && data.status) {
+                console.log(`模型 ${data.modelId} 状态更新为: ${data.status}`);
+                
+                // 刷新模型列表
+                loadModels();
+                
+                // 更新模型计数
+                updateModelCounts();
+                
+                // 显示状态更新通知
+                const statusText = data.status === 'running' ? '运行中' : '已停止';
+                showToast('模型状态更新', `模型 ${data.modelId} 状态变更为: ${statusText}`, 'info');
+            }
+        }
+        
+        // 处理模型加载事件
+        function handleModelLoadEvent(data) {
+            console.log('收到模型加载事件:', data);
+            
+            // 移除加载中状态提示
+            removeModelLoadingState(data.modelId);
+            
+            const action = data.success ? '成功' : '失败';
+            const message = `模型 ${data.modelId} 加载${action}`;
+            const toastType = data.success ? 'success' : 'error';
+            
+            showToast('模型加载', message, toastType);
+            
+            // 检查是否有正在等待的模型加载
+            if (window.pendingModelLoad && window.pendingModelLoad.modelId === data.modelId) {
+                // 关闭加载模型模态框
+                closeModal('loadModelModal');
+                
+                // 重置提交按钮状态
+                const submitBtn = document.querySelector('#loadModelModal .btn-primary');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '确定';
+                }
+                
+                // 清除等待标志
+                window.pendingModelLoad = null;
+            }
+            
+            // 刷新模型列表
+            loadModels();
+            
+            // 更新模型计数
+            updateModelCounts();
+        }
+        
+        // 处理模型停止事件
+        function handleModelStopEvent(data) {
+            console.log('收到模型停止事件:', data);
+            
+            const action = data.success ? '成功' : '失败';
+            const message = `模型 ${data.modelId} 停止${action}`;
+            const toastType = data.success ? 'success' : 'error';
+            
+            showToast('模型停止', message, toastType);
+            
+            // 刷新模型列表
+            loadModels();
+            
+            // 更新模型计数
+            updateModelCounts();
+        }
+        
+        // 发送WebSocket消息
+        function sendWebSocketMessage(message) {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(message);
+                return true;
+            } else {
+                console.error('WebSocket未连接');
+                return false;
+            }
+        }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateModelCounts();
+            loadModels();
+            initWebSocket();
+            initModelSearch();
+        });
+
+        // 加载模型列表
+        function loadModels() {
+            const modelsList = document.getElementById('modelsList');
+            
+            // 先显示加载状态
+            modelsList.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            `;
+            
+            // 获取所有模型
+            fetch('/api/models/list')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const allModels = data.models || [];
+                        
+                        // 获取已加载的模型
+                        return fetch('/api/models/loaded')
+                            .then(response => response.json())
+                            .then(loadedData => {
+                                const loadedModels = loadedData.success ? (loadedData.models || []) : [];
+                                const loadedModelIds = loadedModels.map(m => m.id);
+                                
+                                // 合并模型信息
+                                const modelsWithStatus = allModels.map(model => {
+                                    const isLoaded = loadedModelIds.includes(model.id);
+                                    const loadedModel = loadedModels.find(m => m.id === model.id);
+                                    
+                                    return {
+                                        ...model,
+                                        isLoaded: isLoaded,
+                                        status: isLoaded ? (loadedModel ? loadedModel.status : 'loaded') : 'stopped',
+                                        port: isLoaded && loadedModel ? loadedModel.port : null,
+                                        ctxSize: isLoaded && loadedModel ? loadedModel.ctxSize : null,
+                                        batchSize: isLoaded && loadedModel ? loadedModel.batchSize : null
+                                    };
+                                });
+                                
+                                renderModelsList(modelsWithStatus);
+                                const totalModelsCountElement = document.getElementById('totalModelsCount');
+                                if (totalModelsCountElement) {
+                                    totalModelsCountElement.textContent = modelsWithStatus.length;
+                                }
+                                const loadedModelsCountElement = document.getElementById('loadedModelsCount');
+                                if (loadedModelsCountElement) {
+                                    loadedModelsCountElement.textContent = loadedModelIds.length;
+                                }
+                                return modelsWithStatus;
+                            });
+                    } else {
+                        throw new Error(data.error || '加载模型列表失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    modelsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="empty-state-title">加载失败</div>
+                            <div class="empty-state-text">${error.message || '网络错误，请稍后重试'}</div>
+                            <button class="btn btn-primary" onclick="loadModels()">重试</button>
+                        </div>
+                    `;
+                });
+        }
+
+        // 根据模型架构获取对应的图标
+        function getModelIcon(architecture) {
+            // 将架构名称转换为小写，并移除可能的版本号和特殊字符
+            const archName = architecture.toLowerCase().replace(/[^a-z]/g, '');
+            
+            // 定义架构到图标的映射
+            const iconMap = {
+                'qwen': 'icon/qwen.png',
+                'qwen2': 'icon/qwen.png',
+                'qwen3': 'icon/qwen.png',
+                'qwen3vl': 'icon/qwen.png',
+                'glm': 'icon/glm.png',
+                'glm3': 'icon/glm.png',
+                'glm4': 'icon/glm.png',
+                'chatglm': 'icon/glm.png',
+                'hunyuan': 'icon/hunyuan.png',
+                '混元': 'icon/hunyuan.png', 
+                'mistral': 'icon/mistral3.png', 
+                'gptoss': 'icon/openai.png', 
+                'seed_oss': 'icon/seed_oss.png', 
+                'seed': 'icon/seed_oss.png', 
+            };
+            
+            // 查找匹配的图标
+            for (const [key, icon] of Object.entries(iconMap)) {
+                console.log(archName);
+                if (archName.includes(key)) {
+                    return icon;
+                }
+            }
+            
+            // 如果没有匹配的图标，返回默认图标
+            return null;
+        }
+
+        // 渲染模型列表
+        function renderModelsList(models) {
+            const modelsList = document.getElementById('modelsList');
+            
+            if (!models || models.length === 0) {
+                modelsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="empty-state-title">没有可用的模型</div>
+                        <div class="empty-state-text">请确保模型文件已放置在正确的目录中</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            models.forEach(model => {
+                // 获取模型元数据
+                const metadata = model.metadata || {};
+                const architecture = metadata.architecture || '未知架构';
+                
+                // 检查模型是否正在加载
+                const isLoading = document.getElementById('loading-toast-' + model.id) !== null;
+                
+                // 确定状态
+                let status = model.status;
+                let statusText = '已停止';
+                let statusIcon = 'fa-stop-circle';
+                let statusClass = 'stopped';
+                
+                if (isLoading) {
+                    status = 'loading';
+                    statusText = '加载中';
+                    statusIcon = 'fa-spinner fa-spin';
+                    statusClass = 'loading';
+                } else if (model.isLoaded) {
+                    statusText = status === 'running' ? '运行中' : '已加载';
+                    statusIcon = status === 'running' ? 'fa-play-circle' : 'fa-check-circle';
+                    statusClass = status === 'running' ? 'running' : 'stopped';
+                }
+                
+                // 确定操作按钮
+                let actionButtons = '';
+                
+                if (isLoading) {
+                    actionButtons = `
+                        <button class="action-btn" title="加载中">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </button>
+                    `;
+                } else if (model.isLoaded) {
+                    if (status === 'running') {
+                        actionButtons = `
+                            <button class="action-btn danger" onclick="stopModel('${model.id}')" title="停止">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <button class="action-btn" onclick="viewModelDetails('${model.id}')" title="详情">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        `;
+                    } else {
+                        actionButtons = `
+                            <button class="action-btn primary" onclick="startModel('${model.id}')" title="启动">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="action-btn danger" onclick="unloadModel('${model.id}')" title="卸载">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="action-btn" onclick="viewModelDetails('${model.id}')" title="详情">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        `;
+                    }
+                } else {
+                    actionButtons = `
+                        <button class="action-btn primary" onclick="loadModel('${model.id}')" title="加载">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="action-btn" onclick="viewModelDetails('${model.id}')" title="详情">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    `;
+                }
+                
+                // 获取模型架构对应的图标
+                const modelIcon = getModelIcon(architecture);
+                const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
+                
+                html += `
+                    <div class="model-item">
+                        <div class="model-name-container">
+                            <div class="model-icon">
+                                ${modelIcon ?
+                                    `<img src="${modelIcon}" alt="${architecture}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` :
+                                    `<i class="fas fa-brain"></i>`
+                                }
+                            </div>
+                            <div class="model-name" title="${model.name}" style="cursor:pointer;" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'))">${displayName}${model.isMultimodal ? ' <span class=\"vision-badge\" title=\"视觉模型\"><i class=\"fas fa-image\"></i></span>' : ''}</div>
+                        </div>
+                        <div class="model-info-container">
+                            <div class="model-info">
+                                <div class="model-info-value">${architecture}</div>
+                                <div class="model-info-label">架构</div>
+                            </div>
+                            <div class="model-info">
+                                <div class="model-info-value">${formatFileSize(model.size)}</div>
+                                <div class="model-info-label">大小</div>
+                            </div>
+                            ${model.port ? `
+                                <div class="model-info">
+                                    <div class="model-info-value">${model.port}</div>
+                                    <div class="model-info-label">端口</div>
+                                </div>
+                            ` : ''}
+                            <div class="model-status ${statusClass}">
+                                <i class="fas ${statusIcon}"></i>
+                                <span>${statusText}</span>
+                            </div>
+                            <div class="model-actions">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            modelsList.innerHTML = html;
+            const input = document.getElementById('modelSearchInput');
+            if (input) filterModels(input.value);
+        }
+
+        // 刷新模型列表
+        function refreshModels() {
+            const modelsList = document.getElementById('modelsList');
+            if (modelsList) {
+                modelsList.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+            }
+            showToast('提示', '正在刷新模型列表', 'info');
+            fetch('/api/models/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('成功', '模型列表已刷新', 'success');
+                        loadModels();
+                        updateModelCounts();
+                    } else {
+                        throw new Error(data.error || '刷新模型列表失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('错误', error.message || '网络错误，请稍后重试', 'error');
+                    loadModels();
+                });
+        }
+
+        // 更新模型计数
+        function updateModelCounts() {
+            // 获取已加载模型数量
+            fetch('/api/models/loaded')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const models = data.models || [];
+                        const loadedCount = models.length;
+                        const loadedModelsCountElement = document.getElementById('loadedModelsCount');
+                        if (loadedModelsCountElement) {
+                            loadedModelsCountElement.textContent = loadedCount;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        // 格式化文件大小
+        function formatFileSize(size) {
+            if (size < 1024) {
+                return size + ' B';
+            } else if (size < 1024 * 1024) {
+                return (size / 1024).toFixed(1) + ' KB';
+            } else if (size < 1024 * 1024 * 1024) {
+                return (size / (1024 * 1024)).toFixed(1) + ' MB';
+            } else {
+                return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+            }
+        }
+
+        // 模型操作函数
+        function loadModel(modelId) {
+            console.log('加载模型:', modelId);
+            
+            // 设置模型ID
+            document.getElementById('modelId').value = modelId;
+            
+            // 获取模型启动配置
+            fetch(`/api/models/config?modelId=${encodeURIComponent(modelId)}`)
+                .then(response => response.json())
+                    .then(data => {
+                        const config = data.data.config;
+                        if (data.success && config) {
+                        // 填充启动配置到表单
+                        if (config.ctxSize !== undefined && config.ctxSize !== null) {
+                            // 确保数值是整数
+                            document.getElementById('ctxSize').value = parseInt(config.ctxSize);
+                        }
+                        if (config.batchSize !== undefined && config.batchSize !== null) {
+                            // 确保数值是整数
+                            document.getElementById('batchSize').value = parseInt(config.batchSize);
+                        }
+                        if (config.ubatchSize !== undefined && config.ubatchSize !== null) {
+                            // 确保数值是整数
+                            document.getElementById('ubatchSize').value = parseInt(config.ubatchSize);
+                        }
+                        if (config.noMmap !== undefined && config.noMmap !== null) {
+                            document.getElementById('noMmap').checked = config.noMmap;
+                        }
+                            if (config.mlock !== undefined && config.mlock !== null) {
+                                document.getElementById('mlock').checked = config.mlock;
+                            }
+                            if (config.temperature !== undefined && config.temperature !== null) {
+                                document.getElementById('temperature').value = parseFloat(config.temperature);
+                            }
+                            if (config.topP !== undefined && config.topP !== null) {
+                                document.getElementById('topP').value = parseFloat(config.topP);
+                            }
+                            if (config.topK !== undefined && config.topK !== null) {
+                                document.getElementById('topK').value = parseInt(config.topK);
+                            }
+                            if (config.minP !== undefined && config.minP !== null) {
+                                document.getElementById('minP').value = parseFloat(config.minP);
+                            }
+                            if (config.presencePenalty !== undefined && config.presencePenalty !== null) {
+                                document.getElementById('presencePenalty').value = parseFloat(config.presencePenalty);
+                            }
+                            if (config.embedding !== undefined && config.embedding !== null) {
+                                document.getElementById('embedding').checked = !!config.embedding;
+                            }
+                            if (config.reranking !== undefined && config.reranking !== null) {
+                                document.getElementById('reranking').checked = !!config.reranking;
+                            }
+                        
+                        console.log('已加载模型启动配置:', config);
+                    } else {
+                        console.log('使用默认启动配置');
+                    }
+                    
+                    fetch('/api/llamacpp/list')
+                        .then(r => r.json())
+                        .then(listData => {
+                            const select = document.getElementById('llamaBinPathSelect');
+                            const paths = (listData && listData.success && listData.data) ? (listData.data.paths || []) : [];
+                            select.innerHTML = paths.map(p => `<option value="${p}">${p}</option>`).join('');
+                            let preferred = null;
+                            if (config.llamaBinPath) preferred = config.llamaBinPath;
+                            if (!preferred) {
+                                return fetch('/api/setting').then(rs => rs.json()).then(s => {
+                                    const currentBin = (s && s.success && s.data) ? s.data.llamaBin : null;
+                                    if (currentBin && select) select.value = currentBin;
+                                }).catch(()=>{});
+                            } else {
+                                if (select) select.value = preferred;
+                            }
+                        }).catch(()=>{}).finally(() => {
+                            const modal = document.getElementById('loadModelModal');
+                            modal.classList.add('show');
+                        });
+                })
+                .catch(error => {
+                    console.error('获取模型启动配置失败:', error);
+                    // 即使获取配置失败，也显示对话框，使用默认配置
+                    const select = document.getElementById('llamaBinPathSelect');
+                    fetch('/api/llamacpp/list')
+                        .then(r => r.json())
+                        .then(listData => {
+                            const paths = (listData && listData.success && listData.data) ? (listData.data.paths || []) : [];
+                            if (select) select.innerHTML = paths.map(p => `<option value="${p}">${p}</option>`).join('');
+                            return fetch('/api/setting').then(rs => rs.json()).then(s => {
+                                const currentBin = (s && s.success && s.data) ? s.data.llamaBin : null;
+                                if (currentBin && select) select.value = currentBin;
+                            }).catch(()=>{});
+                        }).catch(()=>{}).finally(() => {
+                            const modal = document.getElementById('loadModelModal');
+                            modal.classList.add('show');
+                        });
+                });
+        }
+
+        function startModel(modelId) {
+            console.log('启动模型:', modelId);
+            showToast('提示', '启动模型功能尚未实现', 'warning');
+        }
+
+        function stopModel(modelId) {
+            console.log('停止模型:', modelId);
+            
+            // 发送停止模型请求
+            fetch('/api/models/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    modelId: modelId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadModels();
+                    updateModelCounts();
+                } else {
+                    showToast('错误', data.error || '模型停止失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+
+        function unloadModel(modelId) {
+            console.log('卸载模型:', modelId);
+            showToast('提示', '卸载模型功能尚未实现', 'warning');
+        }
+
+        function viewModelDetails(modelId) {
+            console.log('查看模型详情:', modelId);
+            
+            // 获取模型详情数据
+            fetch(`/api/models/${modelId}/details`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showModelDetailModal(data.model);
+                    } else {
+                        showToast('错误', data.error || '获取模型详情失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('错误', '网络错误，请稍后重试', 'error');
+                });
+        }
+
+        function showModelDetailModal(model) {
+            // 创建一个简单的详情模态框
+            const modalId = 'modelDetailModal';
+            
+            // 检查是否已存在模态框
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 class="modal-title">模型详情</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">&times;</button>
+                        </div>
+                        <div class="modal-body" id="${modalId}Content">
+                            <!-- 模型详情内容将在这里动态生成 -->
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('${modalId}')">关闭</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            const content = document.getElementById(modalId + 'Content');
+            
+            // 构建模型详情HTML
+            let detailHtml = '';
+            
+            // 基本信息
+            detailHtml += `<div class="model-info-row">
+                <span class="model-info-label">模型名称</span>
+                <span class="model-info-value">${model.name || '未知'}</span>
+            </div>`;
+            
+            detailHtml += `<div class="model-info-row">
+                <span class="model-info-label">模型ID</span>
+                <span class="model-info-value">${model.id || '未知'}</span>
+            </div>`;
+            
+            detailHtml += `<div class="model-info-row">
+                <span class="model-info-label">文件路径</span>
+                <span class="model-info-value" style="word-break: break-all;">${model.path || '未知'}</span>
+            </div>`;
+            
+            detailHtml += `<div class="model-info-row">
+                <span class="model-info-label">文件大小</span>
+                <span class="model-info-value">${model.size ? formatFileSize(model.size) : '未知'}</span>
+            </div>`;
+            
+            detailHtml += `<div class="model-info-row">
+                <span class="model-info-label">是否多模态</span>
+                <span class="model-info-value">${model.isMultimodal ? '是' : '否'}</span>
+            </div>`;
+            
+            // 元数据信息
+            if (model.metadata) {
+                const metadata = model.metadata;
+                
+                for (const [key, value] of Object.entries(metadata)) {
+                    let displayValue = value;
+                    
+                    // 特殊处理某些字段
+                    if (key === 'contextLength' || key === 'embeddingLength') {
+                        displayValue = value ? value.toLocaleString() : '未知';
+                    }
+                    
+                    detailHtml += `<div class="model-info-row">
+                        <span class="model-info-label">${getMetadataDisplayName(key)}</span>
+                        <span class="model-info-value">${displayValue || '未知'}</span>
+                    </div>`;
+                }
+            }
+            
+            content.innerHTML = detailHtml;
+            modal.classList.add('show');
+        }
+
+        function getMetadataDisplayName(key) {
+            // 将元数据键名转换为更友好的显示名称
+            const nameMap = {
+                'architecture': '架构',
+                'contextLength': '上下文长度',
+                'embeddingLength': '嵌入长度',
+                'fileType': '文件类型',
+                'quantization': '量化方式',
+                'tokenizer': '分词器',
+                'name': '模型名称',
+                'author': '作者',
+                'version': '版本',
+                'description': '描述',
+                'license': '许可证',
+                'url': 'URL',
+                'doi': 'DOI',
+                'uuid': 'UUID',
+                'modelRepo': '模型仓库',
+                'repoUrl': '仓库URL',
+                'tags': '标签'
+            };
+            
+            return nameMap[key] || key;
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+                
+                // 如果是加载模型模态框，重置表单和状态
+                if (modalId === 'loadModelModal') {
+                    document.getElementById('loadModelForm').reset();
+                    
+                    // 重置提交按钮状态
+                    const submitBtn = document.querySelector('#loadModelModal .btn-primary');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '确定';
+                    }
+                    
+                    // 清除等待标志
+                    if (window.pendingModelLoad) {
+                        // 移除加载中状态提示
+                        removeModelLoadingState(window.pendingModelLoad.modelId);
+                        window.pendingModelLoad = null;
+                    }
+                }
+            }
+        }
+
+        // 提交加载模型表单
+        function submitLoadModel() {
+            const form = document.getElementById('loadModelForm');
+            const formData = new FormData(form);
+            
+            const modelId = formData.get('modelId');
+            const ctxSize = formData.get('ctxSize');
+            const batchSize = formData.get('batchSize');
+            const ubatchSize = formData.get('ubatchSize');
+            const noMmap = formData.get('noMmap') === 'on';
+            const mlock = formData.get('mlock') === 'on';
+            const llamaBinPath = document.getElementById('llamaBinPathSelect').value;
+            const temperature = document.getElementById('temperature').value;
+            const topP = document.getElementById('topP').value;
+            const topK = document.getElementById('topK').value;
+            const minP = document.getElementById('minP').value;
+            const presencePenalty = document.getElementById('presencePenalty').value;
+            const embedding = document.getElementById('embedding').checked;
+            const reranking = document.getElementById('reranking').checked;
+            
+            // 构建请求数据
+            const requestData = {
+                modelId: modelId
+            };
+            
+            // 添加可选参数
+            if (ctxSize) requestData.ctxSize = parseInt(ctxSize);
+            if (batchSize) requestData.batchSize = parseInt(batchSize);
+            if (ubatchSize) requestData.ubatchSize = parseInt(ubatchSize);
+            requestData.noMmap = noMmap;
+            requestData.mlock = mlock;
+            if (llamaBinPath) requestData.llamaBinPath = llamaBinPath;
+            if (temperature) requestData.temperature = parseFloat(temperature);
+            if (topP) requestData.topP = parseFloat(topP);
+            if (topK) requestData.topK = parseInt(topK);
+            if (minP) requestData.minP = parseFloat(minP);
+            if (presencePenalty) requestData.presencePenalty = parseFloat(presencePenalty);
+            requestData.embedding = embedding;
+            requestData.reranking = reranking;
+            
+            // 发送请求
+            fetch('/api/models/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.data.async) {
+                        // 异步加载，显示等待消息但不关闭模态框
+                        showToast('模型加载中', '正在加载模型，请等待...', 'info');
+                        
+                        // 显示加载中状态
+                        showModelLoadingState(modelId);
+                        
+                        // 禁用提交按钮，防止重复提交
+                        const submitBtn = document.querySelector('#loadModelModal .btn-primary');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载中...';
+                        }
+                        
+                        // 刷新模型列表以显示加载中状态
+                        loadModels();
+                        
+                        // 设置一个标志，表示正在等待WebSocket响应
+                        window.pendingModelLoad = {
+                            modelId: modelId,
+                            timestamp: Date.now()
+                        };
+                    } else {
+                        // 同步加载（兼容旧版本）
+                        showToast('成功', '模型加载成功', 'success');
+                        closeModal('loadModelModal');
+                        loadModels();
+                        updateModelCounts();
+                    }
+                } else {
+                    showToast('错误', data.error || '模型加载失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+        
+        // 显示模型加载中状态
+        function showModelLoadingState(modelId) {
+            // 创建或更新加载状态提示
+            let loadingToast = document.getElementById('loading-toast-' + modelId);
+            if (!loadingToast) {
+                const toastContainer = document.getElementById('toastContainer');
+                const toastHtml = `
+                    <div class="toast info" id="loading-toast-${modelId}">
+                        <div class="toast-icon">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <div class="toast-content">
+                            <div class="toast-title">模型加载中</div>
+                            <div class="toast-message">模型 ${modelId} 正在加载中，请稍候...</div>
+                        </div>
+                    </div>
+                `;
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            }
+        }
+        
+        // 移除模型加载中状态
+        function removeModelLoadingState(modelId) {
+            const loadingToast = document.getElementById('loading-toast-' + modelId);
+            if (loadingToast) {
+                loadingToast.remove();
+            }
+        }
+
+        // 显示提示信息
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            
+            const iconMap = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            };
+            
+            const toastHtml = `
+                <div class="toast ${type}" id="${toastId}">
+                    <div class="toast-icon">
+                        <i class="fas ${iconMap[type]}"></i>
+                    </div>
+                    <div class="toast-content">
+                        <div class="toast-title">${title}</div>
+                        <div class="toast-message">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="removeToast('${toastId}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // 自动移除提示
+            setTimeout(() => {
+                removeToast(toastId);
+            }, 5000);
+        }
+
+        // 移除提示
+        function removeToast(toastId) {
+            const toast = document.getElementById(toastId);
+            if (toast) {
+                toast.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal') && event.target.id !== 'loadModelModal') {
+                event.target.classList.remove('show');
+            }
+        }
+
+        // 添加键盘快捷键支持
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    if (modal.id !== 'loadModelModal') {
+                        modal.classList.remove('show');
+                    }
+                });
+            }
+        });
+
+        // 添加滑出动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideOutRight {
+                from {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(100%);
+                }
+            }
+            
+            .model-info-row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+            
+            .model-info-label {
+                color: var(--secondary-color);
+            }
+            
+            .model-info-value {
+                font-weight: 600;
+                color: var(--dark-color);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    
+    <script>
+        // 打开别名设置模态框
+        function openAliasModal(modelId, originalName, currentAlias) {
+            const modalId = 'aliasModal';
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width:520px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">设置模型别名</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label class="form-label">原始名称</label>
+                                <input type="text" class="form-control" id="aliasOriginalName" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="aliasInput">别名</label>
+                                <input type="text" class="form-control" id="aliasInput" placeholder="输入用于显示的别名">
+                                <small class="form-text">留空可清除别名</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('${modalId}')">取消</button>
+                            <button class="btn btn-primary" onclick="submitAlias()">保存</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            // 记录当前模型ID
+            window.__aliasEditingModelId = modelId;
+            document.getElementById('aliasOriginalName').value = originalName || '';
+            document.getElementById('aliasInput').value = currentAlias || '';
+            modal.classList.add('show');
+        }
+
+        function submitAlias() {
+            const modelId = window.__aliasEditingModelId;
+            const alias = document.getElementById('aliasInput').value;
+            if (!modelId) {
+                showToast('错误', '内部错误：模型ID缺失', 'error');
+                return;
+            }
+            fetch('/api/model/alias/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelId, alias })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('成功', '别名已保存', 'success');
+                    closeModal('aliasModal');
+                    // 刷新列表以反映最新别名
+                    refreshModels();
+                } else {
+                    showToast('错误', data.error || '保存别名失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+        // 停止服务函数
+        function shutdownService() {
+            // 显示确认对话框
+            if (confirm('确定要停止服务吗？这将终止所有模型进程并关闭服务器。')) {
+                showToast('提示', '正在停止服务，请稍候...', 'info');
+                
+                // 发送停止服务请求
+                fetch('/api/shutdown', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('成功', '服务正在停止，所有模型进程将被终止', 'success');
+                        // 等待一段时间后尝试重定向或显示服务已停止的消息
+                        setTimeout(() => {
+                            document.body.innerHTML = `
+                                <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                                    <h1>服务已停止</h1>
+                                    <p>服务器已关闭，请关闭此窗口。</p>
+                                </div>
+                            `;
+                        }, 2000);
+                    } else {
+                        showToast('错误', data.error || '停止服务失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('错误', '网络错误，请稍后重试', 'error');
+                });
+            }
+        }
+    </script>
+    
+    <script>
+        // 打开设置模态框
+        function openSettingsModal() {
+            loadSettings();
+            loadLlamaCppList();
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('show');
+        }
+        
+        // 加载设置
+        function loadSettings() {
+            fetch('/api/setting')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const settings = data.data || {};
+                        const paths = (settings.modelPaths && Array.isArray(settings.modelPaths)) ? settings.modelPaths : (settings.modelPath ? [settings.modelPath] : []);
+                        window.__modelPaths = paths;
+                        renderModelPathList();
+                    } else {
+                        showToast('错误', data.error || '加载设置失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('错误', '网络错误，请稍后重试', 'error');
+                });
+        }
+        
+        // 保存设置
+        function saveSettings() {
+            const paths = Array.isArray(window.__modelPaths) ? window.__modelPaths : [];
+            if (paths.length === 0) {
+                showToast('错误', '至少添加一个模型目录', 'error');
+                return;
+            }
+            fetch('/api/setting', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ modelPaths: paths })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('成功', '设置保存成功', 'success');
+                    closeModal('settingsModal');
+                    // 强制刷新模型列表以应用新设置
+                    forceRefreshModels();
+                } else {
+                    showToast('错误', data.error || '保存设置失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+
+        function addModelPath() {
+            const input = document.getElementById('modelPathInput');
+            const p = (input.value || '').trim();
+            if (!p) { showToast('错误','路径不能为空','error'); return; }
+            if (!Array.isArray(window.__modelPaths)) window.__modelPaths = [];
+            if (window.__modelPaths.includes(p)) { showToast('错误','路径已存在','error'); return; }
+            window.__modelPaths.push(p);
+            input.value = '';
+            renderModelPathList();
+        }
+        function removeModelPathItem(p) {
+            if (!Array.isArray(window.__modelPaths)) return;
+            window.__modelPaths = window.__modelPaths.filter(x => x !== p);
+            renderModelPathList();
+        }
+        function clearModelPathInput() {
+            const input = document.getElementById('modelPathInput');
+            input.value = '';
+        }
+        function renderModelPathList() {
+            const container = document.getElementById('modelPathListContainer');
+            const paths = Array.isArray(window.__modelPaths) ? window.__modelPaths : [];
+            const html = paths.length === 0
+                ? '<span>暂无配置</span>'
+                : paths.map(p => `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><i class="fas fa-folder"></i><span style="word-break:break-all; flex:1;">${p}</span><button type="button" class="btn btn-secondary" onclick="removeModelPathItem(decodeURIComponent('${encodeURIComponent(p)}'))"><i class="fas fa-trash"></i> 删除</button></div>`).join('');
+            if (container) container.innerHTML = html;
+        }
+
+        function addLlamaCppPath() {
+            const p = document.getElementById('llamaCppPath').value;
+            if (!p || !p.trim()) {
+                showToast('错误', '路径不能为空', 'error');
+                return;
+            }
+            fetch('/api/llamacpp/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: p.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('成功', '已添加llama.cpp路径', 'success');
+                    document.getElementById('llamaCppPath').value = '';
+                    loadLlamaCppList();
+                } else {
+                    showToast('错误', data.error || '添加失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+
+        function removeLlamaCppPath() {
+            const p = document.getElementById('llamaCppPath').value;
+            if (!p || !p.trim()) {
+                showToast('错误', '路径不能为空', 'error');
+                return;
+            }
+            fetch('/api/llamacpp/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: p.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('成功', '已移除llama.cpp路径', 'success');
+                    document.getElementById('llamaCppPath').value = '';
+                    loadLlamaCppList();
+                } else {
+                    showToast('错误', data.error || '移除失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+
+        function loadLlamaCppList() {
+            const container = document.getElementById('llamaCppListContainer');
+            if (container) {
+                container.innerHTML = '<span>加载中...</span>';
+            }
+            fetch('/api/llamacpp/list')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const paths = data.data.paths || [];
+                        const html = paths.length === 0
+                            ? '<span>暂无配置</span>'
+                            : paths.map(p => `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><i class="fas fa-folder"></i><span style="word-break:break-all; flex:1;">${p}</span><button type="button" class="btn btn-secondary" onclick="removeLlamaCppPathItem(decodeURIComponent('${encodeURIComponent(p)}'))"><i class="fas fa-trash"></i> 删除</button></div>`).join('');
+                        if (container) container.innerHTML = html;
+                    } else {
+                        if (container) container.innerHTML = '<span>加载失败</span>';
+                    }
+                })
+                .catch(() => {
+                    if (container) container.innerHTML = '<span>加载失败</span>';
+                });
+        }
+
+        function removeLlamaCppPathItem(p) {
+            fetch('/api/llamacpp/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: p })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('成功', '已移除llama.cpp路径', 'success');
+                    loadLlamaCppList();
+                } else {
+                    showToast('错误', data.error || '移除失败', 'error');
+                }
+            })
+            .catch(() => {
+                showToast('错误', '网络错误，请稍后重试', 'error');
+            });
+        }
+
+        // 强制刷新模型列表（重新扫描目录）
+        function forceRefreshModels() {
+            // 先显示加载状态
+            const modelsList = document.getElementById('modelsList');
+            modelsList.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            `;
+            
+            // 调用强制刷新API
+            fetch('/api/models/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('成功', '模型列表已刷新', 'success');
+                        // 更新模型列表
+                        const allModels = data.models || [];
+                        
+                        // 获取已加载的模型
+                        return fetch('/api/models/loaded')
+                            .then(response => response.json())
+                            .then(loadedData => {
+                                const loadedModels = loadedData.success ? (loadedData.models || []) : [];
+                                const loadedModelIds = loadedModels.map(m => m.id);
+                                
+                                // 合并模型信息
+                                const modelsWithStatus = allModels.map(model => {
+                                    const isLoaded = loadedModelIds.includes(model.id);
+                                    const loadedModel = loadedModels.find(m => m.id === model.id);
+                                    
+                                    return {
+                                        ...model,
+                                        isLoaded: isLoaded,
+                                        status: isLoaded ? (loadedModel ? loadedModel.status : 'loaded') : 'stopped',
+                                        port: isLoaded && loadedModel ? loadedModel.port : null,
+                                        ctxSize: isLoaded && loadedModel ? loadedModel.ctxSize : null,
+                                        batchSize: isLoaded && loadedModel ? loadedModel.batchSize : null
+                                    };
+                                });
+                                
+                                renderModelsList(modelsWithStatus);
+                                updateModelCounts();
+                                return modelsWithStatus;
+                            });
+                    } else {
+                        throw new Error(data.error || '刷新模型列表失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('错误', error.message || '网络错误，请稍后重试', 'error');
+                    modelsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="empty-state-title">刷新失败</div>
+                            <div class="empty-state-text">${error.message || '网络错误，请稍后重试'}</div>
+                            <button class="btn btn-primary" onclick="forceRefreshModels()">重试</button>
+                        </div>
+                    `;
+                });
+        }
+        function initModelSearch() {
+            const input = document.getElementById('modelSearchInput');
+            if (!input) return;
+            input.addEventListener('input', () => filterModels(input.value));
+        }
+        function clearModelSearch() {
+            const input = document.getElementById('modelSearchInput');
+            if (!input) return;
+            input.value = '';
+            filterModels('');
+        }
+        function filterModels(keyword) {
+            const k = (keyword || '').trim().toLowerCase();
+            const list = document.getElementById('modelsList');
+            if (!list) return;
+            const items = list.querySelectorAll('.model-item');
+            items.forEach(it => {
+                const nameEl = it.querySelector('.model-name');
+                const text = nameEl ? nameEl.textContent.toLowerCase() : '';
+                it.style.display = k === '' || text.includes(k) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
