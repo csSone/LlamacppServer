@@ -25,7 +25,7 @@ public final class OutputHelper {
 	
 	
 	public static void main(String[] args) {
-		OutputHelper.run("C:\\Users\\24328\\Workspace\\Java\\LlamacppServer\\release", LlamaServer.class);
+		OutputHelper.run("release", LlamaServer.class);
 	}
 	
 	

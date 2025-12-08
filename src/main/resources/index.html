@@ -660,7 +660,8 @@
                 <form id="loadModelForm">
                     <div class="form-group">
                         <label class="form-label" for="modelId">模型ID</label>
-                        <input type="text" class="form-control" id="modelId" name="modelId" readonly style="background-color: #f3f4f6;">
+                        <input type="text" class="form-control" id="modelId" name="modelId" readonly style="background-color: #f3f4f6; display: none;">
+                        <input type="text" class="form-control" id="modelName" name="modelName" readonly style="background-color: #f3f4f6;">
                     </div>
                     
                     <div class="form-group">
@@ -1091,16 +1092,10 @@
                             <button class="btn-icon danger" onclick="stopModel('${model.id}')" title="停止"><i class="fas fa-stop"></i></button>
                             <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="详情"><i class="fas fa-info-circle"></i></button>
                         `;
-                    } else {
-                        actionButtons = `
-                            <button class="btn-icon primary" onclick="startModel('${model.id}')" title="启动"><i class="fas fa-play"></i></button>
-                            <button class="btn-icon danger" onclick="unloadModel('${model.id}')" title="卸载"><i class="fas fa-trash"></i></button>
-                            <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="详情"><i class="fas fa-info-circle"></i></button>
-                        `;
                     }
                 } else {
                     actionButtons = `
-                        <button class="btn-icon primary" onclick="loadModel('${model.id}')" title="加载"><i class="fas fa-plus"></i></button>
+                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="加载"><i class="fas fa-plus"></i></button>
                         <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="详情"><i class="fas fa-info-circle"></i></button>
                     `;
                 }
@@ -1160,8 +1155,9 @@
             return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
         }
 
-        function loadModel(modelId) {
+        function loadModel(modelId, modelName) {
             document.getElementById('modelId').value = modelId;
+            document.getElementById('modelName').value = modelName;
             fetch(`/api/models/config?modelId=${encodeURIComponent(modelId)}`)
                 .then(r => r.json()).then(data => {
                     const config = (data.success && data.data) ? data.data.config : {};
@@ -1255,7 +1251,7 @@
                 const toastHtml = `
                     <div class="toast info" id="loading-toast-${modelId}">
                         <div class="toast-icon"><i class="fas fa-spinner fa-spin"></i></div>
-                        <div class="toast-content"><div class="toast-title">加载中</div><div class="toast-message">模型 ${modelId} 正在加载...</div></div>
+                        <div class="toast-content"><div class="toast-title">加载中</div><div class="toast-message">正在加载...</div></div>
                     </div>`;
                 toastContainer.insertAdjacentHTML('beforeend', toastHtml);
             }
@@ -1265,7 +1261,6 @@
             if (el) el.remove();
         }
 
-        function startModel(modelId) { showToast('提示', '功能开发中', 'warning'); }
         function stopModel(modelId) {
              fetch('/api/models/stop', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1274,7 +1269,6 @@
                 if (!d.success) showToast('错误', d.error, 'error');
             });
         }
-        function unloadModel(modelId) { showToast('提示', '功能开发中', 'warning'); }
 
         function viewModelDetails(modelId) {
             fetch(`/api/models/${modelId}/details`).then(r => r.json()).then(data => {
