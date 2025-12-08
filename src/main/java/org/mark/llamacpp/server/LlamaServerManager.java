@@ -297,8 +297,6 @@ public class LlamaServerManager {
 		for(GGUFModel e : this.list) {
 			if(e.getModelId().equals(modelId))
 				return e;
-			else
-				System.err.println(e.getModelId());
 		}
 		return null;
 	}
@@ -461,11 +459,6 @@ public class LlamaServerManager {
 		
 		// 设置输出处理器，接受llamacpp运行状态，然后判断特定的内容。
         process.setOutputHandler(line -> {
-        	try {
-        		Thread.sleep(1000 * 3600);
-        	}catch (Exception e) {
-        		e.printStackTrace();
-			}
             //	判断是否加载成功。
             //	1.这是成功了
             if(line.contains("srv  update_slots: all slots are idle")) {
