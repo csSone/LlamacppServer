@@ -1,6 +1,5 @@
 package org.mark.llamacpp.gguf;
 
-import java.util.Base64;
 import java.util.List;
 
 
@@ -57,7 +56,7 @@ public class GGUFModel {
 		this.path = path;
 		this.name = name;
 		this.metaDataList = new java.util.ArrayList<>();
-		this.modelId = this.name + "_" + new String(Base64.getEncoder().encode(this.path.getBytes()));
+		this.modelId = this.name;
 	}
 
 	public void addMetaData(GGUFMetaData metaData) {
