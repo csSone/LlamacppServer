@@ -92,7 +92,7 @@ public class WebSocketManager {
         
         // 使用迭代器安全地遍历并发集合
         connections.entrySet().removeIf(entry -> {
-            String connectionId = entry.getKey();
+            //String connectionId = entry.getKey();
             ChannelHandlerContext ctx = entry.getValue();
             
             if (ctx.channel().isActive()) {
