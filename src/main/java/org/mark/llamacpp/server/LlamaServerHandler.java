@@ -960,7 +960,7 @@ public class LlamaServerHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					// 添加模型名称
 					String modelName = "未知模型";
 					if (modelInfo.getPrimaryModel() != null) {
-						modelName = modelInfo.getPrimaryModel().getStringValue("general.name");
+						modelName = modelInfo.getName(); //modelInfo.getPrimaryModel().getStringValue("general.name");
 						if (modelName == null || modelName.trim().isEmpty()) {
 							modelName = "未命名模型";
 						}
