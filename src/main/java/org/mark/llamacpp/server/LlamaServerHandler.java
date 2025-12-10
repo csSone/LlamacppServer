@@ -42,13 +42,19 @@ import java.util.concurrent.Executors;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
+
+/**
+ * 	服务端的主要实现。
+ */
 public class LlamaServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
 	private static final Logger logger = LoggerFactory.getLogger(LlamaServerHandler.class);
 
 	private static final Gson gson = new Gson();
 	
-	// 存储当前通道正在处理的模型链接，用于在连接关闭时停止对应的模型进程
+	/**
+	 * 	存储当前通道正在处理的模型链接，用于在连接关闭时停止对应的模型进程
+	 */
 	private static final Map<ChannelHandlerContext, HttpURLConnection> channelConnectionMap = new HashMap<>();
 	
 	

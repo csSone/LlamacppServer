@@ -198,7 +198,7 @@ public class LlamaServerManager {
                     }
                 }
                 // 合并别名：从已保存的配置加载别名并应用到当前列表
-                Map<String, String> aliasMap = configManager.loadAliasMap();
+                Map<String, String> aliasMap = this.configManager.loadAliasMap();
                 for (GGUFModel m : this.list) {
                     String alias = aliasMap.get(m.getModelId());
                     if (alias != null && !alias.isEmpty()) {
@@ -206,7 +206,7 @@ public class LlamaServerManager {
                     }
                 }
                 // 保存模型信息到配置文件
-                configManager.saveModelsConfig(this.list);
+                this.configManager.saveModelsConfig(this.list);
             }
             // 如果集合不是空的，就直接返回。
             else {
