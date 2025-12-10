@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.websocket;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;

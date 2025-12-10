@@ -1,8 +1,10 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.io;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+
+import org.mark.llamacpp.server.LlamaServer;
 
 public class ConsoleBroadcastOutputStream extends OutputStream {
     private final OutputStream delegate;

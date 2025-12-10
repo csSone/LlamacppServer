@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.websocket;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;

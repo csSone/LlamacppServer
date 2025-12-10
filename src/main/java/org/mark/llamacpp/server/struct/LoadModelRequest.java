@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.struct;
 
 /**
  * 加载模型请求参数

@@ -11,6 +11,10 @@ import io.netty.util.CharsetUtil;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
+import org.mark.llamacpp.server.struct.ApiResponse;
+import org.mark.llamacpp.server.struct.LoadModelRequest;
+import org.mark.llamacpp.server.struct.ModelLaunchOptions;
+import org.mark.llamacpp.server.struct.StopModelRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

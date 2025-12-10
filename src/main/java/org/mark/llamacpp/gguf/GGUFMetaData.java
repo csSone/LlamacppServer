@@ -35,6 +35,9 @@ public class GGUFMetaData {
     private volatile Integer splitNo;
     private volatile Integer contextLength;
     private volatile Integer embeddingLength;
+    private volatile Integer nLayer;
+    private volatile Integer nHead;
+    private volatile Integer nKvHead;
     private volatile boolean keyFieldsLoaded = false;
     private final Object keyFieldsLock = new Object();
     
@@ -173,17 +176,39 @@ public class GGUFMetaData {
                         Object value = readValue(raf, valueType);
                         splitNo = value instanceof Integer ? (Integer) value :
                                  (value instanceof Long ? ((Long) value).intValue() : null);
-                    } else if (key != null && architecture != null && key.startsWith(architecture + ".")) {
-                        // 处理架构相关的字段
-                        if (key.equals(architecture + ".context_length")) {
+                    } else if (key != null) {
+                        boolean handled = false;
+                        if (key.endsWith(".context_length") || (architecture != null && key.equals(architecture + ".context_length"))) {
                             Object value = readValue(raf, valueType);
                             contextLength = value instanceof Integer ? (Integer) value :
                                            (value instanceof Long ? ((Long) value).intValue() : null);
-                        } else if (key.equals(architecture + ".embedding_length")) {
+                            handled = true;
+                        }
+                        if (!handled && (key.endsWith(".embedding_length") || (architecture != null && key.equals(architecture + ".embedding_length")))) {
                             Object value = readValue(raf, valueType);
                             embeddingLength = value instanceof Integer ? (Integer) value :
                                              (value instanceof Long ? ((Long) value).intValue() : null);
-                        } else {
+                            handled = true;
+                        }
+                        if (!handled && (key.endsWith(".n_layer") || key.endsWith(".block_count") || (architecture != null && (key.equals(architecture + ".n_layer") || key.equals(architecture + ".block_count"))))) {
+                            Object value = readValue(raf, valueType);
+                            nLayer = value instanceof Integer ? (Integer) value :
+                                     (value instanceof Long ? ((Long) value).intValue() : null);
+                            handled = true;
+                        }
+                        if (!handled && (key.endsWith(".n_head") || (architecture != null && key.equals(architecture + ".n_head")))) {
+                            Object value = readValue(raf, valueType);
+                            nHead = value instanceof Integer ? (Integer) value :
+                                    (value instanceof Long ? ((Long) value).intValue() : null);
+                            handled = true;
+                        }
+                        if (!handled && (key.endsWith(".n_kv_head") || key.endsWith(".n_head_kv") || (architecture != null && (key.equals(architecture + ".n_kv_head") || key.equals(architecture + ".n_head_kv"))))) {
+                            Object value = readValue(raf, valueType);
+                            nKvHead = value instanceof Integer ? (Integer) value :
+                                      (value instanceof Long ? ((Long) value).intValue() : null);
+                            handled = true;
+                        }
+                        if (!handled) {
                             skipValue(raf, valueType);
                         }
                     } else {
@@ -329,16 +354,47 @@ public class GGUFMetaData {
             return fileType;
         } else if ("split.no".equals(key)) {
             return splitNo;
-        } else if (architecture != null && key.startsWith(architecture + ".")) {
-            if (key.equals(architecture + ".context_length")) {
+        } else {
+            if ((architecture != null && key.equals(architecture + ".context_length")) || key.endsWith(".context_length")) {
                 return contextLength;
-            } else if (key.equals(architecture + ".embedding_length")) {
+            }
+            if ((architecture != null && key.equals(architecture + ".embedding_length")) || key.endsWith(".embedding_length")) {
                 return embeddingLength;
+            }
+            if ((architecture != null && (key.equals(architecture + ".n_layer") || key.equals(architecture + ".block_count"))) || key.endsWith(".n_layer") || key.endsWith(".block_count")) {
+                return nLayer;
+            }
+            if ((architecture != null && key.equals(architecture + ".n_head")) || key.endsWith(".n_head")) {
+                return nHead;
+            }
+            if ((architecture != null && (key.equals(architecture + ".n_kv_head") || key.equals(architecture + ".n_head_kv"))) || key.endsWith(".n_kv_head") || key.endsWith(".n_head_kv")) {
+                return nKvHead;
             }
         }
         
         // 不支持的字段返回null，避免加载完整元数据
         return null;
+    }
+
+    public Integer getNLayer() {
+        if (!keyFieldsLoaded) { loadKeyFields(); }
+        return nLayer;
+    }
+    public Integer getNHead() {
+        if (!keyFieldsLoaded) { loadKeyFields(); }
+        return nHead;
+    }
+    public Integer getNKvHead() {
+        if (!keyFieldsLoaded) { loadKeyFields(); }
+        return nKvHead;
+    }
+    public Integer getEmbeddingLength() {
+        if (!keyFieldsLoaded) { loadKeyFields(); }
+        return embeddingLength;
+    }
+    public Integer getContextLength() {
+        if (!keyFieldsLoaded) { loadKeyFields(); }
+        return contextLength;
     }
     
     /**

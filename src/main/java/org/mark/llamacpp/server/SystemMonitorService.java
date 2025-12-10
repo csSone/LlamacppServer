@@ -2,6 +2,8 @@ package org.mark.llamacpp.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+
+import org.mark.llamacpp.server.websocket.WebSocketManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

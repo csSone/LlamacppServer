@@ -24,19 +24,33 @@ import java.util.stream.Stream;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
+import org.mark.llamacpp.server.struct.ModelLaunchOptions;
+import org.mark.llamacpp.server.tools.PortChecker;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 public class LlamaServerManager {
 
-	// Gson实例用于JSON处理
+	/**
+	 * 	
+	 */
 	private static final Gson gson = new Gson();
 	
-	// 配置管理器实例
+	/**
+	 * 	
+	 */
 	private final ConfigManager configManager = ConfigManager.getInstance();
 	
+	/**
+	 * 	单例
+	 */
 	private static final LlamaServerManager INSTANCE = new LlamaServerManager();
 
+	/**
+	 * 	获取单例
+	 * @return
+	 */
 	public static LlamaServerManager getInstance() {
 		return INSTANCE;
 	}
@@ -48,7 +62,7 @@ public class LlamaServerManager {
 	
 	
 	/**
-	 * 	
+	 * 	所有GGUF模型的列表
 	 */
 	private List<GGUFModel> list = new LinkedList<>();
 	
@@ -82,7 +96,7 @@ public class LlamaServerManager {
 	 */
 	private LlamaServerManager() {
 		// 尝试从配置文件加载设置
-		loadSettingsFromFile();
+		this.loadSettingsFromFile();
 	}
 	
 	/**
@@ -125,16 +139,11 @@ public class LlamaServerManager {
 			System.err.println("从配置文件加载设置失败，使用默认设置: " + e.getMessage());
 		}
 	}
-	
-	/**
-	 * 	TODO
-	 * @param port
-	 */
-	public void setFirsPort(int port) {
-		
-	}
 
-    /** 设置模型路径列表 */
+    /**
+     * 	设置模型路径列表
+     * @param paths
+     */
     public void setModelPaths(List<String> paths) {
         this.modelPaths = new ArrayList<>();
         if (paths != null) {
@@ -145,16 +154,14 @@ public class LlamaServerManager {
         if (this.modelPaths.isEmpty()) this.modelPaths.add("Y:\\Models");
     }
 
-    /** 获取当前设定的模型路径列表 */
+    /**
+     * 	获取当前设定的模型路径列表
+     * @return
+     */
     public List<String> getModelPaths() {
         return new ArrayList<>(this.modelPaths);
     }
 	
-	/**
-	 * 	
-	 * @param llamaBin
-	 */
-
 	/**
 	 * 	获取模型列表。
 	 * @return
@@ -209,7 +216,12 @@ public class LlamaServerManager {
         return this.list;
     }
 
-	public GGUFModel handleDirectory(Path path) {
+    /**
+     * 	处理这个路径的文件夹，找到可用的GGUF文件。
+     * @param path
+     * @return
+     */
+	private synchronized GGUFModel handleDirectory(Path path) {
 		File dir = path.toFile();
 		if (dir.getName().startsWith("."))
 			return null;
@@ -306,7 +318,7 @@ public class LlamaServerManager {
 	 * 使用PortChecker工具类检查端口是否真正可用
 	 * @return 下一个可用端口号
 	 */
-	private int getNextAvailablePort() {
+	private synchronized int getNextAvailablePort() {
 		int candidatePort = this.portCounter.get();
 		try {
 			// 使用PortChecker查找下一个可用端口
@@ -358,7 +370,7 @@ public class LlamaServerManager {
 	 * @param modelId 模型ID
 	 * @return 是否成功停止
 	 */
-	public boolean stopModel(String modelId) {
+	public synchronized boolean stopModel(String modelId) {
 		LlamaCppProcess process = this.loadedProcesses.get(modelId);
 		if (process != null) {
 			boolean stopped = process.stop();
@@ -437,7 +449,7 @@ public class LlamaServerManager {
 	/**
 	 * 在后台线程中执行模型加载
 	 */
-    private void loadModelInBackground(String modelId, GGUFModel targetModel, ModelLaunchOptions options) {
+    private synchronized void loadModelInBackground(String modelId, GGUFModel targetModel, ModelLaunchOptions options) {
 
         // 获取下一个可用端口
         int port = this.getNextAvailablePort();
@@ -564,7 +576,7 @@ public class LlamaServerManager {
 	/**
 		* 停止所有模型进程并退出Java进程
 		*/
-	public void shutdownAll() {
+	public synchronized void shutdownAll() {
 		System.out.println("开始停止所有模型进程...");
 		
 		// 获取所有已加载的进程
@@ -591,9 +603,9 @@ public class LlamaServerManager {
 		// 关闭线程池
 		this.executorService.shutdown();
 		
-		System.out.println("所有模型进程已停止，即将退出Java进程");
+		//System.out.println("所有模型进程已停止，即将退出Java进程");
 		
 		// 退出Java进程
-		System.exit(0);
+		//System.exit(0);
 	}
 }

@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.struct;
 
 /**
  * OpenAI格式的错误响应

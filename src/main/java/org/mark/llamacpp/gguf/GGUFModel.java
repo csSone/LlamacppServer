@@ -2,6 +2,8 @@ package org.mark.llamacpp.gguf;
 
 import java.util.List;
 
+import com.google.gson.Gson;
+
 
 
 public class GGUFModel {
@@ -61,6 +63,9 @@ public class GGUFModel {
 
 	public void addMetaData(GGUFMetaData metaData) {
 		this.metaDataList.add(metaData);
+		
+		Gson gson = new Gson();
+		System.err.println(gson.toJson(metaData));
 	}
 
 	public void setPrimaryModel(GGUFMetaData primaryModel) {

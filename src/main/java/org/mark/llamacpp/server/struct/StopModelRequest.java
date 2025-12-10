@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server;
+package org.mark.llamacpp.server.struct;
 
 /**
  * 停止模型请求参数
