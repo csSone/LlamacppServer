@@ -46,9 +46,9 @@ import io.netty.util.CharsetUtil;
 /**
  * 	预留。
  */
-public class OpenAIServerHandler {
+public class OpenAIService {
 	
-	private static final Logger logger = LoggerFactory.getLogger(OpenAIServerHandler.class);
+	private static final Logger logger = LoggerFactory.getLogger(OpenAIService.class);
 	
 	private static final Gson gson = new Gson();
 	
@@ -64,7 +64,7 @@ public class OpenAIServerHandler {
 	private Executor worker = Executors.newSingleThreadExecutor();
 
 	
-	public OpenAIServerHandler() {
+	public OpenAIService() {
 		
 	}
 	
@@ -240,7 +240,7 @@ public class OpenAIServerHandler {
 				return;
 			}
 			// 转发请求到对应的llama.cpp进程
-			forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/chat/completions", isStream);
+			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/chat/completions", isStream);
 		} catch (Exception e) {
 			logger.error("处理OpenAI聊天补全请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
@@ -345,7 +345,7 @@ public class OpenAIServerHandler {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, "Model port not found: " + modelName, null);
 				return;
 			}
-			forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/embeddings", false);
+			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/embeddings", false);
 		} catch (Exception e) {
 			logger.error("处理OpenAI嵌入请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
@@ -440,7 +440,8 @@ public class OpenAIServerHandler {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
 			} finally {
 				// 释放之前保留的引用计数
-				request.content().release();
+				//if(request.refCnt() != 0)
+					//request.content().release();
 				// 关闭连接
 				if (connection != null) {
 					connection.disconnect();

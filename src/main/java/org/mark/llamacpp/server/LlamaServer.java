@@ -1,17 +1,24 @@
 package org.mark.llamacpp.server;
 
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
+import org.mark.llamacpp.server.struct.LlamaCppConfig;
 import org.mark.llamacpp.server.websocket.WebSocketManager;
 import org.mark.llamacpp.server.websocket.WebSocketServerHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.Gson;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -25,14 +32,23 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
+
+
+/**
+ * 	private static final Gson gson = new Gson();
+ */
 public class LlamaServer {
     
 	private static final Logger logger = LoggerFactory.getLogger(LlamaServer.class);
     
     private static final int DEFAULT_WEB_PORT = 8080;
+    
+    private static final int DEFAULT_ANTHROPIC_PORT = 8070;
+    
     private static final Path CONSOLE_LOG_PATH = Paths.get("logs", "console.log");
     private static final String WEBSOCKET_PATH = "/ws";
     
+    private static final Gson GSON = new Gson();
     
     public static void main(String[] args) {
         try {
@@ -44,7 +60,6 @@ public class LlamaServer {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        int port = args.length > 0 ? Integer.parseInt(args[0]) : DEFAULT_WEB_PORT;
         
         // 初始化配置管理器并加载配置
         logger.info("正在初始化配置管理器...");
@@ -62,13 +77,21 @@ public class LlamaServer {
         logger.info("正在扫描模型目录...");
         serverManager.listModel();
         
-        // 初始化并启动系统监控服务
-        logger.info("正在启动系统监控服务...");
-        SystemMonitorService monitorService = SystemMonitorService.getInstance();
-        //monitorService.start(1); // 每30秒监控一次
-        
         logger.info("系统初始化完成，启动Web服务器...");
         
+        Thread t1 = new Thread(() -> {
+        		LlamaServer.bindOpenAI(DEFAULT_WEB_PORT);
+        });
+        t1.start();
+        
+        Thread t2 = new Thread(() -> {
+    			LlamaServer.bindAnthropic(DEFAULT_ANTHROPIC_PORT);
+        });
+        t2.start();
+    }
+    
+    
+    private static void bindAnthropic(int port) {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         
@@ -83,9 +106,8 @@ public class LlamaServer {
                                     .addLast(new HttpServerCodec())
                                     .addLast(new HttpObjectAggregator(Integer.MAX_VALUE)) // 最大！
                                     .addLast(new ChunkedWriteHandler())
-                                    .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
-                                    .addLast(new WebSocketServerHandler())
-                                    .addLast(new LlamaServerHandler());
+                                    .addLast(new BasicRouterHandler())
+                                    .addLast(new AnthropicRouterHandler());
                         }
                     });
             
@@ -103,15 +125,52 @@ public class LlamaServer {
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
             
-            // 停止系统监控服务
-            logger.info("正在停止系统监控服务...");
-            if (monitorService.isStarted()) {
-                monitorService.stop();
-            }
+            logger.info("服务器已关闭");
+        }
+    }
+    
+    
+    private static void bindOpenAI(int port) {
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        
+        try {
+            ServerBootstrap bootstrap = new ServerBootstrap();
+            bootstrap.group(bossGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline()
+                                    .addLast(new HttpServerCodec())
+                                    .addLast(new HttpObjectAggregator(Integer.MAX_VALUE)) // 最大！
+                                    .addLast(new ChunkedWriteHandler())
+                                    .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
+                                    .addLast(new WebSocketServerHandler())
+                                    .addLast(new BasicRouterHandler())
+                                    .addLast(new OpenAIRouterHandler());
+                        }
+                    });
+            
+            ChannelFuture future = bootstrap.bind(port).sync();
+            logger.info("LlammServer启动成功，端口: {}", port);
+            logger.info("访问地址: http://localhost:{}", port);
+            
+            future.channel().closeFuture().sync();
+        } catch (InterruptedException e) {
+            logger.error("服务器被中断", e);
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.error("服务器启动失败", e);
+        } finally {
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
             
             logger.info("服务器已关闭");
         }
     }
+    
+    
 
     public static Path getConsoleLogPath() {
         return CONSOLE_LOG_PATH;
@@ -148,4 +207,74 @@ public class LlamaServer {
     public static void sendConsoleLineEvent(String modelId, String line) {
         WebSocketManager.getInstance().sendConsoleLineEvent(modelId, line);
     }
+    
+    //================================================================================================
+    
+    
+	/**
+	 * 保存设置到JSON文件
+	 */
+    public synchronized static void saveSettingsToFile(List<String> modelPaths) {
+        try {
+            // 创建设置对象
+            Map<String, Object> settings = new HashMap<>();
+            settings.put("modelPaths", modelPaths);
+            // 兼容旧字段，保留第一个路径
+            if (modelPaths != null && !modelPaths.isEmpty()) {
+                settings.put("modelPath", modelPaths.get(0));
+            }
+            
+            // 转换为JSON字符串
+            String json = GSON.toJson(settings);
+            
+            // 获取当前工作目录
+			String currentDir = System.getProperty("user.dir");
+			Path configDir = Paths.get(currentDir, "config");
+			
+			// 确保config目录存在
+			if (!Files.exists(configDir)) {
+				Files.createDirectories(configDir);
+			}
+			
+			Path settingsPath = configDir.resolve("settings.json");
+			
+			// 写入文件
+			Files.write(settingsPath, json.getBytes(StandardCharsets.UTF_8));
+			
+			logger.info("设置已保存到文件: {}", settingsPath.toString());
+		} catch (IOException e) {
+			logger.error("保存设置到文件失败", e);
+			throw new RuntimeException("保存设置到文件失败: " + e.getMessage(), e);
+		}
+	}
+    
+    
+	public synchronized static Path getLlamaCppConfigPath() throws IOException {
+		String currentDir = System.getProperty("user.dir");
+		Path configDir = Paths.get(currentDir, "config");
+		if (!Files.exists(configDir)) {
+			Files.createDirectories(configDir);
+		}
+		return configDir.resolve("llamacpp.json");
+	}
+	
+	
+	public synchronized static LlamaCppConfig readLlamaCppConfig(Path configFile) throws IOException {
+		LlamaCppConfig cfg = new LlamaCppConfig();
+		if (Files.exists(configFile)) {
+			String json = new String(Files.readAllBytes(configFile), StandardCharsets.UTF_8);
+			LlamaCppConfig read = GSON.fromJson(json, LlamaCppConfig.class);
+			if (read != null && read.getPaths() != null) {
+				cfg.setPaths(read.getPaths());
+			}
+		}
+		return cfg;
+	}
+	
+
+	public synchronized static void writeLlamaCppConfig(Path configFile, LlamaCppConfig cfg) throws IOException {
+		String json = GSON.toJson(cfg);
+		Files.write(configFile, json.getBytes(StandardCharsets.UTF_8));
+		logger.info("llama.cpp配置已保存到文件: {}", configFile.toString());
+	}
 }
