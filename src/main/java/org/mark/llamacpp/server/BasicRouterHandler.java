@@ -1,16 +1,24 @@
 package org.mark.llamacpp.server;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
@@ -133,72 +141,84 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	
 	
 	private void handleApiRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
-        // 已加载模型API
-        if (uri.startsWith("/api/models/loaded")) {
-            handleLoadedModelsRequest(ctx, request);
-            return;
-        }
-        // 模型列表API
-        if (uri.startsWith("/api/models/list")) {
-            handleModelListRequest(ctx, request);
-            return;
-        }
-        // 显存估算API
-        if (uri.startsWith("/api/models/vram/estimate")) {
-            handleVramEstimateRequest(ctx, request);
-            return;
-        }
-        // 设置模型别名API
-        if (uri.startsWith("/api/model/alias/set")) {
-            handleSetModelAliasRequest(ctx, request);
-            return;
-        }
+		// 已加载模型API
+		if (uri.startsWith("/api/models/loaded")) {
+			this.handleLoadedModelsRequest(ctx, request);
+			return;
+		}
+		// 模型列表API
+		if (uri.startsWith("/api/models/list")) {
+			this.handleModelListRequest(ctx, request);
+			return;
+		}
+		// 显存估算API
+		if (uri.startsWith("/api/models/vram/estimate")) {
+			this.handleVramEstimateRequest(ctx, request);
+			return;
+		}
+		// 设置模型别名API
+		if (uri.startsWith("/api/model/alias/set")) {
+			this.handleSetModelAliasRequest(ctx, request);
+			return;
+		}
 		// 强制刷新模型列表API
 		if (uri.startsWith("/api/models/refresh")) {
-			handleRefreshModelListRequest(ctx, request);
+			this.handleRefreshModelListRequest(ctx, request);
 			return;
 		}
 		// 加载模型API
 		if (uri.startsWith("/api/models/load")) {
-			handleLoadModelRequest(ctx, request);
+			this.handleLoadModelRequest(ctx, request);
 			return;
 		}
 		// 停止模型API
 		if (uri.startsWith("/api/models/stop")) {
-			handleStopModelRequest(ctx, request);
+			this.handleStopModelRequest(ctx, request);
 			return;
 		}
 		// 获取模型启动配置API
 		if (uri.startsWith("/api/models/config")) {
-			handleModelConfigRequest(ctx, request);
+			this.handleModelConfigRequest(ctx, request);
 			return;
 		}
 		// 停止服务API
 		if (uri.startsWith("/api/shutdown")) {
-			handleShutdownRequest(ctx, request);
+			this.handleShutdownRequest(ctx, request);
 			return;
 		}
 		if (uri.startsWith("/api/setting")) {
-			handleSettingRequest(ctx, request);
+			this.handleSettingRequest(ctx, request);
 			return;
 		}
 		if (uri.startsWith("/api/llamacpp/add")) {
-			handleLlamaCppAdd(ctx, request);
+			this.handleLlamaCppAdd(ctx, request);
 			return;
 		}
 		if (uri.startsWith("/api/llamacpp/remove")) {
-			handleLlamaCppRemove(ctx, request);
+			this.handleLlamaCppRemove(ctx, request);
 			return;
 		}
-        if (uri.startsWith("/api/llamacpp/list")) {
-            handleLlamaCppList(ctx, request);
-            return;
-        }
-        if (uri.startsWith("/api/sys/console")) {
-            handleSysConsoleRequest(ctx, request);
-            return;
-        }
-        
+		if (uri.startsWith("/api/llamacpp/list")) {
+			this.handleLlamaCppList(ctx, request);
+			return;
+		}
+		if (uri.startsWith("/api/sys/console")) {
+			this.handleSysConsoleRequest(ctx, request);
+			return;
+		}
+		if (uri.equals("/api/models/benchmark")) {
+			this.handleModelBenchmark(ctx, request);
+			return;
+		}
+		if (uri.startsWith("/api/models/benchmark/list")) {
+			this.handleModelBenchmarkList(ctx, request);
+			return;
+		}
+		if (uri.startsWith("/api/models/benchmark/get")) {
+			this.handleModelBenchmarkGet(ctx, request);
+			return;
+		}
+
 		ctx.fireChannelRead(request.retain());
 	}
 	
@@ -926,6 +946,360 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
         }
     }
 	
+    
+    /**
+     * 	
+     * @param ctx
+     * @param request
+     */
+	private void handleModelBenchmark(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.POST) {
+				sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+				return;
+			}
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return;
+			}
+			JsonObject json = gson.fromJson(content, JsonObject.class);
+			if (json == null) {
+				sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
+			if (modelId == null || modelId.trim().isEmpty()) {
+				sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
+			}
+			int repetitions = json.has("repetitions") ? json.get("repetitions").getAsInt() : 3;
+			String p = null;
+			if (json.has("p") && !json.get("p").isJsonNull()) {
+				p = json.get("p").getAsString();
+			} else if (json.has("nPrompt") && !json.get("nPrompt").isJsonNull()) {
+				p = json.get("nPrompt").getAsString();
+			}
+			if (p != null) {
+				p = p.trim();
+				if (p.isEmpty()) {
+					p = null;
+				}
+			}
+			String n = null;
+			if (json.has("n") && !json.get("n").isJsonNull()) {
+				n = json.get("n").getAsString();
+			} else if (json.has("nGen") && !json.get("nGen").isJsonNull()) {
+				n = json.get("nGen").getAsString();
+			}
+			if (n != null) {
+				n = n.trim();
+				if (n.isEmpty()) {
+					n = null;
+				}
+			}
+			String t = null;
+			if (json.has("t") && !json.get("t").isJsonNull()) {
+				t = json.get("t").getAsString();
+			} else if (json.has("threads") && !json.get("threads").isJsonNull()) {
+				t = json.get("threads").getAsString();
+			}
+			if (t != null) {
+				t = t.trim();
+				if (t.isEmpty()) {
+					t = null;
+				}
+			}
+			String batchSize = null;
+			if (json.has("batchSize") && !json.get("batchSize").isJsonNull()) {
+				batchSize = json.get("batchSize").getAsString();
+				if (batchSize != null) {
+					batchSize = batchSize.trim();
+					if (batchSize.isEmpty()) {
+						batchSize = null;
+					}
+				}
+			}
+			String ubatchSize = null;
+			if (json.has("ubatchSize") && !json.get("ubatchSize").isJsonNull()) {
+				ubatchSize = json.get("ubatchSize").getAsString();
+				if (ubatchSize != null) {
+					ubatchSize = ubatchSize.trim();
+					if (ubatchSize.isEmpty()) {
+						ubatchSize = null;
+					}
+				}
+			}
+			String pg = null;
+			if (json.has("pg") && !json.get("pg").isJsonNull()) {
+				pg = json.get("pg").getAsString();
+				if (pg != null) {
+					pg = pg.trim();
+					if (pg.isEmpty()) {
+						pg = null;
+					}
+				}
+			}
+			String fa = null;
+			if (json.has("fa") && !json.get("fa").isJsonNull()) {
+				fa = json.get("fa").getAsString();
+				if (fa != null) {
+					fa = fa.trim();
+					if (fa.isEmpty()) {
+						fa = null;
+					}
+				}
+			}
+			String mmp = null;
+			if (json.has("mmp") && !json.get("mmp").isJsonNull()) {
+				mmp = json.get("mmp").getAsString();
+				if (mmp != null) {
+					mmp = mmp.trim();
+					if (mmp.isEmpty()) {
+						mmp = null;
+					}
+				}
+			}
+			String extraParams = null;
+			if (json.has("extraParams") && !json.get("extraParams").isJsonNull()) {
+				extraParams = json.get("extraParams").getAsString();
+				if (extraParams != null) {
+					extraParams = extraParams.trim();
+					if (extraParams.isEmpty()) {
+						extraParams = null;
+					}
+				}
+			}
+			if (repetitions <= 0) {
+				repetitions = 1;
+			}
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			manager.listModel();
+			GGUFModel model = manager.findModelById(modelId);
+			if (model == null) {
+				sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+				return;
+			}
+			if (model.getPrimaryModel() == null) {
+				sendJsonResponse(ctx, ApiResponse.error("模型元数据不完整，无法执行基准测试"));
+				return;
+			}
+			String modelPath = model.getPrimaryModel().getFilePath();
+			ConfigManager configManager = ConfigManager.getInstance();
+			Map<String, Object> launchConfig = configManager.getLaunchConfig(modelId);
+			String binBase = null;
+			if (launchConfig != null) {
+				Object pathObj = launchConfig.get("llamaBinPath");
+				if (pathObj != null) {
+					binBase = String.valueOf(pathObj).trim();
+				}
+			}
+			if (binBase == null || binBase.isEmpty()) {
+				Path configFile = LlamaServer.getLlamaCppConfigPath();
+				LlamaCppConfig cfg = LlamaServer.readLlamaCppConfig(configFile);
+				List<String> paths = cfg.getPaths();
+				if (paths != null && !paths.isEmpty()) {
+					binBase = paths.get(0);
+				}
+			}
+			if (binBase == null || binBase.isEmpty()) {
+				sendJsonResponse(ctx, ApiResponse.error("未找到llama-bench路径，请先在设置中配置llama.cpp路径或为模型设置llamaBinPath"));
+				return;
+			}
+			String osName = System.getProperty("os.name").toLowerCase();
+			String executableName = "llama-bench";
+			if (osName.contains("win")) {
+				executableName = "llama-bench.exe";
+			}
+			File benchFile = new File(binBase, executableName);
+			if (!benchFile.exists() || !benchFile.isFile()) {
+				sendJsonResponse(ctx, ApiResponse.error("llama-bench可执行文件不存在: " + benchFile.getAbsolutePath()));
+				return;
+			}
+			List<String> command = new ArrayList<>();
+			command.add(benchFile.getAbsolutePath());
+			command.add("-m");
+			command.add(modelPath);
+			command.add("-r");
+			command.add(String.valueOf(repetitions));
+			if (p != null) {
+				command.add("-p");
+				command.add(p);
+			}
+			if (n != null) {
+				command.add("-n");
+				command.add(n);
+			}
+			if (batchSize != null) {
+				command.add("-b");
+				command.add(batchSize);
+			}
+			if (ubatchSize != null) {
+				command.add("-ub");
+				command.add(ubatchSize);
+			}
+			if (t != null) {
+				command.add("-t");
+				command.add(t);
+			}
+			if (pg != null) {
+				command.add("-pg");
+				command.add(pg);
+			}
+			if (fa != null) {
+				command.add("-fa");
+				command.add(fa);
+			}
+			if (mmp != null) {
+				command.add("-mmp");
+				command.add(mmp);
+			}
+			if (extraParams != null && !extraParams.isEmpty()) {
+				String[] parts = extraParams.split("\\s+");
+				for (String part : parts) {
+					if (!part.isEmpty()) {
+						command.add(part);
+					}
+				}
+			}
+			ProcessBuilder pb = new ProcessBuilder(command);
+			pb.redirectErrorStream(true);
+			Process process = pb.start();
+			StringBuilder output = new StringBuilder();
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					output.append(line).append('\n');
+				}
+			}
+			boolean finished = process.waitFor(600, TimeUnit.SECONDS);
+			if (!finished) {
+				process.destroyForcibly();
+				sendJsonResponse(ctx, ApiResponse.error("llama-bench执行超时"));
+				return;
+			}
+			int exitCode = process.exitValue();
+			String text = output.toString().trim();
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("command", command);
+			data.put("exitCode", exitCode);
+			if (!text.isEmpty()) {
+				data.put("rawOutput", text);
+				try {
+					String safeModelId = modelId == null ? "unknown" : modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+					String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+					String fileName = safeModelId + "_" + timestamp + ".txt";
+					File dir = new File("benchmarks");
+					if (!dir.exists()) {
+						dir.mkdirs();
+					}
+					File outFile = new File(dir, fileName);
+					try (FileOutputStream fos = new FileOutputStream(outFile)) {
+						fos.write(text.getBytes(StandardCharsets.UTF_8));
+					}
+					data.put("savedPath", outFile.getAbsolutePath());
+				} catch (Exception ex) {
+					logger.warn("保存基准测试结果到文件失败", ex);
+				}
+			}
+			sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.error("执行模型基准测试时发生错误", e);
+			sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
+		}
+	}
+	
+	private void handleModelBenchmarkList(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.GET) {
+				sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+				return;
+			}
+			String query = request.uri();
+			String modelId = null;
+			if (query.contains("?modelId=")) {
+				modelId = query.substring(query.indexOf("?modelId=") + 9);
+				if (modelId.contains("&")) {
+					modelId = modelId.substring(0, modelId.indexOf("&"));
+				}
+				modelId = URLDecoder.decode(modelId, "UTF-8");
+			}
+			if (modelId == null || modelId.trim().isEmpty()) {
+				sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
+			}
+			String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+			File dir = new File("benchmarks");
+			List<Map<String, Object>> files = new ArrayList<>();
+			if (dir.exists() && dir.isDirectory()) {
+				File[] all = dir.listFiles();
+				if (all != null) {
+					Arrays.sort(all, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+					for (File f : all) {
+						String name = f.getName();
+						if (f.isFile() && name.startsWith(safeModelId + "_") && name.endsWith(".txt")) {
+							Map<String, Object> info = new HashMap<>();
+							info.put("name", name);
+							info.put("size", f.length());
+							info.put("modified", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(f.lastModified())));
+							files.add(info);
+						}
+					}
+				}
+			}
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("files", files);
+			data.put("count", files.size());
+			sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			sendJsonResponse(ctx, ApiResponse.error("获取基准测试结果列表失败: " + e.getMessage()));
+		}
+	}
+	
+	private void handleModelBenchmarkGet(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.GET) {
+				sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+				return;
+			}
+			String query = request.uri();
+			String fileName = null;
+			if (query.contains("?fileName=")) {
+				fileName = query.substring(query.indexOf("?fileName=") + 10);
+				if (fileName.contains("&")) {
+					fileName = fileName.substring(0, fileName.indexOf("&"));
+				}
+				fileName = URLDecoder.decode(fileName, "UTF-8");
+			}
+			if (fileName == null || fileName.trim().isEmpty()) {
+				sendJsonResponse(ctx, ApiResponse.error("缺少必需的fileName参数"));
+				return;
+			}
+			if (!fileName.matches("[a-zA-Z0-9._\\-]+")) {
+				sendJsonResponse(ctx, ApiResponse.error("文件名不合法"));
+				return;
+			}
+			File dir = new File("benchmarks");
+			File target = new File(dir, fileName);
+			if (!target.exists() || !target.isFile()) {
+				sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				return;
+			}
+			byte[] bytes = Files.readAllBytes(target.toPath());
+			String text = new String(bytes, StandardCharsets.UTF_8);
+			Map<String, Object> data = new HashMap<>();
+			data.put("fileName", fileName);
+			data.put("rawOutput", text);
+			data.put("savedPath", target.getAbsolutePath());
+			sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			sendJsonResponse(ctx, ApiResponse.error("读取基准测试结果失败: " + e.getMessage()));
+		}
+	}
+    
+    
 	/**
 	 * 发送JSON响应
 	 */

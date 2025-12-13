@@ -1163,6 +1163,9 @@
                     statusClass = status === 'running' ? 'status-running' : 'status-loaded';
                 }
                 
+                const modelIcon = getModelIcon(architecture);
+                const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
+                
                 let actionButtons = '';
                 if (isLoading) {
                     actionButtons = `<button class="btn-icon" disabled><i class="fas fa-spinner fa-spin"></i></button>`;
@@ -1171,19 +1174,25 @@
                         actionButtons = `
                             <button class="btn-icon danger" onclick="stopModel('${model.id}')" title="停止"><i class="fas fa-stop"></i></button>
                             <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="详情"><i class="fas fa-info-circle"></i></button>
+                            <button class="btn-icon" onclick="openModelBenchmarkDialog(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="性能测试"><i class="fas fa-play"></i></button>
+                            <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="查看测试结果"><i class="fas fa-list"></i></button>
                             <button class="btn-icon" onclick="viewModelConfig('${model.id}')" title="查看配置"><i class="fas fa-cog"></i></button>
+                        `;
+                    } else {
+                        actionButtons = `
+                            <button class="btn-icon" onclick="openModelBenchmarkDialog(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="性能测试"><i class="fas fa-play"></i></button>
+                            <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="查看测试结果"><i class="fas fa-list"></i></button>
                         `;
                     }
                 } else {
                     actionButtons = `
-                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="加载"><i class="fas fa-plus"></i></button>
+                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="加载"><i class="fas fa-play"></i></button>
                         <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="详情"><i class="fas fa-info-circle"></i></button>
+                        <button class="btn-icon" onclick="openModelBenchmarkDialog(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="性能测试"><i class="fas fa-rocket"></i></button>
+                        <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="查看测试结果"><i class="fas fa-list"></i></button>
                         <button class="btn-icon" onclick="viewModelConfig('${model.id}')" title="查看配置"><i class="fas fa-cog"></i></button>
                     `;
                 }
-                
-                const modelIcon = getModelIcon(architecture);
-                const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
                 
                 html += `
                     <div class="model-item">
@@ -1551,6 +1560,309 @@
 
                 html += '</div>';
                 content.innerHTML = html;
+            }
+            modal.classList.add('show');
+        }
+
+        function openModelBenchmarkDialog(modelId, modelName) {
+            const modalId = 'modelBenchmarkModal';
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 520px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title"><i class="fas fa-tachometer-alt"></i> 模型性能测试</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label class="form-label">模型</label>
+                                <div class="form-control" id="benchmarkModelName" style="background-color:#f9fafb;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">重复次数 (-r)</label>
+                                <input type="number" class="form-control" id="benchmarkInputRepetitions" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">提示长度 (-p)</label>
+                                <input type="text" class="form-control" id="benchmarkInputNPrompt" value="2048" placeholder="例如: 512 或 512,1024">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">生成长度 (-n)</label>
+                                <input type="text" class="form-control" id="benchmarkInputNGen" value="32" placeholder="例如: 128 或 128,256">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">批量 (-b)</label>
+                                <input type="text" class="form-control" id="benchmarkInputBatchSize" value="2048" placeholder="例如: 512 或 512,1024">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">子批 (-ub)</label>
+                                <input type="text" class="form-control" id="benchmarkInputUBatchSize" value="2048" placeholder="例如: 512 或 512,1024">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Prompt/生成组合 (-pg)</label>
+                                <input type="text" class="form-control" id="benchmarkInputPg" placeholder="例如: 512,128 或 256,64">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Flash Attention (-fa)</label>
+                                <input type="text" class="form-control" id="benchmarkInputFa" value="1" placeholder="例如: 0,1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">内存映射 (-mmp)</label>
+                                <input type="text" class="form-control" id="benchmarkInputMmp" value="0" placeholder="例如: 0,1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">线程 (-t)</label>
+                                <input type="text" class="form-control" id="benchmarkInputThreads" placeholder="例如: 4 或 4,8">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="benchmarkInputExtraParams">额外参数</label>
+                                <textarea class="form-control" id="benchmarkInputExtraParams" rows="2" placeholder="例如: --grp-attn-n 8 --grp-attn-w 512"></textarea>
+                                <small class="form-text">输入额外的命令行参数，用空格分隔</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('${modalId}')">取消</button>
+                            <button class="btn btn-primary" id="benchmarkRunBtn" onclick="submitModelBenchmark()">开始测试</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            window.__benchmarkModelId = modelId;
+            window.__benchmarkModelName = modelName;
+            const nameEl = document.getElementById('benchmarkModelName');
+            if (nameEl) {
+                nameEl.textContent = modelName || modelId;
+            }
+            const repInput = document.getElementById('benchmarkInputRepetitions');
+            const nPromptInput = document.getElementById('benchmarkInputNPrompt');
+            const nGenInput = document.getElementById('benchmarkInputNGen');
+            const threadsInput = document.getElementById('benchmarkInputThreads');
+            const batchInput = document.getElementById('benchmarkInputBatchSize');
+            const ubatchInput = document.getElementById('benchmarkInputUBatchSize');
+            const pgInput = document.getElementById('benchmarkInputPg');
+            const faInput = document.getElementById('benchmarkInputFa');
+            const mmpInput = document.getElementById('benchmarkInputMmp');
+            const extraInput = document.getElementById('benchmarkInputExtraParams');
+            if (repInput) repInput.value = repInput.value || 3;
+            if (nPromptInput) nPromptInput.value = nPromptInput.value || 512;
+            if (nGenInput) nGenInput.value = nGenInput.value || 128;
+            if (threadsInput) threadsInput.value = '';
+            if (batchInput) batchInput.value = '';
+            if (ubatchInput) ubatchInput.value = '';
+            if (pgInput) pgInput.value = '';
+            if (faInput) faInput.value = '';
+            if (mmpInput) mmpInput.value = '';
+            if (extraInput) extraInput.value = '';
+            modal.classList.add('show');
+        }
+
+        function submitModelBenchmark() {
+            const modelId = window.__benchmarkModelId;
+            const modelName = window.__benchmarkModelName;
+            if (!modelId) {
+                showToast('错误', '未选择模型', 'error');
+                return;
+            }
+            const repInput = document.getElementById('benchmarkInputRepetitions');
+            const nPromptInput = document.getElementById('benchmarkInputNPrompt');
+            const nGenInput = document.getElementById('benchmarkInputNGen');
+            const threadsInput = document.getElementById('benchmarkInputThreads');
+            const batchInput = document.getElementById('benchmarkInputBatchSize');
+            const ubatchInput = document.getElementById('benchmarkInputUBatchSize');
+            const pgInput = document.getElementById('benchmarkInputPg');
+            const faInput = document.getElementById('benchmarkInputFa');
+            const mmpInput = document.getElementById('benchmarkInputMmp');
+            const extraInput = document.getElementById('benchmarkInputExtraParams');
+            const btn = document.getElementById('benchmarkRunBtn');
+
+            let repetitions = repInput ? parseInt(repInput.value, 10) : 3;
+            const p = nPromptInput ? nPromptInput.value.trim() : '';
+            const n = nGenInput ? nGenInput.value.trim() : '';
+            const t = threadsInput ? threadsInput.value.trim() : '';
+            const batchSize = batchInput ? batchInput.value.trim() : '';
+            const ubatchSize = ubatchInput ? ubatchInput.value.trim() : '';
+            const pg = pgInput ? pgInput.value.trim() : '';
+            const fa = faInput ? faInput.value.trim() : '';
+            const mmp = mmpInput ? mmpInput.value.trim() : '';
+            const extraParams = extraInput ? extraInput.value.trim() : '';
+
+            if (isNaN(repetitions) || repetitions <= 0) repetitions = 3;
+
+            const payload = { modelId: modelId };
+            if (repetitions > 0) payload.repetitions = repetitions;
+            if (p) payload.p = p;
+            if (n) payload.n = n;
+            if (t) payload.t = t;
+            if (batchSize) payload.batchSize = batchSize;
+            if (ubatchSize) payload.ubatchSize = ubatchSize;
+            if (pg) payload.pg = pg;
+            if (fa) payload.fa = fa;
+            if (mmp) payload.mmp = mmp;
+            if (extraParams) payload.extraParams = extraParams;
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '测试中...';
+            }
+            showToast('提示', '已开始模型测试', 'info');
+
+            fetch('/api/models/benchmark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(res => {
+                    if (!res || !res.success) {
+                        const message = res && res.error ? res.error : '模型测试失败';
+                        showToast('错误', message, 'error');
+                    } else {
+                        const data = res.data || {};
+                        closeModal('modelBenchmarkModal');
+                        showModelBenchmarkResultModal(modelId, modelName, data);
+                    }
+                })
+                .catch(() => {
+                    showToast('错误', '网络请求失败', 'error');
+                })
+                .then(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '开始测试';
+                    }
+                });
+        }
+ 
+        function openModelBenchmarkList(modelId, modelName) {
+            const modalId = 'modelBenchmarkListModal';
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 520px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title"><i class="fas fa-folder-open"></i> 测试结果列表</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="${modalId}Content" style="max-height:60vh; overflow:auto; font-size:14px; color:#333;">加载中...</div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('${modalId}')">关闭</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            window.__benchmarkListModelId = modelId;
+            window.__benchmarkListModelName = modelName;
+            const content = document.getElementById(modalId + 'Content');
+            if (content) content.innerHTML = '加载中...';
+            modal.classList.add('show');
+            fetch('/api/models/benchmark/list?modelId=' + encodeURIComponent(modelId))
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.success) {
+                        showToast('错误', d.error || '获取测试结果列表失败', 'error');
+                        return;
+                    }
+                    const files = (d.data && d.data.files) ? d.data.files : [];
+                    if (!files.length) {
+                        content.innerHTML = '<div style="color:#666;">未找到测试结果文件</div>';
+                        return;
+                    }
+                    let html = '<div style="border:1px solid #eee; border-radius:6px;">';
+                    files.forEach(item => {
+                        const fn = typeof item === 'string' ? item : (item && item.name) ? item.name : '';
+                        const size = (item && typeof item === 'object' && item.size != null) ? item.size : null;
+                        const modified = (item && typeof item === 'object' && item.modified) ? item.modified : '';
+                        const sizeText = size != null ? (typeof formatFileSize === 'function' ? formatFileSize(size) : (size + ' B')) : '';
+                        html += `
+                            <div class="list-row" style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid #eee;">
+                                <div style="display:flex; flex-direction:column; gap:4px; max-width:65%;">
+                                    <span style="word-break:break-all;"><i class="fas fa-file-alt" style="margin-right:6px;"></i>${fn}</span>
+                                    <span style="color:#666; font-size:12px;">修改时间: ${modified || '-'}</span>
+                                    <span style="color:#666; font-size:12px;">大小: ${sizeText || '-'}</span>
+                                </div>
+                                <button class="btn btn-primary" style="padding:2px 10px; font-size:12px;" onclick="loadBenchmarkResult(this.dataset.fn, decodeURIComponent('${encodeURIComponent(modelId)}'), decodeURIComponent('${encodeURIComponent(modelName)}'))" data-fn="${fn}">查看</button>
+                            </div>`;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                }).catch(() => {
+                    showToast('错误', '网络错误，获取测试结果列表失败', 'error');
+                });
+        }
+
+        function loadBenchmarkResult(fileName, modelId, modelName) {
+            if (!fileName) {
+                showToast('错误', '无效的文件名', 'error');
+                return;
+            }
+            fetch('/api/models/benchmark/get?fileName=' + encodeURIComponent(fileName))
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.success) {
+                        showToast('错误', d.error || '读取测试结果失败', 'error');
+                        return;
+                    }
+                    const data = d.data || {};
+                    showModelBenchmarkResultModal(modelId, modelName, data);
+                    closeModal('modelBenchmarkListModal');
+                }).catch(() => {
+                    showToast('错误', '网络错误，读取测试结果失败', 'error');
+                });
+        }
+
+        function showModelBenchmarkResultModal(modelId, modelName, data) {
+            const modalId = 'modelBenchmarkResultModal';
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="min-width: 50vw; max-width: 90vw;">
+                        <div class="modal-header">
+                            <h3 class="modal-title"><i class="fas fa-file-alt"></i> 模型测试结果</h3>
+                            <button class="modal-close" onclick="closeModal('${modalId}')">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <pre id="${modalId}Content" style="max-height:60vh;overflow:auto;"></pre>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('${modalId}')">关闭</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            const contentEl = document.getElementById(modalId + 'Content');
+            if (contentEl) {
+                const name = modelName || modelId;
+                const d = data || {};
+                let text = '';
+                text += '模型: ' + name + '\n';
+                text += '模型ID: ' + (d.modelId || modelId) + '\n';
+                if (d.command && d.command.length) {
+                    text += '\n命令:\n' + d.command.join(' ') + '\n';
+                }
+                if (d.exitCode != null) {
+                    text += '\n退出码: ' + d.exitCode + '\n';
+                }
+                if (d.savedPath) {
+                    text += '\n保存文件: ' + d.savedPath + '\n';
+                }
+                if (d.rawOutput) {
+                    text += '\n原始输出:\n' + d.rawOutput + '\n';
+                }
+                contentEl.textContent = text;
             }
             modal.classList.add('show');
         }
