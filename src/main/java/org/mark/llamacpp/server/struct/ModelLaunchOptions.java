@@ -114,8 +114,8 @@ public class ModelLaunchOptions {
     	}
     	command.add("--no-webui");
     	
-    	command.add("--slot-prompt-similarity");
-    	command.add("1.0");
+    	//command.add("--slot-prompt-similarity");
+    	//command.add("1.0");
     	
     	command.add("--cache-ram");
     	command.add("-1");
