@@ -197,18 +197,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return;
 		}
 		// 查询对应模型的/solts接口
-		if (uri.startsWith("/api/models/solts/get")) {
-			this.handleModelSoltsGet(ctx, request);
+		if (uri.startsWith("/api/models/slots/get")) {
+			this.handleModelSlotsGet(ctx, request);
 			return;
 		}
 		// 对应URL-POST：/slots/{solt_id}?action=save
-		if (uri.startsWith("/api/models/solts/save")) {
-			this.handleModelSoltsSave(ctx, request);
+		if (uri.startsWith("/api/models/slots/save")) {
+			this.handleModelSlotsSave(ctx, request);
 			return;
 		}
-		// 对应URL-POST：/slots/{solt_id}?action=load
-		if (uri.startsWith("/api/models/solts/load")) {
-			this.handleModelSoltsLoad(ctx, request);
+		// 对应URL-POST：/slots/{slot_id}?action=load
+		if (uri.startsWith("/api/models/slots/load")) {
+			this.handleModelSlotsLoad(ctx, request);
 			return;
 		}
 		// 对应URL-GET：/metrics
@@ -272,7 +272,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	/**
 	 * 	获取指定模型的slots信息
 	 */
-	private void handleModelSoltsGet(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.GET) {
 				sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
@@ -357,7 +357,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	/**
 	 * 	保存指定模型指定slot的缓存
 	 */
-	private void handleModelSoltsSave(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleModelSlotsSave(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.POST) {
 				sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
@@ -461,7 +461,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	/**
 	 * 	加载指定模型指定slot的缓存
 	 */
-	private void handleModelSoltsLoad(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleModelSlotsLoad(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.POST) {
 				sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
