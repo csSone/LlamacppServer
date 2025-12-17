@@ -312,7 +312,7 @@ public class OpenAIService {
 				return;
 			}
 			// 转发请求到对应的llama.cpp进程
-			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/completions", isStream, "");
+			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/completions", isStream, gson.toJson(requestJson));
 		} catch (Exception e) {
 			logger.error("处理OpenAI文本补全请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
