@@ -57,9 +57,7 @@ public class LlamaCommandParser {
 	 */
 	public static String filterCompletion(ChannelHandlerContext ctx, String modelId, JsonObject requestJson) {
 		
-		
-		
-		return null;
+		return gson.toJson(requestJson);
 	}
 	
 	

@@ -25,6 +25,7 @@ import com.google.gson.Gson;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -51,13 +52,13 @@ public class LlamaServer {
     private static final String WEBSOCKET_PATH = "/ws";
     
     
-    public static final String SLOTS_SAVE_KEYWORD = "/SLOTSAVE";
+    public static final String SLOTS_SAVE_KEYWORD = "~SLOTSAVE";
     
     
-    public static final String SLOTS_LOAD_KEYWORD = "/SLOTLOAD";
+    public static final String SLOTS_LOAD_KEYWORD = "~SLOTLOAD";
     
     
-    public static final String HELP_KEYWORD = "/HELP";
+    public static final String HELP_KEYWORD = "~HELP";
     
     
     
@@ -130,6 +131,12 @@ public class LlamaServer {
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new AnthropicRouterHandler());
                         }
+                        
+                        @Override
+                        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                        		logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+                            ctx.close();
+                        }
                     });
             
             ChannelFuture future = bootstrap.bind(port).sync();
@@ -170,6 +177,11 @@ public class LlamaServer {
                                     .addLast(new WebSocketServerHandler())
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new OpenAIRouterHandler());
+                        }
+                        @Override
+                        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                        		logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+                            ctx.close();
                         }
                     });
             
@@ -316,24 +328,5 @@ public class LlamaServer {
 		String json = GSON.toJson(cfg);
 		Files.write(configFile, json.getBytes(StandardCharsets.UTF_8));
 		logger.info("llama.cpp配置已保存到文件: {}", configFile.toString());
-	}
-	
-	
-	/**
-	 * 	保存指定的KV缓存
-	 * @param model
-	 * @param slots
-	 */
-	public synchronized static void slotsSave(String model, int slots) {
-		System.err.println("特殊操作：保存");
-	}
-	
-	/**
-	 * 	读取指定的KV缓存
-	 * @param model
-	 * @param slots
-	 */
-	public synchronized static void slotsLoad(String model, int slots) {
-		System.err.println("特殊操作：读取");
 	}
 }

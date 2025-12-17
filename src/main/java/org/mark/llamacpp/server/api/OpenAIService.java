@@ -302,10 +302,9 @@ public class OpenAIService {
 			}
 			
 			// 在这加入特殊处理，判断是否存在特殊字符。
-			String body = LlamaCommandParser.filterCompletion(ctx, modelName, requestJson);
-			if(body == null)
-				return;
-			
+			//String body = LlamaCommandParser.filterCompletion(ctx, modelName, requestJson);
+			//if(body == null)
+				//return;
 			// 获取模型端口
 			Integer modelPort = manager.getModelPort(modelName);
 			if (modelPort == null) {
