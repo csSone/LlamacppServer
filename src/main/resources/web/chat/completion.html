@@ -354,6 +354,14 @@
     .setting input{
       width: 100%;
       min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .setting input::placeholder{
+      color: rgba(148, 163, 184, 0.75);
     }
 
     .sys-prompt{
@@ -551,7 +559,7 @@
       <div class="chat-shell">
         <div class="chat-top">
           <div class="chat-title">
-            <input id="titleInput" class="title-input" type="text" placeholder="任务标题（自动保存）" />
+            <input id="titleInput" class="title-input" type="text" placeholder="角色名称（自动保存）" />
           </div>
           <div class="chat-actions">
             <button id="toggleSettings" class="btn" type="button">设置</button>
@@ -568,7 +576,7 @@
               <select id="modelSelect"></select>
               <button id="refreshModels" class="btn" type="button">刷新</button>
             </div>
-            <button id="sessionsToggle" class="btn ghost" type="button">对话列表</button>
+            <button id="sessionsToggle" class="btn ghost" type="button">角色列表</button>
             <div class="pill">
               <span class="hint" id="sessionBadge"></span>
             </div>
@@ -579,11 +587,28 @@
           </div>
 
           <div id="sysPromptBox" class="sys-prompt">
-            <div class="sys-title">系统提示（将加入到对话开头）</div>
+            <div class="sys-title">系统描述（将加入到对话开头）</div>
             <textarea id="systemPrompt" placeholder="例如：你是一个严谨的写作助手，输出中文，结构清晰…"></textarea>
           </div>
 
+          <div id="rolePromptBox" class="sys-prompt">
+            <div class="sys-title">角色设定（将加入到对话开头）</div>
+            <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
+          </div>
+
           <div id="settingsPanel" class="settings">
+            <div class="setting">
+              <label for="userName">用户名字</label>
+              <input id="userName" type="text" placeholder="例如：我" />
+            </div>
+            <div class="setting">
+              <label for="userPrefix">用户消息前缀</label>
+              <input id="userPrefix" type="text" placeholder="可选" />
+            </div>
+            <div class="setting">
+              <label for="userSuffix">用户消息后缀</label>
+              <input id="userSuffix" type="text" placeholder="可选" />
+            </div>
             <div class="setting">
               <label for="maxTokens">max_tokens</label>
               <input id="maxTokens" type="number" value="512" min="1" max="32768" />
@@ -613,11 +638,11 @@
     <div id="drawerBackdrop" class="backdrop"></div>
     <aside id="sessionsDrawer" class="drawer" aria-hidden="true">
       <div class="drawer-header">
-        <div class="drawer-title">创作任务</div>
+        <div class="drawer-title">角色</div>
         <button id="drawerClose" class="btn icon-btn" type="button" aria-label="Close">×</button>
       </div>
       <div class="drawer-actions">
-        <button id="newSessionBtn" class="btn primary" type="button">新建</button>
+        <button id="newSessionBtn" class="btn primary" type="button">新建角色</button>
         <button id="reloadSessionsBtn" class="btn" type="button">刷新</button>
         <span class="hint" id="drawerHint"></span>
       </div>
@@ -668,10 +693,15 @@
       settingsPanel: document.getElementById('settingsPanel'),
       sysPromptBox: document.getElementById('sysPromptBox'),
       systemPrompt: document.getElementById('systemPrompt'),
+      rolePromptBox: document.getElementById('rolePromptBox'),
+      rolePrompt: document.getElementById('rolePrompt'),
 
       maxTokens: document.getElementById('maxTokens'),
       temperature: document.getElementById('temperature'),
       topP: document.getElementById('topP'),
+      userName: document.getElementById('userName'),
+      userPrefix: document.getElementById('userPrefix'),
+      userSuffix: document.getElementById('userSuffix'),
 
       autoScroll: document.getElementById('autoScroll'),
       saveHint: document.getElementById('saveHint'),
@@ -684,8 +714,9 @@
     };
 
     const state = {
-      currentSessionId: null,
-      isLoadingSessions: false,
+      currentCompletionId: null,
+      currentCreatedAt: 0,
+      isLoadingCompletions: false,
       isLoadingModels: false,
       abortController: null,
       saveTimer: null,
@@ -725,22 +756,44 @@
       try { return new Date(ts).toLocaleString(); } catch (e) { return String(ts); }
     }
 
-    function getCurrentTaskName() {
-      const name = (els.titleInput.value || '').trim();
-      return name || '默认任务';
+    function normalizeSpeakerName(name, fallback) {
+      const raw = (name == null ? '' : String(name)).trim();
+      const cleaned = raw.replace(/[\r\n:]+/g, ' ').trim();
+      return cleaned || fallback;
     }
 
-    function updateSessionBadge() {
-      if (!state.currentSessionId) {
+    function getUserSpeakerName() {
+      return normalizeSpeakerName(els.userName.value, 'User');
+    }
+
+    function getAssistantSpeakerName() {
+      return normalizeSpeakerName(getCurrentCompletionTitle(), 'Assistant');
+    }
+
+    function getUserMessagePrefix() {
+      return (els.userPrefix.value == null ? '' : String(els.userPrefix.value));
+    }
+
+    function getUserMessageSuffix() {
+      return (els.userSuffix.value == null ? '' : String(els.userSuffix.value));
+    }
+
+    function getCurrentCompletionTitle() {
+      const name = (els.titleInput.value || '').trim();
+      return name || '默认角色';
+    }
+
+    function updateCompletionBadge() {
+      if (!state.currentCompletionId) {
         els.sessionBadge.textContent = '';
         return;
       }
-      els.sessionBadge.textContent = getCurrentTaskName();
+      els.sessionBadge.textContent = getCurrentCompletionTitle();
     }
 
-    function refreshTaskNameInMessages() {
-      if (!state.currentSessionId) return;
-      const taskName = getCurrentTaskName();
+    function refreshCompletionTitleInMessages() {
+      if (!state.currentCompletionId) return;
+      const taskName = getCurrentCompletionTitle();
       for (const msgEl of els.chatList.querySelectorAll('.msg')) {
         const id = msgEl.dataset.id;
         if (!id) continue;
@@ -773,8 +826,8 @@
       els.promptInput.disabled = isBusy ? false : false;
     }
 
-    function setSessionsLoading(isLoading) {
-      state.isLoadingSessions = isLoading;
+    function setCompletionsLoading(isLoading) {
+      state.isLoadingCompletions = isLoading;
       els.newSessionBtn.disabled = isLoading;
       els.reloadSessionsBtn.disabled = isLoading;
       els.drawerHint.textContent = isLoading ? '加载中…' : '';
@@ -844,7 +897,7 @@
       const meta = document.createElement('div');
       meta.className = 'meta';
       const left = document.createElement('div');
-      const taskName = getCurrentTaskName();
+      const taskName = getCurrentCompletionTitle();
       const roleLabel = msg.role === 'user' ? '用户' : (msg.role === 'assistant' ? '助手' : '系统');
       left.textContent = roleLabel + ' · ' + taskName;
 
@@ -922,21 +975,30 @@
       maybeScrollToBottom();
     }
 
+    // 这里生成发送的消息
     function buildTranscriptFrom(messages) {
       const lines = [];
       const sys = (els.systemPrompt.value || '').trim();
       if (sys) lines.push('System: ' + sys);
+      //const role = (els.rolePrompt.value || '').trim();
+      //if (role) lines.push('System: 角色设定：' + role);
+      // 插入换行符，不得删除
+      lines.push('***');
+      const userName = getUserSpeakerName();
+      const assistantName = getAssistantSpeakerName();
+      const userPrefix = getUserMessagePrefix();
+      const userSuffix = getUserMessageSuffix();
       for (const m of (Array.isArray(messages) ? messages : [])) {
         if (m.role === 'system') {
           lines.push('System: ' + (m.content || ''));
         } else if (m.role === 'user') {
-          lines.push('User: ' + (m.content || ''));
+          lines.push(userName + ': ' + userPrefix + (m.content || '') + userSuffix);
         } else if (m.role === 'assistant') {
-          lines.push('Assistant: ' + (m.content || ''));
+          lines.push(assistantName + ': ' + (m.content || ''));
         }
       }
-      lines.push('Assistant:');
-      return lines.join('\n\n');
+      lines.push(assistantName + ':');
+      return lines.join('\n');
     }
 
     function buildTranscript() {
@@ -1000,7 +1062,7 @@
       setSaveHint('');
 
       try {
-        const res = await fetch('/v1/completion', {
+        const res = await fetch('/v1/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1009,7 +1071,8 @@
             max_tokens: params.max_tokens,
             temperature: params.temperature,
             top_p: params.top_p,
-            stream: true
+            stream: true, 
+            stop: ['\n' + getUserSpeakerName(), '\n***']
           }),
           signal: state.abortController.signal
         });
@@ -1081,29 +1144,42 @@
     }
 
     function scheduleSave(reason) {
-      if (!state.currentSessionId) return;
+      if (!state.currentCompletionId) return;
       if (state.saveTimer) clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(() => saveSession(reason).catch(() => {}), 450);
+      state.saveTimer = setTimeout(() => saveCompletion(reason).catch(() => {}), 450);
     }
 
-    async function saveSession(reason) {
-      if (!state.currentSessionId) return;
-      const payload = {
-        title: els.titleInput.value || '',
+    function buildParamsJson() {
+      return JSON.stringify({
         model: els.modelSelect.value || '',
+        userName: (els.userName.value || '').trim(),
+        userPrefix: (els.userPrefix.value == null ? '' : String(els.userPrefix.value)),
+        userSuffix: (els.userSuffix.value == null ? '' : String(els.userSuffix.value)),
+        params: currentParams(),
+        history: state.messages
+      });
+    }
+
+    async function saveCompletion(reason) {
+      if (!state.currentCompletionId) return;
+      const payload = {
+        id: Number(state.currentCompletionId),
+        title: els.titleInput.value || '',
+        prompt: els.rolePrompt.value || '',
         systemPrompt: els.systemPrompt.value || '',
-        history: state.messages,
-        params: currentParams()
+        paramsJson: buildParamsJson(),
+        createdAt: Number(state.currentCreatedAt || 0),
+        updatedAt: Date.now()
       };
       setSaveHint('保存中…');
-      await fetchJson('/session/save?id=' + encodeURIComponent(state.currentSessionId), {
+      await fetchJson('/api/chat/completion/save?name=' + encodeURIComponent(state.currentCompletionId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       state.lastSavedAt = Date.now();
       setSaveHint((reason ? ('已保存（' + reason + '）') : '已保存') + ' · ' + new Date(state.lastSavedAt).toLocaleTimeString());
-      await loadSessions(false);
+      await loadCompletions(false);
     }
 
     async function loadModels() {
@@ -1143,23 +1219,24 @@
       }
     }
 
-    function renderSessions(sessions, currentSessionId) {
-      if (!Array.isArray(sessions)) sessions = [];
+    function renderCompletions(items, currentId) {
+      if (!Array.isArray(items)) items = [];
       els.sessionsList.innerHTML = '';
-      if (sessions.length === 0) {
+      if (items.length === 0) {
         const li = document.createElement('li');
         li.className = 'session-item';
-        li.innerHTML = '<div class="session-meta"><div class="session-title">暂无任务</div><div class="session-sub">点击“新建”创建任务</div></div>';
+        li.innerHTML = '<div class="session-meta"><div class="session-title">暂无角色</div><div class="session-sub">点击“新建角色”创建角色</div></div>';
         li.style.cursor = 'default';
         els.sessionsList.appendChild(li);
         return;
       }
-      for (const s of sessions) {
+      for (const s of items) {
         const li = document.createElement('li');
-        li.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
-        li.dataset.id = s.id;
-        const title = s.title || ('任务 ' + s.id);
-        const sub = (s.updatedAt ? ('更新：' + formatTime(s.updatedAt)) : (s.createdAt ? ('创建：' + formatTime(s.createdAt)) : ''));
+        const id = s?.id == null ? '' : String(s.id);
+        li.className = 'session-item' + (id && id === String(currentId || '') ? ' active' : '');
+        li.dataset.id = id;
+        const title = s?.title || ('角色 ' + id);
+        const sub = (s?.updatedAt ? ('更新：' + formatTime(s.updatedAt)) : (s?.createdAt ? ('创建：' + formatTime(s.createdAt)) : ''));
         li.innerHTML = `
           <div class="session-meta">
             <div class="session-title"></div>
@@ -1173,21 +1250,22 @@
       }
     }
 
-    async function loadSessions(ensureCurrent) {
-      if (state.isLoadingSessions) return;
-      setSessionsLoading(true);
+    async function loadCompletions(ensureCurrent) {
+      if (state.isLoadingCompletions) return;
+      setCompletionsLoading(true);
       try {
-        const data = await fetchJson('/session/list', { method: 'GET' });
-        const sessions = data.sessions || [];
-        const current = data.currentSessionId || state.currentSessionId;
-        renderSessions(sessions, current);
+        const data = await fetchJson('/api/chat/completion/list', { method: 'GET' });
+        const items = Array.isArray(data?.data) ? data.data : [];
+        let current = state.currentCompletionId;
+        if (!current && items[0]?.id != null) current = String(items[0].id);
+        renderCompletions(items, current);
         if (ensureCurrent) {
           if (!current) {
-            await createSession();
+            await createCompletion();
             return;
           }
-          state.currentSessionId = current;
-          await loadSession(current);
+          state.currentCompletionId = String(current);
+          await loadCompletion(current);
         }
       } catch (e) {
         els.sessionsList.innerHTML = '';
@@ -1198,67 +1276,73 @@
         li.style.cursor = 'default';
         els.sessionsList.appendChild(li);
       } finally {
-        setSessionsLoading(false);
+        setCompletionsLoading(false);
       }
     }
 
-    async function createSession() {
-      setSessionsLoading(true);
+    async function createCompletion() {
+      setCompletionsLoading(true);
       try {
-        const seedTitle = (els.titleInput.value || els.promptInput.value || '').trim().slice(0, 40);
-        const data = await fetchJson('/session/create', {
+        const seedTitle = (els.titleInput.value || '').trim().slice(0, 60);
+        const data = await fetchJson('/api/chat/completion/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: seedTitle })
         });
-        state.currentSessionId = data.currentSessionId;
-        await loadSessions(false);
-        await loadSession(state.currentSessionId);
+        const created = data?.data || {};
+        if (created.id == null) throw new Error('新建失败：缺少角色ID');
+        state.currentCompletionId = String(created.id);
+        state.currentCreatedAt = Number(created.createdAt || 0);
+        await loadCompletions(false);
+        await loadCompletion(state.currentCompletionId);
       } catch (e) {
         els.drawerHint.textContent = '新建失败：' + e.message;
       } finally {
-        setSessionsLoading(false);
+        setCompletionsLoading(false);
       }
     }
 
-    async function deleteSession(id) {
+    async function deleteCompletion(id) {
       if (!id) return;
-      if (!confirm('确认删除该任务？此操作不可撤销。')) return;
-      setSessionsLoading(true);
+      if (!confirm('确认删除该角色？此操作不可撤销。')) return;
+      setCompletionsLoading(true);
       try {
-        const data = await fetchJson('/session/delete?id=' + encodeURIComponent(id), { method: 'DELETE' });
-        state.currentSessionId = data.currentSessionId || null;
-        await loadSessions(false);
-        if (state.currentSessionId) {
-          await loadSession(state.currentSessionId);
+        await fetchJson('/api/chat/completion/delete?name=' + encodeURIComponent(id), { method: 'DELETE' });
+        if (String(id) === String(state.currentCompletionId || '')) {
+          state.currentCompletionId = null;
+          state.currentCreatedAt = 0;
+        }
+        await loadCompletions(false);
+        if (state.currentCompletionId) {
+          await loadCompletion(state.currentCompletionId);
         } else {
           els.titleInput.value = '';
           els.systemPrompt.value = '';
+          els.rolePrompt.value = '';
           state.messages = [];
           rerenderAll();
-          updateSessionBadge();
+          updateCompletionBadge();
         }
       } catch (e) {
         els.drawerHint.textContent = '删除失败：' + e.message;
       } finally {
-        setSessionsLoading(false);
+        setCompletionsLoading(false);
       }
     }
 
-    async function switchSession(id) {
+    async function switchCompletion(id) {
       if (!id) return;
-      if (id === state.currentSessionId) return;
-      setSessionsLoading(true);
+      if (String(id) === String(state.currentCompletionId || '')) return;
+      setCompletionsLoading(true);
       try {
-        const data = await fetchJson('/session/switch?id=' + encodeURIComponent(id), { method: 'POST' });
-        state.currentSessionId = data.currentSessionId;
-        await loadSessions(false);
-        await loadSession(state.currentSessionId);
+        state.currentCompletionId = String(id);
+        await loadCompletions(false);
+        await loadCompletion(state.currentCompletionId);
         closeDrawer();
       } catch (e) {
         els.drawerHint.textContent = '切换失败：' + e.message;
       } finally {
-        setSessionsLoading(false);
+        setCompletionsLoading(false);
       }
     }
 
@@ -1278,15 +1362,27 @@
       return out;
     }
 
-    async function loadSession(id) {
-      const data = await fetchJson('/session/get?id=' + encodeURIComponent(id), { method: 'GET' });
-      const s = data.session || {};
+    async function loadCompletion(id) {
+      const data = await fetchJson('/api/chat/completion/get?name=' + encodeURIComponent(id), { method: 'GET' });
+      const s = data?.data || {};
       els.titleInput.value = s.title || '';
-      if (s.model) els.modelSelect.value = s.model;
       els.systemPrompt.value = s.systemPrompt || '';
-      state.messages = normalizeHistory(s.history);
+      els.rolePrompt.value = s.prompt || '';
+      state.currentCreatedAt = Number(s.createdAt || 0);
+
+      let ext = {};
+      try { ext = s.paramsJson ? JSON.parse(s.paramsJson) : {}; } catch (e) { ext = {}; }
+      if (ext?.model) els.modelSelect.value = ext.model;
+      els.userName.value = (ext?.userName == null ? '' : String(ext.userName));
+      els.userPrefix.value = (ext?.userPrefix == null ? '' : String(ext.userPrefix));
+      els.userSuffix.value = (ext?.userSuffix == null ? '' : String(ext.userSuffix));
+      if (ext?.params?.max_tokens != null) els.maxTokens.value = String(ext.params.max_tokens);
+      if (ext?.params?.temperature != null) els.temperature.value = String(ext.params.temperature);
+      if (ext?.params?.top_p != null) els.topP.value = String(ext.params.top_p);
+
+      state.messages = normalizeHistory(ext?.history);
       rerenderAll();
-      updateSessionBadge();
+      updateCompletionBadge();
       setSaveHint('');
     }
 
@@ -1296,9 +1392,9 @@
         setStatus('请输入消息');
         return;
       }
-      if (!state.currentSessionId) {
-        await loadSessions(true);
-        if (!state.currentSessionId) return;
+      if (!state.currentCompletionId) {
+        await loadCompletions(true);
+        if (!state.currentCompletionId) return;
       }
 
       els.promptInput.value = '';
@@ -1312,7 +1408,7 @@
     function bindEvents() {
       els.sessionsToggle.addEventListener('click', () => {
         openDrawer();
-        loadSessions(false);
+        loadCompletions(false);
       });
       els.drawerClose.addEventListener('click', closeDrawer);
       els.backdrop.addEventListener('click', closeDrawer);
@@ -1325,7 +1421,7 @@
       });
 
       els.clearChat.addEventListener('click', () => {
-        if (!confirm('确认清空当前任务的对话内容？')) return;
+        if (!confirm('确认清空当前角色的对话内容？')) return;
         state.messages = [];
         rerenderAll();
         scheduleSave('清空对话');
@@ -1334,10 +1430,11 @@
       els.toggleSettings.addEventListener('click', () => {
         const open = els.settingsPanel.classList.toggle('open');
         els.sysPromptBox.classList.toggle('open', open);
+        els.rolePromptBox.classList.toggle('open', open);
       });
 
-      els.newSessionBtn.addEventListener('click', () => createSession());
-      els.reloadSessionsBtn.addEventListener('click', () => loadSessions(false));
+      els.newSessionBtn.addEventListener('click', () => createCompletion());
+      els.reloadSessionsBtn.addEventListener('click', () => loadCompletions(false));
 
       els.sessionsList.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-action="delete"]');
@@ -1345,19 +1442,23 @@
         const id = item?.dataset?.id;
         if (btn && id) {
           e.stopPropagation();
-          deleteSession(id);
+          deleteCompletion(id);
           return;
         }
-        if (id) switchSession(id);
+        if (id) switchCompletion(id);
       });
 
       els.titleInput.addEventListener('input', () => {
-        updateSessionBadge();
-        refreshTaskNameInMessages();
+        updateCompletionBadge();
+        refreshCompletionTitleInMessages();
         scheduleSave('标题');
       });
       els.modelSelect.addEventListener('change', () => scheduleSave('模型'));
-      els.systemPrompt.addEventListener('input', () => scheduleSave('系统提示'));
+      els.systemPrompt.addEventListener('input', () => scheduleSave('系统描述'));
+      els.rolePrompt.addEventListener('input', () => scheduleSave('角色设定'));
+      els.userName.addEventListener('input', () => scheduleSave('用户名'));
+      els.userPrefix.addEventListener('input', () => scheduleSave('用户前缀'));
+      els.userSuffix.addEventListener('input', () => scheduleSave('用户后缀'));
       els.maxTokens.addEventListener('input', () => scheduleSave('参数'));
       els.temperature.addEventListener('input', () => scheduleSave('参数'));
       els.topP.addEventListener('input', () => scheduleSave('参数'));
@@ -1394,7 +1495,7 @@
     async function init() {
       bindEvents();
       await loadModels();
-      await loadSessions(true);
+      await loadCompletions(true);
     }
 
     init();

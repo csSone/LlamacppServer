@@ -1,12 +1,17 @@
 package org.mark.llamacpp.server.channel;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.mark.llamacpp.server.service.CompletionService;
+import org.mark.llamacpp.server.service.OpenAIService;
+import org.mark.llamacpp.server.struct.CharactorDataStruct;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -37,6 +42,8 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	private CompletionService completionService = new CompletionService();
 	
 	
+	private OpenAIService openAIService = new OpenAIService();
+	
 	
 	public CompletionRouterHandler() {
 		
@@ -51,9 +58,19 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "缺少URI");
 			return;
 		}
+		if(uri.startsWith("/v1/completions")) {
+			// TODO 在这里保存传入的提示词（聊天内容）
+			String content = msg.content().toString(StandardCharsets.UTF_8);
+			// 按照角色的title保存到本地
+			JsonObject requestJson = gson.fromJson(content, JsonObject.class);
+			// 
+			
+			System.err.println(requestJson);
+			
+		}
 		
-		if (uri.startsWith("/session")) {
-			this.handleSessionApi(ctx, msg, uri);
+		if (uri.startsWith("/api/chat/completion")) {
+			this.handleCompletionApi(ctx, msg, uri);
 			return;
 		}
 		ctx.fireChannelRead(msg.retain());
@@ -65,7 +82,7 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	 * @param msg
 	 * @param uri
 	 */
-	private void handleSessionApi(ChannelHandlerContext ctx, FullHttpRequest msg, String uri) {
+	private void handleCompletionApi(ChannelHandlerContext ctx, FullHttpRequest msg, String uri) {
 		try {
 			String path = uri;
 			String query = null;
@@ -76,40 +93,34 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			}
 
 			HttpMethod method = msg.method();
-
-			if ("/session/list".equals(path) && method == HttpMethod.GET) {
-				this.handleSessionList(ctx);
+			
+			if ("/api/chat/completion/list".equals(path) && HttpMethod.GET.equals(method)) {
+				this.handleCharactorList(ctx);
 				return;
 			}
 
-			if ("/session/create".equals(path) && method == HttpMethod.POST) {
+			if ("/api/chat/completion/create".equals(path) && HttpMethod.POST.equals(method)) {
 				String body = msg.content().toString(CharsetUtil.UTF_8);
-				this.handleSessionCreate(ctx, body);
+				this.handleCharactorCreate(ctx, body);
 				return;
 			}
 
-			if ("/session/get".equals(path) && method == HttpMethod.GET) {
-				String id = getQueryParam(query, "id");
-				this.handleSessionGet(ctx, id);
+			if ("/api/chat/completion/get".equals(path) && HttpMethod.GET.equals(method)) {
+				String name = getQueryParam(query, "name");
+				this.handleCharactorGet(ctx, name);
 				return;
 			}
 
-			if ("/session/save".equals(path) && method == HttpMethod.POST) {
-				String id = getQueryParam(query, "id");
+			if ("/api/chat/completion/save".equals(path) && HttpMethod.POST.equals(method)) {
+				String name = getQueryParam(query, "name");
 				String body = msg.content().toString(CharsetUtil.UTF_8);
-				this.handleSessionSave(ctx, id, body);
+				this.handleCharactorSave(ctx, name, body);
 				return;
 			}
 
-			if ("/session/switch".equals(path) && method == HttpMethod.POST) {
-				String id = getQueryParam(query, "id");
-				this.handleSessionSwitch(ctx, id);
-				return;
-			}
-
-			if ("/session/delete".equals(path) && method == HttpMethod.DELETE) {
-				String id = getQueryParam(query, "id");
-				this.handleSessionDelete(ctx, id);
+			if ("/api/chat/completion/delete".equals(path) && HttpMethod.DELETE.equals(method)) {
+				String id = getQueryParam(query, "name");
+				this.handleCharactorDelete(ctx, id);
 				return;
 			}
 
@@ -123,10 +134,14 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	 * 	列出全部的character，以JSON格式返回
 	 * @param ctx
 	 */
-	private void handleSessionList(ChannelHandlerContext ctx) {
-		//	TODO
-
+	private void handleCharactorList(ChannelHandlerContext ctx) {
+		List<CharactorDataStruct> list = this.completionService.listCharactor();
 		
+		Map<String, Object> response = new HashMap<String, Object>();
+		response.put("data", list);
+		response.put("success", true);
+		
+		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
 	}
 	
 	/**
@@ -134,17 +149,49 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	 * @param ctx
 	 * @param body
 	 */
-	private void handleSessionCreate(ChannelHandlerContext ctx, String body) {
-		// TODO
+	private void handleCharactorCreate(ChannelHandlerContext ctx, String body) {
+		CharactorDataStruct created = this.completionService.createDefaultCharactor();
+		try {
+			JsonObject json = gson.fromJson(body, JsonObject.class);
+			if (json != null && json.has("title")) {
+				String title = json.get("title").getAsString();
+				if (title != null && !title.trim().isEmpty()) {
+					created.setTitle(title.trim());
+					created.setUpdatedAt(System.currentTimeMillis());
+					this.completionService.saveCharactor(created);
+				}
+			}
+		} catch (Exception ignore) {
+		}
+		
+		Map<String, Object> response = new HashMap<String, Object>();
+		response.put("data", created);
+		response.put("success", true);
+		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
 	}
 	
 	/**
-	 * 	
+	 * 	获取指定角色的信息
 	 * @param ctx
 	 * @param id
 	 */
-	private void handleSessionGet(ChannelHandlerContext ctx, String id) {
-		// TODO
+	private void handleCharactorGet(ChannelHandlerContext ctx, String name) {
+		Map<String, Object> response = new HashMap<String, Object>();
+		
+		CharactorDataStruct charactorDataStruct =  this.completionService.getCharactor(name);
+		// 
+		if(charactorDataStruct == null) {
+			response.put("success", false);
+			response.put("message", "找不到指定的角色：" + name);
+			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.NOT_FOUND);
+			return;
+		}
+		// 
+		response.put("success", true);
+		response.put("message", "success");
+		response.put("data", charactorDataStruct);
+		
+		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
 	}
 	
 	/**
@@ -153,16 +200,54 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	 * @param id
 	 * @param body
 	 */
-	private void handleSessionSave(ChannelHandlerContext ctx, String id, String body) {
-		// TODO
+	private void handleCharactorSave(ChannelHandlerContext ctx, String name, String body) {
+		Map<String, Object> response = new HashMap<String, Object>();
+		try {
+			CharactorDataStruct charactorDataStruct = gson.fromJson(body, CharactorDataStruct.class);
+			try {
+				Long id = name == null ? null : Long.parseLong(name.trim());
+				if (id != null && id.longValue() > 0) {
+					if (charactorDataStruct != null && charactorDataStruct.getId() != id.longValue()) {
+						charactorDataStruct.setId(id.longValue());
+					}
+				}
+			} catch (Exception ignore) {
+			}
+			this.completionService.saveCharactor(charactorDataStruct);
+			response.put("success", true);
+			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+			return;
+		}catch (Exception e) {
+			e.printStackTrace();
+			response.put("success", false);
+			response.put("message", e.getMessage());
+			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+		}
 	}
 
-	private void handleSessionSwitch(ChannelHandlerContext ctx, String id) {
-		// TODO
-	}
-
-	private void handleSessionDelete(ChannelHandlerContext ctx, String id) {
-		// TODO
+	/**
+	 * 	删除一个角色
+	 * @param ctx
+	 * @param name
+	 */
+	private void handleCharactorDelete(ChannelHandlerContext ctx, String name) {
+		Map<String, Object> response = new HashMap<String, Object>();
+		try {
+			boolean ok = this.completionService.deleteCharactor(name);
+			response.put("success", ok);
+			if (!ok) {
+				response.put("message", "找不到指定的角色：" + name);
+				CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.NOT_FOUND);
+				return;
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+			response.put("success", false);
+			response.put("message", e.getMessage());
+			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+			return;
+		}
+		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
 	}
 
 	/**
