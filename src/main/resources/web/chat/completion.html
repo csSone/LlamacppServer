@@ -333,10 +333,41 @@
 
     .settings{
       display:none;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
     }
-    .settings.open{ display:grid; }
+    .settings.open{
+      display:flex;
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      padding: 14px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      overflow:auto;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .settings-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.30);
+    }
+    .settings-head .settings-title{
+      font-weight: 800;
+    }
+    .settings-body{
+      display:grid;
+      grid-template-columns: minmax(220px, 320px) minmax(320px, 1fr) minmax(320px, 1fr);
+      grid-template-areas: "left center right";
+      gap: 12px;
+      align-items: start;
+    }
+    .settings-left{ grid-area: left; display:flex; flex-direction:column; gap: 10px; }
+    .settings-center{ grid-area: center; display:flex; flex-direction:column; gap: 12px; }
+    .settings-right{ grid-area: right; display:flex; flex-direction:column; gap: 12px; }
     .setting{
       display:flex;
       align-items:center;
@@ -375,12 +406,41 @@
     }
     .sys-prompt.open{ display:flex; }
     .sys-prompt textarea{
-      min-height: 64px;
-      max-height: 180px;
+      min-height: 220px;
+      max-height: 62vh;
     }
     .sys-prompt .sys-title{
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .long-setting{
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.30);
+    }
+    .long-setting label{
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .long-setting textarea{
+      width: 100%;
+      resize: vertical;
+      min-height: 110px;
+      max-height: 40vh;
+      background: transparent;
+      border: none;
+      outline:none;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .long-setting textarea::placeholder{
+      color: rgba(148, 163, 184, 0.75);
     }
 
     .drawer{
@@ -543,7 +603,17 @@
 
     @media (max-width: 680px){
       .bubble{ max-width: 86%; }
-      .settings{ grid-template-columns: 1fr; }
+      .settings-body{
+        grid-template-columns: 1fr;
+        grid-template-areas: "left" "center" "right";
+      }
+    }
+
+    @media (max-width: 980px){
+      .settings-body{
+        grid-template-columns: 1fr;
+        grid-template-areas: "left" "center" "right";
+      }
     }
   </style>
 </head>
@@ -586,40 +656,62 @@
             </div>
           </div>
 
-          <div id="sysPromptBox" class="sys-prompt">
-            <div class="sys-title">系统描述（将加入到对话开头）</div>
-            <textarea id="systemPrompt" placeholder="例如：你是一个严谨的写作助手，输出中文，结构清晰…"></textarea>
-          </div>
-
-          <div id="rolePromptBox" class="sys-prompt">
-            <div class="sys-title">角色设定（将加入到对话开头）</div>
-            <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
-          </div>
-
           <div id="settingsPanel" class="settings">
-            <div class="setting">
-              <label for="userName">用户名字</label>
-              <input id="userName" type="text" placeholder="例如：我" />
+            <div class="settings-head">
+              <div class="settings-title">设置</div>
+              <button id="closeSettings" class="btn" type="button">关闭</button>
             </div>
-            <div class="setting">
-              <label for="userPrefix">用户消息前缀</label>
-              <input id="userPrefix" type="text" placeholder="可选" />
-            </div>
-            <div class="setting">
-              <label for="userSuffix">用户消息后缀</label>
-              <input id="userSuffix" type="text" placeholder="可选" />
-            </div>
-            <div class="setting">
-              <label for="maxTokens">max_tokens</label>
-              <input id="maxTokens" type="number" value="512" min="1" max="32768" />
-            </div>
-            <div class="setting">
-              <label for="temperature">temperature</label>
-              <input id="temperature" type="number" value="0.7" step="0.1" min="0" max="2" />
-            </div>
-            <div class="setting">
-              <label for="topP">top_p</label>
-              <input id="topP" type="number" value="1" step="0.05" min="0" max="1" />
+
+            <div class="settings-body">
+              <div class="settings-left">
+                <div class="setting">
+                  <label for="userName">用户名字</label>
+                  <input id="userName" type="text" placeholder="例如：我" />
+                </div>
+                <div class="setting">
+                  <label for="maxTokens">max_tokens</label>
+                  <input id="maxTokens" type="number" value="512" min="1" max="32768" />
+                </div>
+                <div class="setting">
+                  <label for="temperature">temperature</label>
+                  <input id="temperature" type="number" value="0.7" step="0.1" min="0" max="2" />
+                </div>
+                <div class="setting">
+                  <label for="topP">top_p</label>
+                  <input id="topP" type="number" value="1" step="0.05" min="0" max="1" />
+                </div>
+              </div>
+
+              <div class="settings-center">
+                <div id="sysPromptBox" class="sys-prompt">
+                  <div class="sys-title">系统描述（将加入到对话开头）</div>
+                  <textarea id="systemPrompt" placeholder="例如：你是一个严谨的写作助手，输出中文，结构清晰…"></textarea>
+                </div>
+
+                <div id="rolePromptBox" class="sys-prompt">
+                  <div class="sys-title">角色设定（将加入到对话开头）</div>
+                  <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
+                </div>
+              </div>
+
+              <div class="settings-right">
+                <div class="long-setting">
+                  <label for="userPrefix">用户消息前缀</label>
+                  <textarea id="userPrefix" placeholder="可选"></textarea>
+                </div>
+                <div class="long-setting">
+                  <label for="userSuffix">用户消息后缀</label>
+                  <textarea id="userSuffix" placeholder="可选"></textarea>
+                </div>
+                <div class="long-setting">
+                  <label for="assistantPrefix">助手消息前缀</label>
+                  <textarea id="assistantPrefix" placeholder="可选"></textarea>
+                </div>
+                <div class="long-setting">
+                  <label for="assistantSuffix">助手消息后缀</label>
+                  <textarea id="assistantSuffix" placeholder="可选"></textarea>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -691,6 +783,7 @@
 
       toggleSettings: document.getElementById('toggleSettings'),
       settingsPanel: document.getElementById('settingsPanel'),
+      closeSettings: document.getElementById('closeSettings'),
       sysPromptBox: document.getElementById('sysPromptBox'),
       systemPrompt: document.getElementById('systemPrompt'),
       rolePromptBox: document.getElementById('rolePromptBox'),
@@ -702,6 +795,8 @@
       userName: document.getElementById('userName'),
       userPrefix: document.getElementById('userPrefix'),
       userSuffix: document.getElementById('userSuffix'),
+      assistantPrefix: document.getElementById('assistantPrefix'),
+      assistantSuffix: document.getElementById('assistantSuffix'),
 
       autoScroll: document.getElementById('autoScroll'),
       saveHint: document.getElementById('saveHint'),
@@ -776,6 +871,14 @@
 
     function getUserMessageSuffix() {
       return (els.userSuffix.value == null ? '' : String(els.userSuffix.value));
+    }
+
+    function getAssistantMessagePrefix() {
+      return (els.assistantPrefix.value == null ? '' : String(els.assistantPrefix.value));
+    }
+
+    function getAssistantMessageSuffix() {
+      return (els.assistantSuffix.value == null ? '' : String(els.assistantSuffix.value));
     }
 
     function getCurrentCompletionTitle() {
@@ -988,16 +1091,18 @@
       const assistantName = getAssistantSpeakerName();
       const userPrefix = getUserMessagePrefix();
       const userSuffix = getUserMessageSuffix();
+      const assistantPrefix = getAssistantMessagePrefix();
+      const assistantSuffix = getAssistantMessageSuffix();
       for (const m of (Array.isArray(messages) ? messages : [])) {
         if (m.role === 'system') {
           lines.push('System: ' + (m.content || ''));
         } else if (m.role === 'user') {
           lines.push(userName + ': ' + userPrefix + (m.content || '') + userSuffix);
         } else if (m.role === 'assistant') {
-          lines.push(assistantName + ': ' + (m.content || ''));
+          lines.push(assistantName + ': ' + assistantPrefix + (m.content || '') + assistantSuffix);
         }
       }
-      lines.push(assistantName + ':');
+      lines.push(assistantName + ': ' + assistantPrefix);
       return lines.join('\n');
     }
 
@@ -1155,6 +1260,8 @@
         userName: (els.userName.value || '').trim(),
         userPrefix: (els.userPrefix.value == null ? '' : String(els.userPrefix.value)),
         userSuffix: (els.userSuffix.value == null ? '' : String(els.userSuffix.value)),
+        assistantPrefix: (els.assistantPrefix.value == null ? '' : String(els.assistantPrefix.value)),
+        assistantSuffix: (els.assistantSuffix.value == null ? '' : String(els.assistantSuffix.value)),
         params: currentParams(),
         history: state.messages
       });
@@ -1376,6 +1483,8 @@
       els.userName.value = (ext?.userName == null ? '' : String(ext.userName));
       els.userPrefix.value = (ext?.userPrefix == null ? '' : String(ext.userPrefix));
       els.userSuffix.value = (ext?.userSuffix == null ? '' : String(ext.userSuffix));
+      els.assistantPrefix.value = (ext?.assistantPrefix == null ? '' : String(ext.assistantPrefix));
+      els.assistantSuffix.value = (ext?.assistantSuffix == null ? '' : String(ext.assistantSuffix));
       if (ext?.params?.max_tokens != null) els.maxTokens.value = String(ext.params.max_tokens);
       if (ext?.params?.temperature != null) els.temperature.value = String(ext.params.temperature);
       if (ext?.params?.top_p != null) els.topP.value = String(ext.params.top_p);
@@ -1431,6 +1540,13 @@
         const open = els.settingsPanel.classList.toggle('open');
         els.sysPromptBox.classList.toggle('open', open);
         els.rolePromptBox.classList.toggle('open', open);
+        document.documentElement.style.overflow = open ? 'hidden' : '';
+      });
+      els.closeSettings.addEventListener('click', () => {
+        els.settingsPanel.classList.remove('open');
+        els.sysPromptBox.classList.remove('open');
+        els.rolePromptBox.classList.remove('open');
+        document.documentElement.style.overflow = '';
       });
 
       els.newSessionBtn.addEventListener('click', () => createCompletion());
@@ -1459,6 +1575,8 @@
       els.userName.addEventListener('input', () => scheduleSave('用户名'));
       els.userPrefix.addEventListener('input', () => scheduleSave('用户前缀'));
       els.userSuffix.addEventListener('input', () => scheduleSave('用户后缀'));
+      els.assistantPrefix.addEventListener('input', () => scheduleSave('助手前缀'));
+      els.assistantSuffix.addEventListener('input', () => scheduleSave('助手后缀'));
       els.maxTokens.addEventListener('input', () => scheduleSave('参数'));
       els.temperature.addEventListener('input', () => scheduleSave('参数'));
       els.topP.addEventListener('input', () => scheduleSave('参数'));
@@ -1474,6 +1592,13 @@
         if (e.key === 'Escape') {
           if (els.editModal.classList.contains('show')) {
             closeEditModal();
+            return;
+          }
+          if (els.settingsPanel.classList.contains('open')) {
+            els.settingsPanel.classList.remove('open');
+            els.sysPromptBox.classList.remove('open');
+            els.rolePromptBox.classList.remove('open');
+            document.documentElement.style.overflow = '';
             return;
           }
           if (els.drawer.classList.contains('open')) {
