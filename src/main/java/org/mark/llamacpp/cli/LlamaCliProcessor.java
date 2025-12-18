@@ -1,4 +1,4 @@
-package org.mark.llamacpp.server.tools;
+package org.mark.llamacpp.cli;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
