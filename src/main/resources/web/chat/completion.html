@@ -759,6 +759,7 @@
   </div>
 
   <script>
+    // 会话抽屉相关元素
     const els = {
       sessionsToggle: document.getElementById('sessionsToggle'),
       drawer: document.getElementById('sessionsDrawer'),
@@ -807,7 +808,7 @@
       editCancel: document.getElementById('editCancel'),
       editSave: document.getElementById('editSave')
     };
-
+    // 会话抽屉状态
     const state = {
       currentCompletionId: null,
       currentCreatedAt: 0,
@@ -848,15 +849,22 @@
 
     function formatTime(ts) {
       if (!ts) return '';
-      try { return new Date(ts).toLocaleString(); } catch (e) { return String(ts); }
+      try { 
+        return new Date(ts).toLocaleString(); 
+      } catch (e) 
+      { 
+        return String(ts); 
+      }
     }
+
+    //============================================================================================
 
     function normalizeSpeakerName(name, fallback) {
       const raw = (name == null ? '' : String(name)).trim();
       const cleaned = raw.replace(/[\r\n:]+/g, ' ').trim();
       return cleaned || fallback;
     }
-
+    
     function getUserSpeakerName() {
       return normalizeSpeakerName(els.userName.value, 'User');
     }
@@ -881,6 +889,8 @@
       return (els.assistantSuffix.value == null ? '' : String(els.assistantSuffix.value));
     }
 
+    //============================================================================================
+
     function getCurrentCompletionTitle() {
       const name = (els.titleInput.value || '').trim();
       return name || '默认角色';
@@ -904,8 +914,9 @@
         if (!msg) continue;
         const left = msgEl.querySelector('.meta > div:first-child');
         if (!left) continue;
-        const roleLabel = msg.role === 'user' ? '用户' : (msg.role === 'assistant' ? '助手' : '系统');
-        left.textContent = roleLabel + ' · ' + taskName;
+        //const roleLabel = msg.role === 'user' ? '用户' : (msg.role === 'assistant' ? '助手' : '系统');
+        //left.textContent = roleLabel + ' · ' + taskName;
+        left.textContent = taskName;
       }
     }
 
@@ -1152,7 +1163,7 @@
 
     function currentParams() {
       return {
-        max_tokens: Number(els.maxTokens.value || 512),
+        max_tokens: Number(els.maxTokens.value || 1024),
         temperature: Number(els.temperature.value || 0.7),
         top_p: Number(els.topP.value || 1)
       };
