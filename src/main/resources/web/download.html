@@ -852,13 +852,16 @@
                             <div class="download-meta">
                                 ${download.totalBytes ? `<span><i class="fas fa-hdd"></i> ${formatFileSize(download.totalBytes)}</span>` : ''}
                             </div>
-                            ${status === 'DOWNLOADING' ? `
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
-                                </div>
-                                <div class="download-meta" style="margin-top: 0.25rem;">
-                                    <span><i class="fas fa-percentage"></i> ${progressPercent}%</span>
-                                    ${download.downloadedBytes ? `<span><i class="fas fa-download"></i> ${formatFileSize(download.downloadedBytes)}</span>` : ''}
+                            ${status === 'DOWNLOADING' || status === 'PAUSED' || status === 'IDLE' ? `
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                                    </div>
+                                    <div class="download-meta" style="margin-top: 0.25rem;">
+                                        <span><i class="fas fa-percentage"></i> ${progressPercent}%</span>
+                                        ${download.downloadedBytes ? `<span><i class="fas fa-download"></i> ${formatFileSize(download.downloadedBytes)}</span>` : ''}
+                                        ${download.totalBytes ? `<span><i class="fas fa-hdd"></i> ${formatFileSize(download.totalBytes)}</span>` : ''}
+                                    </div>
                                 </div>
                             ` : ''}
                         </div>
@@ -884,7 +887,7 @@
         function updateDownloadProgress(taskId, data) {
             const index = downloads.findIndex(d => d.taskId === taskId);
             if (index >= 0) {
-                // 只更新进度相关字段，不改变其他状态
+                // 更新进度相关字段，不改变其他状态
                 downloads[index] = {
                     ...downloads[index],
                     downloadedBytes: data.downloadedBytes,
@@ -894,26 +897,56 @@
                     progressRatio: data.progressRatio
                 };
                 
-                // 只更新进度条和百分比，不重新渲染整个列表
+                // 更新进度条和百分比，不重新渲染整个列表
                 const downloadElement = document.getElementById(`download-${taskId}`);
                 if (downloadElement) {
                     const progressRatio = data.totalBytes > 0 ? (data.downloadedBytes / data.totalBytes) : 0;
                     const progressPercent = Math.round(progressRatio * 100);
                     
+                    // 查找或创建进度条容器
+                    let progressBarContainer = downloadElement.querySelector('.progress-bar-container');
+                    if (!progressBarContainer) {
+                        // 如果没有进度条容器，创建一个
+                        const detailsDiv = downloadElement.querySelector('.download-details');
+                        progressBarContainer = document.createElement('div');
+                        progressBarContainer.className = 'progress-bar-container';
+                        detailsDiv.appendChild(progressBarContainer);
+                    }
+                    
+                    // 查找或创建进度条
+                    let progressBar = progressBarContainer.querySelector('.progress-bar');
+                    if (!progressBar) {
+                        progressBar = document.createElement('div');
+                        progressBar.className = 'progress-bar';
+                        progressBarContainer.appendChild(progressBar);
+                    }
+                    
+                    // 查找或创建进度填充
+                    let progressFill = progressBar.querySelector('.progress-fill');
+                    if (!progressFill) {
+                        progressFill = document.createElement('div');
+                        progressFill.className = 'progress-fill';
+                        progressBar.appendChild(progressFill);
+                    }
+                    
                     // 更新进度条
-                    const progressFill = downloadElement.querySelector('.progress-fill');
-                    if (progressFill) {
-                        progressFill.style.width = `${progressPercent}%`;
+                    progressFill.style.width = `${progressPercent}%`;
+                    
+                    // 查找或创建进度信息
+                    let progressMeta = progressBarContainer.querySelector('.download-meta');
+                    if (!progressMeta) {
+                        progressMeta = document.createElement('div');
+                        progressMeta.className = 'download-meta';
+                        progressMeta.style.marginTop = '0.25rem';
+                        progressBarContainer.appendChild(progressMeta);
                     }
                     
                     // 更新百分比和已下载大小
-                    const progressMeta = downloadElement.querySelector('.download-meta[style*="margin-top: 0.25rem"]');
-                    if (progressMeta) {
-                        progressMeta.innerHTML = `
-                            <span><i class="fas fa-percentage"></i> ${progressPercent}%</span>
-                            <span><i class="fas fa-download"></i> ${formatFileSize(data.downloadedBytes)}</span>
-                        `;
-                    }
+                    progressMeta.innerHTML = `
+                        <span><i class="fas fa-percentage"></i> ${progressPercent}%</span>
+                        <span><i class="fas fa-download"></i> ${formatFileSize(data.downloadedBytes)}</span>
+                        ${data.totalBytes > 0 ? `<span><i class="fas fa-hdd"></i> ${formatFileSize(data.totalBytes)}</span>` : ''}
+                    `;
                 }
                 
                 // 更新统计信息

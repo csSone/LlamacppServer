@@ -22,6 +22,9 @@ public class DownloadTask {
     private int partsTotal;
     private int partsCompleted;
     private String errorMessage;
+    private String finalUri;
+    private String etag;
+    private boolean rangeSupported;
     private transient BasicDownloader downloader;
     private transient Thread downloadThread;
     private volatile boolean paused;
@@ -39,6 +42,9 @@ public class DownloadTask {
         this.partsTotal = 0;
         this.partsCompleted = 0;
         this.errorMessage = null;
+        this.finalUri = null;
+        this.etag = null;
+        this.rangeSupported = false;
         this.paused = false;
     }
     
@@ -117,6 +123,33 @@ public class DownloadTask {
     
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public String getFinalUri() {
+        return finalUri;
+    }
+    
+    public void setFinalUri(String finalUri) {
+        this.finalUri = finalUri;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public String getEtag() {
+        return etag;
+    }
+    
+    public void setEtag(String etag) {
+        this.etag = etag;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public boolean isRangeSupported() {
+        return rangeSupported;
+    }
+    
+    public void setRangeSupported(boolean rangeSupported) {
+        this.rangeSupported = rangeSupported;
         this.updatedAt = LocalDateTime.now();
     }
     

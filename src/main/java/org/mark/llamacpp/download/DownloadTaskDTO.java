@@ -20,6 +20,9 @@ public class DownloadTaskDTO {
     private int partsTotal;
     private int partsCompleted;
     private String errorMessage;
+    private String finalUri;
+    private String etag;
+    private boolean rangeSupported;
     
     public DownloadTaskDTO() {
         this.taskId = null;
@@ -27,6 +30,9 @@ public class DownloadTaskDTO {
         this.targetPath = null;
         this.fileName = null;
         this.createdAt = null;
+        this.finalUri = null;
+        this.etag = null;
+        this.rangeSupported = false;
     }
     
     public DownloadTaskDTO(DownloadTask task) {
@@ -42,6 +48,9 @@ public class DownloadTaskDTO {
         this.partsTotal = task.getPartsTotal();
         this.partsCompleted = task.getPartsCompleted();
         this.errorMessage = task.getErrorMessage();
+        this.finalUri = task.getFinalUri();
+        this.etag = task.getEtag();
+        this.rangeSupported = task.isRangeSupported();
     }
     
     public String getTaskId() {
@@ -161,6 +170,9 @@ public class DownloadTaskDTO {
             task.setPartsTotal(partsTotal);
             task.setPartsCompleted(partsCompleted);
             task.setErrorMessage(errorMessage);
+            task.setFinalUri(finalUri);
+            task.setEtag(etag);
+            task.setRangeSupported(rangeSupported);
             
         } catch (Exception e) {
             throw new RuntimeException("无法将DTO转换为DownloadTask", e);

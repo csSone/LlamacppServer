@@ -1,5 +1,8 @@
 package org.mark.llamacpp.download;
 
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -111,6 +114,26 @@ public class DownloadManager {
         if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING) {
             task.setPaused(true);
             
+            // 保存下载器的状态
+            if (task.getDownloader() != null) {
+                BasicDownloader downloader = task.getDownloader();
+                BasicDownloader.DownloadProgress progress = downloader.getProgress();
+                
+                // 保存下载进度
+                task.setDownloadedBytes(progress.getDownloadedBytes());
+                task.setPartsTotal(progress.getPartsTotal());
+                task.setPartsCompleted(progress.getPartsCompleted());
+                
+                // 保存下载器状态
+                if (downloader.getFinalUri() != null) {
+                    task.setFinalUri(downloader.getFinalUri().toString());
+                }
+                task.setEtag(downloader.getEtag());
+                task.setRangeSupported(downloader.isRangeSupported());
+                
+                downloader.requestStop();
+            }
+            
             // 中断下载线程
             Thread downloadThread = task.getDownloadThread();
             if (downloadThread != null && downloadThread.isAlive()) {
@@ -120,14 +143,8 @@ public class DownloadManager {
             task.setState(BasicDownloader.DownloadState.IDLE);
             this.repository.saveTask(task);
             
-            // 减少活跃下载计数
-            this.activeDownloads.decrementAndGet();
-            
             // 通知监听器
             notifyTaskPaused(task);
-            
-            // 尝试启动等待队列中的任务
-            processPendingTasks();
             
             return true;
         }
@@ -186,6 +203,17 @@ public class DownloadManager {
 			pause(taskId);
 		}
 
+		Thread downloadThread = task.getDownloadThread();
+		if (downloadThread != null && downloadThread.isAlive()) {
+			try {
+				downloadThread.join(2_000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+		
+		deleteLocalFiles(task);
+
 		// 从等待队列中移除
 		this.pendingTasks.remove(taskId);
 
@@ -196,6 +224,33 @@ public class DownloadManager {
 		this.notifyTaskDeleted(task);
 
 		return true;
+	}
+	
+	private void deleteLocalFiles(DownloadTask task) {
+		Path target = task.getFullTargetPath();
+		try {
+			Files.deleteIfExists(target);
+		} catch (IOException ignored) {
+		}
+		
+		Path dir = target.getParent();
+		if (dir == null || !Files.isDirectory(dir)) {
+			return;
+		}
+		
+		String partPrefix = target.getFileName().toString() + ".part";
+		try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
+			for (Path p : ds) {
+				String name = p.getFileName() != null ? p.getFileName().toString() : null;
+				if (name != null && name.startsWith(partPrefix)) {
+					try {
+						Files.deleteIfExists(p);
+					} catch (IOException ignored) {
+					}
+				}
+			}
+		} catch (IOException ignored) {
+		}
 	}
     
     /**
@@ -244,6 +299,7 @@ public class DownloadManager {
 
 		// 使用线程池执行下载任务
 		this.downloadExecutor.submit(() -> {
+			task.setDownloadThread(Thread.currentThread());
 			try {
 				task.setState(BasicDownloader.DownloadState.PREPARING);
 				notifyStateChanged(task, BasicDownloader.DownloadState.IDLE, BasicDownloader.DownloadState.PREPARING);
@@ -252,18 +308,46 @@ public class DownloadManager {
 				BasicDownloader downloader = new BasicDownloader(task.getUrl(), task.getFullTargetPath());
 				task.setDownloader(downloader);
 
-				// 获取文件信息
-				downloader.requestHead();
-				BasicDownloader.DownloadProgress headProgress = downloader.getProgress();
+				// 检查是否可以断点续传
+				boolean canResume = canResumeDownload(task);
+				
+				if (canResume) {
+					// 恢复下载器的状态
+					if (task.getFinalUri() != null) {
+						downloader.setFinalUri(java.net.URI.create(task.getFinalUri()));
+					}
+					downloader.setContentLenght(task.getTotalBytes());
+					downloader.setEtag(task.getEtag());
+					downloader.rangeSupported = task.isRangeSupported();
+					
+					task.setState(BasicDownloader.DownloadState.DOWNLOADING);
+					this.repository.saveTask(task);
+					notifyStateChanged(task, BasicDownloader.DownloadState.PREPARING,
+							BasicDownloader.DownloadState.DOWNLOADING);
 
-				task.setTotalBytes(headProgress.getTotalBytes());
-				task.setState(BasicDownloader.DownloadState.DOWNLOADING);
-				this.repository.saveTask(task);
-				notifyStateChanged(task, BasicDownloader.DownloadState.PREPARING,
-						BasicDownloader.DownloadState.DOWNLOADING);
+					// 断点续传下载
+					downloader.resume(task.getDownloadedBytes());
+				} else {
+					// 获取文件信息
+					downloader.requestHead();
+					BasicDownloader.DownloadProgress headProgress = downloader.getProgress();
 
-				// 开始下载
-				downloader.download();
+					// 保存下载器状态到任务
+					if (downloader.getFinalUri() != null) {
+						task.setFinalUri(downloader.getFinalUri().toString());
+					}
+					task.setTotalBytes(headProgress.getTotalBytes());
+					task.setEtag(downloader.getEtag());
+					task.setRangeSupported(downloader.isRangeSupported());
+					
+					task.setState(BasicDownloader.DownloadState.DOWNLOADING);
+					this.repository.saveTask(task);
+					notifyStateChanged(task, BasicDownloader.DownloadState.PREPARING,
+							BasicDownloader.DownloadState.DOWNLOADING);
+
+					// 开始下载
+					downloader.download();
+				}
 
 				// 下载完成
 				task.setState(BasicDownloader.DownloadState.COMPLETED);
@@ -290,6 +374,47 @@ public class DownloadManager {
 				processPendingTasks();
 			}
 		});
+	}
+	
+	/**
+	 * 检查是否可以断点续传
+	 * @param task 下载任务
+	 * @return 是否可以断点续传
+	 */
+	private boolean canResumeDownload(DownloadTask task) {
+		// 检查是否有已下载的内容
+		if (task.getDownloadedBytes() <= 0) {
+			return false;
+		}
+		
+		// 检查是否有必要的恢复信息
+		if (task.getFinalUri() == null || task.getTotalBytes() <= 0) {
+			return false;
+		}
+		
+		// 检查目标文件是否存在
+		java.nio.file.Path targetPath = task.getFullTargetPath();
+		if (!java.nio.file.Files.exists(targetPath)) {
+			// 对于多线程下载，检查是否有分片文件
+			if (task.isRangeSupported() && task.getPartsTotal() > 1) {
+				String fileName = targetPath.getFileName().toString();
+				java.nio.file.Path parentDir = targetPath.getParent();
+				if (parentDir != null) {
+					boolean hasAnyPart = false;
+					for (int i = 0; i < task.getPartsTotal(); i++) {
+						java.nio.file.Path partFile = parentDir.resolve(fileName + ".part" + i);
+						if (java.nio.file.Files.exists(partFile)) {
+							hasAnyPart = true;
+							break;
+						}
+					}
+					return hasAnyPart;
+				}
+			}
+			return false;
+		}
+		
+		return true;
 	}
     
 	/**

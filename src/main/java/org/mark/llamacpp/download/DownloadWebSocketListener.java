@@ -30,9 +30,14 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
     
     @Override
     public void onProgressUpdated(DownloadTask task, BasicDownloader.DownloadProgress progress) {
-        // 只广播正在下载的任务的进度
-        if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING) {
-            webSocketManager.sendDownloadProgressEvent(
+        // 广播所有任务的进度，包括正在下载和暂停的任务
+    	/*
+        if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING ||
+            task.getState() == BasicDownloader.DownloadState.IDLE) {
+            
+        }
+        */
+        this.webSocketManager.sendDownloadProgressEvent(
                 task.getTaskId(),
                 progress.getDownloadedBytes(),
                 progress.getTotalBytes(),
@@ -40,7 +45,6 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
                 progress.getPartsTotal(),
                 task.getProgressRatio()
             );
-        }
     }
     
     @Override
