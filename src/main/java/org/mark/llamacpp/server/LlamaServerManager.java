@@ -676,6 +676,65 @@ public class LlamaServerManager {
 	
 	
 	/**
+	 * 	获取Slots信息
+	 * @param modelId
+	 * @return
+	 */
+	public ApiResponse handleModelSlotsGet(String modelId) {
+		try {
+			if (!this.getLoadedProcesses().containsKey(modelId)) {
+				return ApiResponse.error("模型未加载: " + modelId);
+			}
+			Integer port = this.getModelPort(modelId);
+			if (port == null) {
+				return ApiResponse.error("未找到模型端口: " + modelId);
+			}
+			String targetUrl = String.format("http://localhost:%d/slots", port);
+			URL url = URI.create(targetUrl).toURL();
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			connection.setRequestMethod("GET");
+			connection.setConnectTimeout(30000);
+			connection.setReadTimeout(30000);
+			int responseCode = connection.getResponseCode();
+			String responseBody;
+			if (responseCode >= 200 && responseCode < 300) {
+				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+					StringBuilder sb = new StringBuilder();
+					String line;
+					while ((line = br.readLine()) != null) {
+						sb.append(line);
+					}
+					responseBody = sb.toString();
+				}
+				Object parsed = gson.fromJson(responseBody, Object.class);
+				Map<String, Object> data = new HashMap<>();
+				data.put("modelId", modelId);
+				data.put("slots", parsed);
+				
+				connection.disconnect();
+				return ApiResponse.success(data);
+			} else {
+				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
+					StringBuilder sb = new StringBuilder();
+					String line;
+					while ((line = br.readLine()) != null) {
+						sb.append(line);
+					}
+					responseBody = sb.toString();
+				}
+				connection.disconnect();
+				return ApiResponse.error("获取slots失败: " + responseBody);
+			}
+		} catch (Exception e) {
+			LOGGER.error("获取slots时发生错误", e);
+			return ApiResponse.error("获取slots失败: " + e.getMessage());
+		}
+	}
+	
+	
+	
+	
+	/**
 	 * 	
 	 * @param modelId
 	 * @param slot

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.HttpURLConnection;
@@ -279,85 +280,32 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	 * 	获取指定模型的slots信息
 	 */
 	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) {
-		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
-			String query = request.uri();
-			String modelId = null;
-			String failOnNoSlot = null;
-			if (query.contains("?")) {
-				String q = query.substring(query.indexOf("?") + 1);
-				// modelId
-				if (q.contains("modelId=")) {
-					String tmp = q.substring(q.indexOf("modelId=") + 8);
-					if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
-					modelId = URLDecoder.decode(tmp, "UTF-8");
-				}
-				// fail_on_no_slot
-				if (q.contains("fail_on_no_slot=")) {
-					String tmp = q.substring(q.indexOf("fail_on_no_slot=") + 16);
-					if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
-					failOnNoSlot = URLDecoder.decode(tmp, "UTF-8");
-				}
-			}
-			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
-				return;
-			}
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (!manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
-				return;
-			}
-			Integer port = manager.getModelPort(modelId);
-			if (port == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到模型端口: " + modelId));
-				return;
-			}
-			String endpoint = "/slots";
-			if (failOnNoSlot != null && !failOnNoSlot.isEmpty()) {
-				endpoint += "?fail_on_no_slot=" + failOnNoSlot;
-			}
-			String targetUrl = String.format("http://localhost:%d%s", port, endpoint);
-			URL url = URI.create(targetUrl).toURL();
-			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-			connection.setRequestMethod("GET");
-			connection.setConnectTimeout(30000);
-			connection.setReadTimeout(30000);
-			int responseCode = connection.getResponseCode();
-			String responseBody;
-			if (responseCode >= 200 && responseCode < 300) {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-					StringBuilder sb = new StringBuilder();
-					String line;
-					while ((line = br.readLine()) != null) {
-						sb.append(line);
-					}
-					responseBody = sb.toString();
-				}
-				Object parsed = gson.fromJson(responseBody, Object.class);
-				Map<String, Object> data = new HashMap<>();
-				data.put("modelId", modelId);
-				data.put("slots", parsed);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-			} else {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
-					StringBuilder sb = new StringBuilder();
-					String line;
-					while ((line = br.readLine()) != null) {
-						sb.append(line);
-					}
-					responseBody = sb.toString();
-				}
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取slots失败: " + responseBody));
-			}
-			connection.disconnect();
-		} catch (Exception e) {
-			logger.error("获取slots时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取slots失败: " + e.getMessage()));
+		if (request.method() != HttpMethod.GET) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+			return;
 		}
+		String query = request.uri();
+		String modelId = null;
+		if (query.contains("?")) {
+			String q = query.substring(query.indexOf("?") + 1);
+			// modelId
+			if (q.contains("modelId=")) {
+				String tmp = q.substring(q.indexOf("modelId=") + 8);
+				if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
+				try {
+					modelId = URLDecoder.decode(tmp, "UTF-8");
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		if (modelId == null || modelId.trim().isEmpty()) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+			return;
+		}
+		// 调别的实现然后响应
+		ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
+		LlamaServer.sendJsonResponse(ctx, response);
 	}
 	
 	/**
