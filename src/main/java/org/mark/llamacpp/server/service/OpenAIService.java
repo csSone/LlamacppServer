@@ -62,7 +62,7 @@ public class OpenAIService {
 	/**
 	 * 	线程池。
 	 */
-	private Executor worker = Executors.newSingleThreadExecutor();
+	private Executor worker = Executors.newFixedThreadPool(4);
 
 	
 	public OpenAIService() {

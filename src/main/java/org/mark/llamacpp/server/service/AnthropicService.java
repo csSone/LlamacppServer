@@ -30,15 +30,15 @@ import java.util.concurrent.Executors;
 import org.mark.llamacpp.server.LlamaCppProcess;
 
 /**
- * Handles Anthropic API requests (e.g., /v1/messages) by adapting them to OpenAI format
- * and forwarding to local llama.cpp server.
+ * 	Anthropic API
+ * 	实际上基本没有用过
  */
 public class AnthropicService {
 
     private static final Logger logger = LoggerFactory.getLogger(AnthropicService.class);
     private static final Gson gson = new Gson();
     private static final String ANTHROPIC_API_KEY = "123456";
-    private static final Executor worker = Executors.newSingleThreadExecutor();
+    private static final Executor worker = Executors.newFixedThreadPool(4);
     
 	/**
 	 * 	存储当前通道正在处理的模型链接，用于在连接关闭时停止对应的模型进程
