@@ -363,17 +363,21 @@
     .composer {
       border-top: 1px solid var(--border);
       background: var(--panel-2);
-      padding: 10px 12px;
+      padding: 8px 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .model-row {
-      display: flex;
+      display: none;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .model-row.visible {
+      display: flex;
     }
 
     .composer select,
@@ -389,7 +393,7 @@
     .composer textarea {
       width: 100%;
       resize: vertical;
-      min-height: 88px;
+      min-height: 64px;
       max-height: 240px;
       background: rgba(2, 6, 23, 0.35);
       border: 1px solid var(--border);
@@ -398,6 +402,24 @@
       outline: none;
       line-height: 1.5;
       font-size: 14px;
+    }
+
+    .prompt-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .prompt-row textarea {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .prompt-actions {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      flex: 0 0 auto;
     }
 
     .toolbar {
@@ -886,13 +908,18 @@
             </div>
           </div>
 
-          <textarea id="promptInput" placeholder="输入消息…（Ctrl+Enter 发送）"></textarea>
+          <div class="prompt-row">
+            <button id="modelRowToggle" class="btn icon-btn ghost" type="button" title="显示模型栏" aria-label="显示模型栏" aria-expanded="false">☰</button>
+            <textarea id="promptInput" placeholder="输入消息…（Ctrl+Enter 发送）"></textarea>
+            <div class="prompt-actions">
+              <button id="sendBtn" class="btn primary" type="button">发送</button>
+              <button id="stopBtn" class="btn danger" type="button" disabled>停止</button>
+            </div>
+          </div>
 
           <div class="toolbar">
             <div class="hint" id="saveHint"></div>
             <div class="spacer"></div>
-            <button id="sendBtn" class="btn primary" type="button">发送</button>
-            <button id="stopBtn" class="btn danger" type="button" disabled>停止</button>
           </div>
         </div>
       </div>
@@ -963,6 +990,8 @@
       titleInput: document.getElementById('titleInput'),
       chatList: document.getElementById('chatList'),
       promptInput: document.getElementById('promptInput'),
+      modelRowToggle: document.getElementById('modelRowToggle'),
+      modelRow: document.querySelector('.model-row'),
 
       modelSelect: document.getElementById('modelSelect'),
       refreshModels: document.getElementById('refreshModels'),
@@ -1284,7 +1313,8 @@
 
       right.appendChild(timeEl);
       right.appendChild(actions);
-      meta.appendChild(left);
+      // 不太适合手机端，先注释掉
+      //meta.appendChild(left);
       meta.appendChild(right);
 
       const content = document.createElement('div');
@@ -1954,6 +1984,14 @@
       });
       els.drawerClose.addEventListener('click', closeDrawer);
       els.backdrop.addEventListener('click', closeDrawer);
+
+      els.modelRowToggle.addEventListener('click', () => {
+        const open = els.modelRow.classList.toggle('visible');
+        els.modelRowToggle.textContent = open ? '×' : '☰';
+        els.modelRowToggle.title = open ? '隐藏模型栏' : '显示模型栏';
+        els.modelRowToggle.setAttribute('aria-label', open ? '隐藏模型栏' : '显示模型栏');
+        els.modelRowToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
 
       els.refreshModels.addEventListener('click', () => loadModels());
 
