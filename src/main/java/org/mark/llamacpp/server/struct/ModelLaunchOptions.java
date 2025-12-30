@@ -112,16 +112,26 @@ public class ModelLaunchOptions {
     	// 判断要使用的设备
     	if (device != null && !device.isEmpty()) {
     		// 1. 单个设备运行
-    		if (device.size() == 1 && "All".equals(device.get(0))) {
-    			// 模型跨 GPU 的分割策略，单GPU时不适用
-    			command.add("-sm");
-    			command.add("none");
-                command.add("-mg"); 
-                if (mg != null && mg >= 0) { 
-                    command.add(String.valueOf(mg)); 
-                }else{
-                    command.add("0"); 
-                }
+    		if (device.size() == 1) {
+    			// 如果是ALL，那说明是默认策略
+    			if (!"All".equals(device.get(0))) {
+        			// 模型跨 GPU 的分割策略，单GPU时不适用
+        			command.add("-sm");
+        			command.add("none");
+        			command.add("-dev");
+                    command.add(device.get(0));
+                    
+                    command.add("-mg");
+                    command.add("0");
+                    /*
+                    command.add("-mg"); 
+                    if (mg != null && mg >= 0) { 
+                        command.add(String.valueOf(mg)); 
+                    }else{
+                        command.add("0"); 
+                    }
+                    */
+    			}
     		}
     		// 2. 多个设备运行
     		if(device.size() > 1) {
