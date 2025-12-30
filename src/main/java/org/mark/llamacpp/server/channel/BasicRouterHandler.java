@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.HttpURLConnection;
@@ -29,6 +28,7 @@ import org.mark.llamacpp.server.ConfigManager;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
 import org.mark.llamacpp.server.struct.LoadModelRequest;
@@ -50,34 +50,26 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.CharsetUtil;
 
-
-
 /**
- * 	基本路由处理器。
- * 	实现本项目用到的API端点。
+ * 基本路由处理器。 实现本项目用到的API端点。
  */
 public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-	
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(BasicRouterHandler.class);
 
 	private static final Gson gson = new Gson();
 
-	
 	public BasicRouterHandler() {
-		
-		
+
 	}
-	
-	
-	
+
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
 		if (!request.decoderResult().isSuccess()) {
 			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求解析失败");
 			return;
 		}
-		
+
 		// 1.
 		String uri = request.uri();
 		logger.info("收到请求: {} {}", request.method().name(), uri);
@@ -86,59 +78,70 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			ctx.close();
 			return;
 		}
-		
+
 		// 处理模型API请求
 		if (uri.startsWith("/api/") || uri.startsWith("/v1") || uri.startsWith("/session")) {
 			try {
 				this.handleApiRequest(ctx, request, uri);
-			}catch (Exception e) {
+			} catch (Exception e) {
+				// 错误响应
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 				e.printStackTrace();
 			}
 			return;
 		}
-		
-		// 
-		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED, "仅支持GET请求");
-			return;
-		}
-		
-		// 解码URI
-		String path = URLDecoder.decode(uri, "UTF-8");
-		boolean isRootRequest = path.equals("/");
 
-		if (isRootRequest) {
-			// 只有当用户访问根路径时，才返回首页
-			path = "/index.html";
-		}
-		// 处理根路径
-		if (path.startsWith("/")) {
-			// path = path.substring(1);
-		}
-		URL url = LlamaServer.class.getResource("/web" + path);
-		
-		if (url == null) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
-			return;
-		}
-		// 对于非API请求，只允许访问静态文件，不允许目录浏览
-		// 首先尝试从resources目录获取文件
-		File file = new File(url.getFile().replace("%20", " "));
-		if (!file.exists()) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
-			return;
-		}
-		if (file.isDirectory()) {
-			// 不允许直接访问目录，必须通过API
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.FORBIDDEN, "不允许直接访问目录，请使用API获取文件列表");
-		} else {
-			LlamaServer.sendFile(ctx, file);
+		try {
+			// 断言一下请求方式
+			this.assertRequestMethod(request.method() != HttpMethod.GET, "仅支持GET请求");
+			// 解码URI
+			String path = URLDecoder.decode(uri, "UTF-8");
+			boolean isRootRequest = path.equals("/");
+
+			if (isRootRequest) {
+				// 只有当用户访问根路径时，才返回首页
+				path = "/index.html";
+			}
+			// 处理根路径
+			if (path.startsWith("/")) {
+				// path = path.substring(1);
+			}
+			URL url = LlamaServer.class.getResource("/web" + path);
+
+			if (url == null) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
+				return;
+			}
+			// 对于非API请求，只允许访问静态文件，不允许目录浏览
+			// 首先尝试从resources目录获取文件
+			File file = new File(url.getFile().replace("%20", " "));
+			if (!file.exists()) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
+				return;
+			}
+			if (file.isDirectory()) {
+				// 不允许直接访问目录，必须通过API
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.FORBIDDEN, "不允许直接访问目录，请使用API获取文件列表");
+			} else {
+				LlamaServer.sendFile(ctx, file);
+			}
+		} catch (RequestMethodException e) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
+		} catch (Exception e) {
+			logger.error("处理静态文件请求时发生错误", e);
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
 		}
 	}
-	
-	
-	
-	private void handleApiRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+
+	/**
+	 * 处理API请求。
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @param uri
+	 * @throws
+	 */
+	private void handleApiRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) throws RequestMethodException {
 		// 已加载模型API
 		if (uri.startsWith("/api/models/loaded")) {
 			this.handleLoadedModelsRequest(ctx, request);
@@ -208,7 +211,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 		// 对应URL-GET：/metrics
 		// 客户端传入modelId作为参数
-		if(uri.startsWith("/api/models/metrics")) {
+		if (uri.startsWith("/api/models/metrics")) {
 			this.handleModelMetrics(ctx, request);
 			return;
 		}
@@ -218,7 +221,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return;
 		}
 		// 列出可用的设备，基于当前选择的llamacpp
-		if( uri.startsWith("/api/model/device/list")) {
+		if (uri.startsWith("/api/model/device/list")) {
 			this.handleDeviceListRequest(ctx, request);
 			return;
 		}
@@ -231,6 +234,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			this.handleSettingRequest(ctx, request);
 			return;
 		}
+		// ==============================================================
 		if (uri.startsWith("/api/llamacpp/add")) {
 			this.handleLlamaCppAdd(ctx, request);
 			return;
@@ -267,116 +271,130 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		ctx.fireChannelRead(request.retain());
 	}
 
+	/**
+	 * 获取指定模型的slots信息
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 
-
-	
-	/**
-	 * 	获取指定模型的slots信息
-	 */
-	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) {
-		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-			return;
-		}
-		String query = request.uri();
-		String modelId = null;
-		if (query.contains("?")) {
-			String q = query.substring(query.indexOf("?") + 1);
-			// modelId
-			if (q.contains("modelId=")) {
-				String tmp = q.substring(q.indexOf("modelId=") + 8);
-				if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
-				try {
-					modelId = URLDecoder.decode(tmp, "UTF-8");
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		if (modelId == null || modelId.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
-			return;
-		}
-		// 调别的实现然后响应
-		ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
-		LlamaServer.sendJsonResponse(ctx, response);
-	}
-	
-	/**
-	 * 	保存指定模型指定slot的缓存
-	 */
-	private void handleModelSlotsSave(ChannelHandlerContext ctx, FullHttpRequest request) {
-		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-			return;
-		}
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-			return;
-		}
-		JsonObject json = gson.fromJson(content, JsonObject.class);
-		if (json == null) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
-			return;
-		}
-		String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
-		Integer slotId = null;
-		if (json.has("slotId")) {
-			slotId = json.get("slotId").getAsInt();
-		}
-		String fileName = modelId + "_" + slotId + ".bin";
-		ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsSave(modelId, slotId.intValue(), fileName);
-		// 响应消息。
-		LlamaServer.sendJsonResponse(ctx, response);
-	}
-	
-	/**
-	 * 	加载指定模型指定slot的缓存
-	 */
-	private void handleModelSlotsLoad(ChannelHandlerContext ctx, FullHttpRequest request) {
-		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-			return;
-		}
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-			return;
-		}
-		JsonObject json = gson.fromJson(content, JsonObject.class);
-		if (json == null) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
-			return;
-		}
-		// 解析请求
-		String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
-		Integer slotId = null;
-		if (json.has("slotId")) {
-			slotId = json.get("slotId").getAsInt();
-		}
-		String fileName = modelId + "_" + slotId.intValue() + ".bin";
-		ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsLoad(modelId, slotId.intValue(), fileName);
-		// 响应消息。
-		LlamaServer.sendJsonResponse(ctx, response);
-	}
-	
-	private void handleModelMetrics(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String modelId = null;
-			if (query.contains("?")) {
-				String q = query.substring(query.indexOf("?") + 1);
-				if (q.contains("modelId=")) {
-					String tmp = q.substring(q.indexOf("modelId=") + 8);
-					if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
-					modelId = URLDecoder.decode(tmp, "UTF-8");
-				}
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+			
+			if (modelId == null || modelId.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
 			}
+			// 调别的实现然后响应
+			ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
+			LlamaServer.sendJsonResponse(ctx, response);
+		} catch (Exception e) {
+			logger.error("获取模型slots信息时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型slots信息失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 保存指定模型指定slot的缓存
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelSlotsSave(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return;
+			}
+			JsonObject json = gson.fromJson(content, JsonObject.class);
+			if (json == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
+			Integer slotId = null;
+			if (json.has("slotId")) {
+				slotId = json.get("slotId").getAsInt();
+			}
+			String fileName = modelId + "_" + slotId + ".bin";
+			ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsSave(modelId, slotId.intValue(),
+					fileName);
+			// 响应消息。
+			LlamaServer.sendJsonResponse(ctx, response);
+		} catch (Exception e) {
+			logger.error("保存模型slots缓存时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型slots缓存失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 加载指定模型指定slot的缓存
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelSlotsLoad(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return;
+			}
+			JsonObject json = gson.fromJson(content, JsonObject.class);
+			if (json == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			// 解析请求
+			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
+			Integer slotId = null;
+			if (json.has("slotId")) {
+				slotId = json.get("slotId").getAsInt();
+			}
+			String fileName = modelId + "_" + slotId.intValue() + ".bin";
+			ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsLoad(modelId, slotId.intValue(),
+					fileName);
+			// 响应消息。
+			LlamaServer.sendJsonResponse(ctx, response);
+		} catch (Exception e) {
+			logger.error("加载模型slots缓存时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型slots缓存失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 加载指定模型指定slot的缓存
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelMetrics(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
+		try {
+			String query = request.uri();
+			String modelId = null;
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+			
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -400,7 +418,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			int responseCode = connection.getResponseCode();
 			String responseBody;
 			if (responseCode >= 200 && responseCode < 300) {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+				try (BufferedReader br = new BufferedReader(
+						new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
 					StringBuilder sb = new StringBuilder();
 					String line;
 					while ((line = br.readLine()) != null) {
@@ -414,7 +433,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				data.put("metrics", parsed);
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 			} else {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
+				try (BufferedReader br = new BufferedReader(
+						new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
 					StringBuilder sb = new StringBuilder();
 					String line;
 					while ((line = br.readLine()) != null) {
@@ -430,23 +450,24 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取metrics失败: " + e.getMessage()));
 		}
 	}
-	
-	private void handleModelProps(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 处理props请求
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelProps(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String modelId = null;
-			if (query.contains("?")) {
-				String q = query.substring(query.indexOf("?") + 1);
-				if (q.contains("modelId=")) {
-					String tmp = q.substring(q.indexOf("modelId=") + 8);
-					if (tmp.contains("&")) tmp = tmp.substring(0, tmp.indexOf("&"));
-					modelId = URLDecoder.decode(tmp, "UTF-8");
-				}
-			}
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+			
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -470,7 +491,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			int responseCode = connection.getResponseCode();
 			String responseBody;
 			if (responseCode >= 200 && responseCode < 300) {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+				try (BufferedReader br = new BufferedReader(
+						new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
 					StringBuilder sb = new StringBuilder();
 					String line;
 					while ((line = br.readLine()) != null) {
@@ -484,7 +506,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				data.put("props", parsed);
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 			} else {
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
+				try (BufferedReader br = new BufferedReader(
+						new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
 					StringBuilder sb = new StringBuilder();
 					String line;
 					while ((line = br.readLine()) != null) {
@@ -500,29 +523,35 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取props失败: " + e.getMessage()));
 		}
 	}
-	
-	
+
 	/**
 	 * 处理已加载模型请求
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleLoadedModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleLoadedModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
 		try {
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			
+
 			// 获取已加载的进程信息
 			Map<String, LlamaCppProcess> loadedProcesses = manager.getLoadedProcesses();
-			
+
 			// 获取所有模型信息
 			List<GGUFModel> allModels = manager.listModel();
-			
+
 			// 构建已加载模型列表
 			List<Map<String, Object>> loadedModels = new ArrayList<>();
-			
+
 			for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
 				String modelId = entry.getKey();
 				LlamaCppProcess process = entry.getValue();
-				
+
 				// 查找对应的模型信息
 				GGUFModel modelInfo = null;
 				for (GGUFModel model : allModels) {
@@ -531,22 +560,23 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 						break;
 					}
 				}
-				
+
 				// 构建模型信息
 				Map<String, Object> modelData = new HashMap<>();
 				modelData.put("id", modelId);
-				modelData.put("name", modelInfo != null ?
-					(modelInfo.getPrimaryModel() != null ?
-					 modelInfo.getPrimaryModel().getStringValue("general.name") : "未知模型") : "未知模型");
+				modelData.put("name",
+						modelInfo != null ? (modelInfo.getPrimaryModel() != null
+								? modelInfo.getPrimaryModel().getStringValue("general.name")
+								: "未知模型") : "未知模型");
 				modelData.put("status", process.isRunning() ? "running" : "stopped");
 				modelData.put("port", manager.getModelPort(modelId));
 				modelData.put("pid", process.getPid());
 				modelData.put("size", modelInfo != null ? modelInfo.getSize() : 0);
 				modelData.put("path", modelInfo != null ? modelInfo.getPath() : "");
-				
+
 				loadedModels.add(modelData);
 			}
-			
+
 			// 构建响应
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
@@ -557,13 +587,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取已加载模型失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理模型列表请求
+	 * 处理模型列表请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
 		try {
 			// 获取LlamaServerManager实例并获取模型列表
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -657,17 +692,19 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, errorResponse);
 		}
 	}
-	
+
 	/**
 	 * 估算模型显存需求
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleVramEstimateRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleVramEstimateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
-
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -730,18 +767,19 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("估算显存失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	修改别名。
+	 * 修改别名。
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleSetModelAliasRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleSetModelAliasRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -781,12 +819,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 	}
 
-	private void handleModelFavouriteRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	/**
+	 * 偏好模型的请求
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelFavouriteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -826,13 +870,17 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型喜好失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理强制刷新模型列表请求
+	 * 处理强制刷新模型列表请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleRefreshModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleRefreshModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持POST请求");
 		try {
 			// 获取LlamaServerManager实例并强制刷新模型列表
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -841,7 +889,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			// 构建响应
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
-			//response.put("models", modelList);
+			// response.put("models", modelList);
 			response.put("refreshed", true); // 标识这是刷新成功
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
@@ -852,20 +900,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, errorResponse);
 		}
 	}
-	
+
 	/**
-	 * 	处理加载模型的请求
+	 * 处理加载模型的请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleLoadModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleLoadModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			// 只支持POST请求
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
-
 			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
@@ -903,21 +949,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型失败: " + e.getMessage()));
 		}
 	}
-	
-	
+
 	/**
-	 * 	处理停止模型请求
+	 * 处理停止模型请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleStopModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleStopModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			// 只支持POST请求
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
-
 			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
@@ -954,27 +997,23 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("停止模型失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理获取模型启动配置请求
+	 * 处理获取模型启动配置请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleModelConfigRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleModelConfigRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");		
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String modelId = null;
-			if (query.contains("?modelId=")) {
-				modelId = query.substring(query.indexOf("?modelId=") + 9);
-				if (modelId.contains("&")) {
-					modelId = modelId.substring(0, modelId.indexOf("&"));
-				}
-				modelId = URLDecoder.decode(modelId, "UTF-8");
-			}
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -990,13 +1029,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型启动配置失败: " + e.getMessage()));
 		}
 	}
-	
-	private void handleModelConfigSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 设置模型的启动参数
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelConfigSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -1033,22 +1077,24 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型启动配置失败: " + e.getMessage()));
 		}
 	}
-	
-	private void handleModelDetailsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 处理器模型详情的请求
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelDetailsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String modelId = null;
-			if (query.contains("?modelId=")) {
-				modelId = query.substring(query.indexOf("?modelId=") + 9);
-				if (modelId.contains("&")) {
-					modelId = modelId.substring(0, modelId.indexOf("&"));
-				}
-				modelId = URLDecoder.decode(modelId, "UTF-8");
-			}
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+			
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -1105,20 +1151,19 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型详情失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理停止服务请求
+	 * 处理停止服务请求
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleShutdownRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleShutdownRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		
 		try {
-			// 只支持POST请求
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
-
 			logger.info("收到停止服务请求");
 
 			// 先发送响应，然后再执行关闭操作
@@ -1147,9 +1192,10 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("停止服务失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理设置请求
+	 * 处理设置请求
+	 * 
 	 * @param ctx
 	 * @param request
 	 */
@@ -1167,7 +1213,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				response.put("success", true);
 				response.put("data", data);
 				LlamaServer.sendJsonResponse(ctx, response);
-			} else if (request.method() == HttpMethod.POST) {
+			} else 
+			if (request.method() == HttpMethod.POST) {
 				// POST请求：保存设置
 				String content = request.content().toString(CharsetUtil.UTF_8);
 				if (content == null || content.trim().isEmpty()) {
@@ -1219,18 +1266,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理设置请求失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	
+	 * 移除一个llamcpp目录
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleLlamaCppRemove(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleLlamaCppRemove(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -1267,18 +1314,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除llama.cpp路径失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	
+	 * 返回全部的llamacpp目录
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleLlamaCppList(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleLlamaCppList(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			Path configFile = LlamaServer.getLlamaCppConfigPath();
 			LlamaCppConfig cfg = LlamaServer.readLlamaCppConfig(configFile);
 			List<String> paths = cfg.getPaths();
@@ -1291,18 +1338,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取llama.cpp路径列表失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	
+	 * 添加llamacpp目录
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleLlamaCppAdd(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleLlamaCppAdd(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -1340,18 +1387,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加llama.cpp路径失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
+	 * 处理控制台的请求。
 	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleSysConsoleRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleSysConsoleRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			Path logPath = LlamaServer.getConsoleLogPath();
 			File file = logPath.toFile();
 			if (!file.exists()) {
@@ -1377,19 +1424,19 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取控制台日志失败: " + e.getMessage()));
 		}
 	}
-	
-    
-    /**
-     * 	
-     * @param ctx
-     * @param request
-     */
-	private void handleModelBenchmark(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 执行bench测试
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelBenchmark(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -1538,7 +1585,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			}
 			File benchFile = new File(llamaBinPath, executableName);
 			if (!benchFile.exists() || !benchFile.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("llama-bench可执行文件不存在: " + benchFile.getAbsolutePath()));
+				LlamaServer.sendJsonResponse(ctx,
+						ApiResponse.error("llama-bench可执行文件不存在: " + benchFile.getAbsolutePath()));
 				return;
 			}
 			List<String> command = new ArrayList<>();
@@ -1606,7 +1654,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			}
 			Process process = pb.start();
 			StringBuilder output = new StringBuilder();
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+			try (BufferedReader reader = new BufferedReader(
+					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					output.append(line).append('\n');
@@ -1638,7 +1687,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					File outFile = new File(dir, fileName);
 					try (FileOutputStream fos = new FileOutputStream(outFile)) {
 						StringBuilder fileContent = new StringBuilder();
-						fileContent.append("command: ").append(commandStr).append(System.lineSeparator()).append(System.lineSeparator());
+						fileContent.append("command: ").append(commandStr).append(System.lineSeparator())
+								.append(System.lineSeparator());
 						fileContent.append(text);
 						fos.write(fileContent.toString().getBytes(StandardCharsets.UTF_8));
 					}
@@ -1653,22 +1703,24 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
 		}
 	}
-	
-	private void handleModelBenchmarkList(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 返回测试结果列表。
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelBenchmarkList(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String modelId = null;
-			if (query.contains("?modelId=")) {
-				modelId = query.substring(query.indexOf("?modelId=") + 9);
-				if (modelId.contains("&")) {
-					modelId = modelId.substring(0, modelId.indexOf("&"));
-				}
-				modelId = URLDecoder.decode(modelId, "UTF-8");
-			}
+			Map<String, String> params = this.getQueryParam(query);
+			modelId = params.get("modelId");
+
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -1686,7 +1738,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 							Map<String, Object> info = new HashMap<>();
 							info.put("name", name);
 							info.put("size", f.length());
-							info.put("modified", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(f.lastModified())));
+							info.put("modified",
+									new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(f.lastModified())));
 							files.add(info);
 						}
 					}
@@ -1701,22 +1754,25 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取基准测试结果列表失败: " + e.getMessage()));
 		}
 	}
-	
-	private void handleModelBenchmarkGet(ChannelHandlerContext ctx, FullHttpRequest request) {
+
+	/**
+	 * 获取指定的测试结果。
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelBenchmarkGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		
 		try {
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
 			String query = request.uri();
 			String fileName = null;
-			if (query.contains("?fileName=")) {
-				fileName = query.substring(query.indexOf("?fileName=") + 10);
-				if (fileName.contains("&")) {
-					fileName = fileName.substring(0, fileName.indexOf("&"));
-				}
-				fileName = URLDecoder.decode(fileName, "UTF-8");
-			}
+			
+			Map<String, String> params = this.getQueryParam(query);
+			
+			fileName = params.get("fileName");
 			if (fileName == null || fileName.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的fileName参数"));
 				return;
@@ -1743,21 +1799,25 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 	}
 
-	private void handleModelBenchmarkDelete(ChannelHandlerContext ctx, FullHttpRequest request) {
+	/**
+	 * 删除指定的测试结果。
+	 * 
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException 
+	 */
+	private void handleModelBenchmarkDelete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		
 		try {
-			if (request.method() != HttpMethod.POST) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
-				return;
-			}
 			String query = request.uri();
 			String fileName = null;
-			if (query.contains("?fileName=")) {
-				fileName = query.substring(query.indexOf("?fileName=") + 10);
-				if (fileName.contains("&")) {
-					fileName = fileName.substring(0, fileName.indexOf("&"));
-				}
-				fileName = URLDecoder.decode(fileName, "UTF-8");
-			}
+			
+			Map<String, String> params = this.getQueryParam(query);
+			
+			fileName = params.get("fileName");
+			
 			if (fileName == null || fileName.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的fileName参数"));
 				return;
@@ -1781,54 +1841,41 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除基准测试结果失败: " + e.getMessage()));
 		}
 	}
-	
+
 	/**
-	 * 	处理设备列表请求
-	 * 	执行 llama-bench --list-devices 命令获取可用设备列表
+	 * 处理设备列表请求 执行 llama-bench --list-devices 命令获取可用设备列表
+	 * 
 	 * @param ctx
 	 * @param request
+	 * @throws RequestMethodException 
 	 */
-	private void handleDeviceListRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+	private void handleDeviceListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		
 		try {
-			// 只支持GET请求
-			if (request.method() != HttpMethod.GET) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
-				return;
-			}
-			
 			// 从URL参数中提取 llamaBinPath
 			String query = request.uri();
 			String llamaBinPath = null;
-			if (query.contains("?")) {
-				String q = query.substring(query.indexOf("?") + 1);
-				if (q.contains("llamaBinPath=")) {
-					String tmp = q.substring(q.indexOf("llamaBinPath=") + 13);
-					if (tmp.contains("&")) {
-						tmp = tmp.substring(0, tmp.indexOf("&"));
-					}
-					try {
-						llamaBinPath = URLDecoder.decode(tmp, "UTF-8");
-					} catch (UnsupportedEncodingException e) {
-						e.printStackTrace();
-					}
-				}
-			}
 			
+			Map<String, String> params = this.getQueryParam(query);
+			llamaBinPath = params.get("llamaBinPath");
+
 			// 验证必需的参数
 			if (llamaBinPath == null || llamaBinPath.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的llamaBinPath参数"));
 				return;
 			}
-			
+
 			List<String> devices = LlamaServerManager.getInstance().handleListDevices(llamaBinPath);
-			
+
 			String executableName = "llama-bench";
 			// 拼接完整命令路径
 			String command = llamaBinPath.trim();
 			command += File.separator;
-			
+
 			command += executableName + " --list-devices";
-			
+
 			// 执行命令
 			CommandLineRunner.CommandResult result = CommandLineRunner.execute(command, 30);
 			// 构建响应数据
@@ -1838,16 +1885,14 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			data.put("output", result.getOutput());
 			data.put("error", result.getError());
 			data.put("devices", devices);
-			
+
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.error("获取设备列表时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取设备列表失败: " + e.getMessage()));
 		}
 	}
-	
-	
-	
+
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 		logger.info("客户端连接关闭：{}", ctx);
@@ -1859,8 +1904,60 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
 		logger.error("处理请求时发生异常", cause);
 		ctx.close();
-		
+
 		ctx.fireExceptionCaught(cause);
 	}
+	
+	/**
+	 * 	取出URL中的参数。
+	 * @param url
+	 * @return
+	 */
+	private Map<String, String> getQueryParam(String url) {
+		if (url == null || url.isEmpty()) {
+			return new HashMap<>();
+		}
+		try {
+			// 解析 URL
+			URI uri = new URI(url);
+			String query = uri.getQuery(); // 获取 ? 后面的部分
+			if (query == null || query.isEmpty()) {
+				return new HashMap<>();
+			}
+			Map<String, String> params = new HashMap<>();
+			for (String pair : query.split("&")) {
+				int idx = pair.indexOf("=");
+				if (idx > 0) {
+					// 有 "="，拆分为 key 和 value
+					String key = URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8);
+					String value = URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8);
+					params.put(key, value);
+				} else if (idx == 0) {
+					// 以 "=" 开头，如 "=value"（罕见），忽略 key
+					String value = URLDecoder.decode(pair.substring(1), StandardCharsets.UTF_8);
+					params.put("", value); // 可选：可跳过或记录为无名参数
+				} else {
+					// 没有 "="，只有 key，如 "a"
+					String key = URLDecoder.decode(pair, StandardCharsets.UTF_8);
+					params.put(key, ""); // 值设为空字符串
+				}
+			}
+			return params;
+		} catch (Exception e) {
+			// URL 格式错误、编码失败等，返回空 Map（可根据需求改为抛异常）
+			return new HashMap<>();
+		}
+	}
 
+	/**
+	 * 简单的断言。
+	 * 
+	 * @param check
+	 * @param message
+	 * @throws RequestMethodException 
+	 */
+	private void assertRequestMethod(boolean check, String message) throws RequestMethodException {
+		if (check)
+			throw new RequestMethodException(message);
+	}
 }
