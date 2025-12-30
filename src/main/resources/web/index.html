@@ -894,9 +894,16 @@
                         </div>
                         <div>
                             <div class="form-group">
+                                <label class="form-label" for="mainGpuSelect">主GPU (main-gpu)</label>
+                                <select class="form-control" id="mainGpuSelect" name="mg">
+                                    <option value="-1">默认</option>
+                                </select>
+                                <small class="form-text">选择 llama.cpp 运行所使用的主要 GPU（INDEX，从 0 开始）</small>
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">可用计算设备</label>
                                 <small class="form-text">默认已勾选全部设备；取消勾选可排除设备</small>
-                                <div id="deviceChecklist" style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem; max-height: 520px; overflow: auto;">
+                                <div id="deviceChecklist" style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem; max-height: 260px; overflow: auto;">
                                     <div class="settings-empty">请先选择 Llama.cpp 版本</div>
                                 </div>
                             </div>
@@ -1505,7 +1512,7 @@
             document.getElementById('modelName').value = modelName;
             const hint = document.getElementById('ctxSizeVramHint');
             if (hint) hint.textContent = '';
-            window.__loadModelSelectedDevices = [-1];
+            window.__loadModelSelectedDevices = ['All'];
 
             const currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
             const isVisionModel = !!(currentModel && (currentModel.isMultimodal || currentModel.mmproj));
@@ -1534,6 +1541,7 @@
                         const enableVisionEl = document.getElementById('enableVision');
                         if (enableVisionEl) enableVisionEl.checked = config.enableVision !== undefined ? !!config.enableVision : true;
                         window.__loadModelSelectedDevices = normalizeDeviceSelection(config.device);
+                        window.__loadModelMainGpu = normalizeMainGpu(config.mg);
                     }
                     
                     fetch('/api/llamacpp/list').then(r => r.json()).then(listData => {
@@ -1588,8 +1596,9 @@
             const selectedDevices = getSelectedDevicesFromChecklist();
             const availableCount = window.__availableDeviceCount;
             const isAllSelected = Number.isFinite(availableCount) && availableCount > 0 && selectedDevices.length === availableCount;
-            if (isAllSelected) data.device = [-1];
+            if (isAllSelected) data.device = ['All'];
             else data.device = selectedDevices;
+            data.mg = getSelectedMainGpu();
 
             const submitBtn = document.querySelector('#loadModelModal .btn-primary');
             submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
@@ -2767,37 +2776,90 @@
         
         function normalizeDeviceSelection(device) {
             if (Array.isArray(device)) {
-                const parsed = device.map(v => parseInt(v, 10)).filter(v => Number.isFinite(v));
-                if (parsed.includes(-1)) return [-1];
-                return parsed.filter(v => v >= 0);
+                const list = device
+                    .map(v => (v === null || v === undefined) ? '' : String(v))
+                    .map(v => v.trim())
+                    .filter(v => v.length > 0);
+                if (list.includes('All') || list.includes('-1')) return ['All'];
+                return list;
             }
             if (device === null || device === undefined || device === '') return [];
-            const v = parseInt(device, 10);
-            if (!Number.isFinite(v)) return [];
-            if (v === -1) return [-1];
-            return v >= 0 ? [v] : [];
+            const v = String(device).trim();
+            if (!v) return [];
+            if (v === 'All' || v === '-1') return ['All'];
+            return [v];
+        }
+
+        function normalizeMainGpu(v) {
+            const n = parseInt(v, 10);
+            return Number.isFinite(n) ? n : -1;
+        }
+
+        function getSelectedMainGpu() {
+            const el = document.getElementById('mainGpuSelect');
+            if (!el) return -1;
+            const n = parseInt(el.value, 10);
+            return Number.isFinite(n) ? n : -1;
+        }
+
+        function renderMainGpuSelect(devices) {
+            const select = document.getElementById('mainGpuSelect');
+            if (!select) return;
+            const desired = normalizeMainGpu(window.__loadModelMainGpu);
+            const safe = (Array.isArray(devices) && desired >= 0 && desired < devices.length) ? desired : -1;
+            const options = ['<option value="-1">默认</option>'];
+            if (Array.isArray(devices)) {
+                for (let i = 0; i < devices.length; i++) {
+                    options.push(`<option value="${i}">${i}: ${escapeHtml(devices[i])}</option>`);
+                }
+            }
+            select.innerHTML = options.join('');
+            select.value = String(safe);
+        }
+
+        function deviceKeyFromLabel(label) {
+            if (label === null || label === undefined) return '';
+            const s = String(label).trim();
+            const match = s.match(/^([^\s:\-]+)/);
+            return match ? match[1].toLowerCase() : s.toLowerCase();
         }
 
         function getSelectedDevicesFromChecklist() {
             const list = document.getElementById('deviceChecklist');
             if (!list) return [];
-            const values = Array.from(list.querySelectorAll('input[type="checkbox"][data-device-id]:checked'))
-                .map(el => parseInt(el.getAttribute('data-device-id'), 10))
-                .filter(v => Number.isFinite(v) && v >= 0);
-            values.sort((a, b) => a - b);
+            const values = Array.from(list.querySelectorAll('input[type="checkbox"][data-device-key]:checked'))
+                .map(el => el.getAttribute('data-device-key'))           // 获取原始字符串
+                .map(v => {                                               // 提取前缀：Vulkan0, cuda0 等
+                    if (v === null || v === undefined) return '';
+                    const trimmed = String(v).trim();
+                    // 按第一个冒号分割，取第一部分（设备标识符）
+                    return trimmed.split(':')[0];
+                })
+                .filter(v => v.length > 0 && v !== 'All' && v !== '-1');  // 过滤无效值
+            values.sort((a, b) => {
+                const ai = parseInt(a, 10);
+                const bi = parseInt(b, 10);
+                if (Number.isFinite(ai) && Number.isFinite(bi)) return ai - bi;
+                return a.localeCompare(b);
+            });
             return values;
         }
 
         // GPU设备选择功能
         function loadDeviceList() {
             const list = document.getElementById('deviceChecklist');
-            if (list && list.querySelector('input[type="checkbox"][data-device-id]')) {
+            if (list && list.querySelector('input[type="checkbox"][data-device-key]')) {
                 window.__loadModelSelectedDevices = getSelectedDevicesFromChecklist();
+            }
+            const mainGpuEl = document.getElementById('mainGpuSelect');
+            if (mainGpuEl && mainGpuEl.options && mainGpuEl.options.length > 1) {
+                window.__loadModelMainGpu = getSelectedMainGpu();
             }
             const llamaBinPath = document.getElementById('llamaBinPathSelect').value;
             
             if (!llamaBinPath) {
                 if (list) list.innerHTML = '<div class="settings-empty">请先选择 Llama.cpp 版本</div>';
+                renderMainGpuSelect([]);
                 return;
             }
             
@@ -2808,16 +2870,20 @@
                 if (!list) return;
                 if (!(data && data.success && data.data && Array.isArray(data.data.devices))) {
                     list.innerHTML = '<div class="settings-empty">获取设备列表失败</div>';
+                    renderMainGpuSelect([]);
                     return;
                 }
                 const devices = data.data.devices;
+                window.__availableDevices = devices;
                 window.__availableDeviceCount = devices.length;
+                renderMainGpuSelect(devices);
                 const selected = window.__loadModelSelectedDevices || [];
-                const defaultAll = selected.includes(-1);
+                const defaultAll = selected.includes('All') || selected.includes('-1');
                 const items = devices.map((device, index) => {
-                    const checked = (defaultAll || selected.includes(index)) ? 'checked' : '';
+                    const key = deviceKeyFromLabel(device);
+                    const checked = (defaultAll || selected.includes(key) || selected.includes(device)) ? 'checked' : '';
                     return `<label style="display:flex; align-items:flex-start; gap:8px; padding:6px 6px; border-radius:8px; cursor:pointer;">
-                        <input type="checkbox" ${checked} data-device-id="${index}" style="margin-top: 2px;">
+                        <input type="checkbox" ${checked} data-device-key="${escapeHtml(key)}" style="margin-top: 2px;">
                         <span style="font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(device)}</span>
                     </label>`;
                 });
@@ -2825,6 +2891,7 @@
             })
             .catch(error => {
                 if (list) list.innerHTML = `<div class="settings-empty">获取设备列表失败：${escapeHtml(error && error.message ? error.message : '')}</div>`;
+                renderMainGpuSelect([]);
             });
         }
     </script>

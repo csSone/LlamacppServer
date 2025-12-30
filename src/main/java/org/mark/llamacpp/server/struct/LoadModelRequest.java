@@ -48,7 +48,8 @@ public class LoadModelRequest {
     private Boolean enableVision;
     private String extraParams;
     private String slotSavePath;
-    private List<Integer> device;
+    private List<String> device;
+    private Integer mg;
     
     public LoadModelRequest() {
     }
@@ -137,8 +138,10 @@ public class LoadModelRequest {
     public void setExtraParams(String extraParams) { this.extraParams = extraParams; }
     public String getSlotSavePath() { return slotSavePath; }
     public void setSlotSavePath(String slotSavePath) { this.slotSavePath = slotSavePath; }
-    public List<Integer> getDevice() { return device; }
-    public void setDevice(List<Integer> device) { this.device = device; }
+    public List<String> getDevice() { return device; }
+    public void setDevice(List<String> device) { this.device = device; }
+    public Integer getMg() { return mg; }
+    public void setMg(Integer mg) { this.mg = mg; }
 
     @Override
     public String toString() {
@@ -163,6 +166,7 @@ public class LoadModelRequest {
                 ", extraParams='" + extraParams + '\'' +
                 ", slotSavePath='" + slotSavePath + '\'' +
                 ", device=" + device +
+                ", mg=" + mg +
                 '}';
     }
 }

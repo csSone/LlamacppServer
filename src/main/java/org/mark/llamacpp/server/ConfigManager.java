@@ -181,6 +181,7 @@ public class ConfigManager {
         defaultConfig.put("embedding", false);
         defaultConfig.put("reranking", false);
         defaultConfig.put("enableVision", true);
+        defaultConfig.put("mg", -1);
         return defaultConfig;
     }
     

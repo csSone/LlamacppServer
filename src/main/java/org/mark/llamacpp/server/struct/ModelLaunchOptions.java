@@ -28,7 +28,8 @@ public class ModelLaunchOptions {
     public String extraParams;
     public String host = "0.0.0.0";
     public String slotSavePath;
-    public List<Integer> device;
+    public List<String> device;
+    public Integer mg;
 
     public static ModelLaunchOptions fromLoadRequest(LoadModelRequest r) {
         ModelLaunchOptions o = new ModelLaunchOptions();
@@ -51,6 +52,7 @@ public class ModelLaunchOptions {
         o.extraParams = r.getExtraParams();
         o.slotSavePath = r.getSlotSavePath();
         o.device = r.getDevice();
+        o.mg = r.getMg();
         return o;
     }
 
@@ -75,6 +77,7 @@ public class ModelLaunchOptions {
         m.put("extraParams", extraParams);
         m.put("slotSavePath", slotSavePath);
         m.put("device", device);
+        m.put("mg", mg);
         return m;
     }
 
@@ -109,20 +112,23 @@ public class ModelLaunchOptions {
     	// 判断要使用的设备
     	if (device != null && !device.isEmpty()) {
     		// 1. 单个设备运行
-    		if (device.size() == 1 && device.get(0) != -1) {
+    		if (device.size() == 1 && "All".equals(device.get(0))) {
     			// 模型跨 GPU 的分割策略，单GPU时不适用
     			command.add("-sm");
     			command.add("none");
-    			// 指定主GPU
-    			command.add("-mg");
-    			command.add(String.valueOf(device.get(0)));
+                command.add("-mg"); 
+                if (mg != null && mg >= 0) { 
+                    command.add(String.valueOf(mg)); 
+                }else{
+                    command.add("0"); 
+                }
     		}
     		// 2. 多个设备运行
     		if(device.size() > 1) {
     			command.add("-dev");
     			String p = "";
-    			for(Integer n : device) {
-    				p += n + ",";		
+    			for(String d : device) {
+    				p += d + ",";		
     			}
     			p = p.substring(0, p.length() - 2);
     			command.add(p);

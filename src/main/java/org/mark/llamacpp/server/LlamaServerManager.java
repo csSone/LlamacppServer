@@ -901,6 +901,23 @@ public class LlamaServerManager {
 				list.add(lines[i]);
 			}
 		}
+		
+		for(int i = 0; i < 100; i++) {
+			list.add("Vulkan" + (i + 1) + ": 1111111111111111111");
+		}
+		
 		return list;
+	}
+	
+	/**
+	 * 	调用llama-fit-params
+	 * @param llamaBinPath
+	 * @param devices
+	 */
+	public void handleFitParam(String llamaBinPath, List<String> devices) {
+		
+		
+		
+		return;
 	}
 }
