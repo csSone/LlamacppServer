@@ -487,23 +487,34 @@ public class LlamaServer {
 	 * @param data
 	 */
 	public static void sendJsonResponse(ChannelHandlerContext ctx, Object data) {
+		sendJsonResponseInternal(ctx, HttpResponseStatus.OK, data);
+	}
+
+	private static void sendJsonResponseInternal(ChannelHandlerContext ctx, HttpResponseStatus status, Object data) {
 		String json = GSON.toJson(data);
 		byte[] content = json.getBytes(CharsetUtil.UTF_8);
-	
-		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+
+		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
 		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length);
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS");
 		response.content().writeBytes(content);
-	
+
 		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) {
 				ctx.close();
 			}
 		});
+	}
+
+	public static void sendJsonErrorResponse(ChannelHandlerContext ctx, HttpResponseStatus status, String message) {
+		Map<String, Object> payload = new HashMap<>();
+		payload.put("status", "error");
+		payload.put("message", message == null ? "" : message);
+		sendJsonResponseInternal(ctx, status == null ? HttpResponseStatus.INTERNAL_SERVER_ERROR : status, payload);
 	}
 	
 	

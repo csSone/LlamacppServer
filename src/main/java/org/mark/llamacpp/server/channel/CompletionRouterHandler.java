@@ -1,28 +1,38 @@
 package org.mark.llamacpp.server.channel;
 
+import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.service.CompletionService;
 import org.mark.llamacpp.server.struct.CharactorDataStruct;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
-import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.FileUpload;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import io.netty.handler.stream.ChunkedFile;
 import io.netty.util.CharsetUtil;
 
 /**
@@ -36,6 +46,7 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	private static final Gson gson = new Gson();
 
 	private static final String LZ_PREFIX = "lz:";
+	private static final long MAX_UPLOAD_BYTES = 16L * 1024L * 1024L;
 	
 	/**
 	 * 	
@@ -54,9 +65,15 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) throws Exception {
 		String uri = msg.uri();
 		if (uri == null) {
-			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "缺少URI");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少URI");
 			return;
 		}
+		if (HttpMethod.OPTIONS.equals(msg.method()) && uri.startsWith("/api/chat/completion")) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		// 不再使用的判断
+		/*
 		if(uri.startsWith("/v1/completions")) {
 			// TODO 在这里保存传入的提示词（聊天内容）
 			String content = msg.content().toString(StandardCharsets.UTF_8);
@@ -65,8 +82,8 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			// 
 			
 			System.err.println(requestJson);
-			
 		}
+		*/
 		
 		if (uri.startsWith("/api/chat/completion")) {
 			this.handleCompletionApi(ctx, msg, uri);
@@ -123,10 +140,126 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 				return;
 			}
 
-			sendError(ctx, HttpResponseStatus.NOT_FOUND, "404 Not Found");
+			if ("/api/chat/completion/file/upload".equals(path) && HttpMethod.POST.equals(method)) {
+				this.handleChatFileUpload(ctx, msg);
+				return;
+			}
+
+			if ("/api/chat/completion/file/download".equals(path) && HttpMethod.GET.equals(method)) {
+				String name = getQueryParam(query, "name");
+				this.handleChatFileDownload(ctx, name);
+				return;
+			}
+
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "404 Not Found");
 		} catch (Exception e) {
-			sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "服务器内部错误: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "服务器内部错误: " + e.getMessage());
 		}
+	}
+
+	private void handleChatFileUpload(ChannelHandlerContext ctx, FullHttpRequest request) {
+		if (request.content() == null || request.content().readableBytes() <= 0) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+			return;
+		}
+		if (request.content().readableBytes() > (MAX_UPLOAD_BYTES + 2L * 1024L * 1024L)) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "请求体过大");
+			return;
+		}
+
+		HttpPostRequestDecoder decoder = null;
+		try {
+			decoder = new HttpPostRequestDecoder(new DefaultHttpDataFactory(false), request);
+			List<InterfaceHttpData> datas = decoder.getBodyHttpDatas();
+			FileUpload upload = null;
+			for (InterfaceHttpData d : datas) {
+				if (d == null) continue;
+				if (d.getHttpDataType() == InterfaceHttpData.HttpDataType.FileUpload) {
+					FileUpload fu = (FileUpload) d;
+					if (fu.isCompleted() && fu.length() > 0) {
+						upload = fu;
+						break;
+					}
+				}
+			}
+			if (upload == null) {
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "未找到上传文件");
+				return;
+			}
+			if (upload.length() > MAX_UPLOAD_BYTES) {
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "文件超过最大限制: 16MB");
+				return;
+			}
+			byte[] bytes = upload.get();
+			if (bytes == null || bytes.length == 0) {
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "文件内容为空");
+				return;
+			}
+			String savedName = this.completionService.saveChatFile(bytes);
+			Map<String, Object> data = new HashMap<>();
+			data.put("name", savedName);
+			Map<String, Object> resp = new HashMap<>();
+			resp.put("success", true);
+			resp.put("data", data);
+			LlamaServer.sendJsonResponse(ctx, resp);
+		} catch (Exception e) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "上传失败: " + e.getMessage());
+		} finally {
+			if (decoder != null) {
+				try {
+					decoder.destroy();
+				} catch (Exception ignore) {
+				}
+			}
+		}
+	}
+
+	private void handleChatFileDownload(ChannelHandlerContext ctx, String name) {
+		if (name == null || name.trim().isEmpty()) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少name参数");
+			return;
+		}
+		Path file = this.completionService.getChatFilePath(name.trim());
+		if (file == null) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "非法文件名");
+			return;
+		}
+		if (!Files.exists(file) || Files.isDirectory(file)) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在");
+			return;
+		}
+		try {
+			sendDownloadFile(ctx, file, name.trim());
+		} catch (Exception e) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "下载失败: " + e.getMessage());
+		}
+	}
+
+	private static void sendDownloadFile(ChannelHandlerContext ctx, Path file, String downloadName) throws Exception {
+		RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r");
+		long fileLength = raf.length();
+
+		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, fileLength);
+		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/octet-stream");
+		response.headers().set(HttpHeaderNames.CONTENT_DISPOSITION, "attachment; filename=\"" + downloadName + "\"");
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS");
+
+		ctx.write(response);
+		ctx.write(new ChunkedFile(raf, 0, fileLength, 8192), ctx.newProgressivePromise());
+		ChannelFuture last = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+		last.addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) {
+				try {
+					raf.close();
+				} catch (Exception ignore) {
+				}
+				ctx.close();
+			}
+		});
 	}
 	
 	/**
@@ -151,7 +284,7 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 		response.put("data", slim);
 		response.put("success", true);
 		
-		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+		LlamaServer.sendJsonResponse(ctx, response);
 	}
 	
 	/**
@@ -177,7 +310,7 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 		Map<String, Object> response = new HashMap<String, Object>();
 		response.put("data", created);
 		response.put("success", true);
-		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+		LlamaServer.sendJsonResponse(ctx, response);
 	}
 	
 	/**
@@ -186,26 +319,21 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 	 * @param id
 	 */
 	private void handleCharactorGet(ChannelHandlerContext ctx, String name) {
-		Map<String, Object> response = new HashMap<String, Object>();
-		
 		CharactorDataStruct charactorDataStruct =  this.completionService.getCharactor(name);
-		// 
-		if(charactorDataStruct == null) {
-			response.put("success", false);
-			response.put("message", "找不到指定的角色：" + name);
-			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.NOT_FOUND);
+		if (charactorDataStruct == null) {
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "找不到指定的角色：" + name);
 			return;
 		}
-		// 
 		charactorDataStruct.setPrompt(maybeCompress(charactorDataStruct.getPrompt()));
 		charactorDataStruct.setSystemPrompt(maybeCompress(charactorDataStruct.getSystemPrompt()));
 		charactorDataStruct.setParamsJson(maybeCompress(charactorDataStruct.getParamsJson()));
 		
+		Map<String, Object> response = new HashMap<String, Object>();
 		response.put("success", true);
 		response.put("message", "success");
 		response.put("data", charactorDataStruct);
 		
-		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+		LlamaServer.sendJsonResponse(ctx, response);
 	}
 	
 	/**
@@ -235,13 +363,11 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			}
 			this.completionService.saveCharactor(charactorDataStruct);
 			response.put("success", true);
-			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+			LlamaServer.sendJsonResponse(ctx, response);
 			return;
 		}catch (Exception e) {
 			e.printStackTrace();
-			response.put("success", false);
-			response.put("message", e.getMessage());
-			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 		}
 	}
 
@@ -256,18 +382,15 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			boolean ok = this.completionService.deleteCharactor(name);
 			response.put("success", ok);
 			if (!ok) {
-				response.put("message", "找不到指定的角色：" + name);
-				CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.NOT_FOUND);
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "找不到指定的角色：" + name);
 				return;
 			}
 		}catch (Exception e) {
 			e.printStackTrace();
-			response.put("success", false);
-			response.put("message", e.getMessage());
-			CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 			return;
 		}
-		CompletionRouterHandler.sendJson(ctx, response, HttpResponseStatus.OK);
+		LlamaServer.sendJsonResponse(ctx, response);
 	}
 
 	/**
@@ -295,26 +418,6 @@ public class CompletionRouterHandler extends SimpleChannelInboundHandler<FullHtt
 			}
 		}
 		return null;
-	}
-
-	private static void sendJson(ChannelHandlerContext ctx, Object payload, HttpResponseStatus status) {
-		String json = gson.toJson(payload);
-		byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-		FullHttpResponse resp = new DefaultFullHttpResponse(
-			HttpVersion.HTTP_1_1,
-			status,
-			Unpooled.wrappedBuffer(bytes)
-		);
-		resp.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
-		resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
-		ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
-	}
-
-	private static void sendError(ChannelHandlerContext ctx, HttpResponseStatus status, String message) {
-		Map<String, Object> payload = new HashMap<>();
-		payload.put("status", "error");
-		payload.put("message", message);
-		sendJson(ctx, payload, status);
 	}
 	
 	private static String maybeCompress(String s) {

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -21,6 +22,7 @@ import com.google.gson.Gson;
 public class CompletionService {
 	
 	private static final Gson gson = new Gson();
+	private static final long MAX_CHAT_UPLOAD_BYTES = 16L * 1024L * 1024L;
 	
 	public CompletionService() {
 		
@@ -52,6 +54,61 @@ public class CompletionService {
 	
 	private Path fileOfId(long id) {
 		return this.getCompletionsDir().resolve(Long.toString(id) + ".json");
+	}
+
+	private Path getChatDir() {
+		try {
+			Path dir = LlamaServer.getCachePath().resolve("chat");
+			if (!Files.exists(dir)) {
+				Files.createDirectories(dir);
+			}
+			return dir;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static boolean isDigitsOnly(String s) {
+		if (s == null || s.isEmpty()) return false;
+		for (int i = 0; i < s.length(); i++) {
+			char ch = s.charAt(i);
+			if (ch < '0' || ch > '9') return false;
+		}
+		return true;
+	}
+
+	public synchronized String saveChatFile(byte[] bytes) {
+		if (bytes == null) {
+			throw new IllegalArgumentException("文件内容为空");
+		}
+		if (bytes.length > MAX_CHAT_UPLOAD_BYTES) {
+			throw new IllegalArgumentException("文件超过最大限制: 16MB");
+		}
+		Path dir = this.getChatDir();
+		long ts = System.currentTimeMillis();
+		Path out = dir.resolve(Long.toString(ts));
+		while (Files.exists(out)) {
+			ts++;
+			out = dir.resolve(Long.toString(ts));
+		}
+		try {
+			Files.write(out, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+			return Long.toString(ts);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public Path getChatFilePath(String fileName) {
+		if (!isDigitsOnly(fileName)) {
+			return null;
+		}
+		Path dir = this.getChatDir();
+		Path p = dir.resolve(fileName).normalize();
+		if (!p.startsWith(dir)) {
+			return null;
+		}
+		return p;
 	}
 	
 	private static Long parseId(String name) {
