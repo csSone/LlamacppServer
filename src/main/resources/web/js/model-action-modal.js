@@ -1,9 +1,287 @@
+function cssEscapeCompat(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
+    return s.replace(/["\\#.:()[\]>,+~=*$^|?{}!\s]/g, '\\$&');
+}
+
+function getLoadModelModal() {
+    return document.getElementById('loadModelModal');
+}
+
+function getLoadModelForm(modal) {
+    if (modal && modal.querySelector) {
+        const f = modal.querySelector('form');
+        if (f) return f;
+    }
+    return document.getElementById('loadModelForm');
+}
+
+function findInModal(modal, selector) {
+    if (modal && modal.querySelector) {
+        const el = modal.querySelector(selector);
+        if (el) return el;
+    }
+    return document.querySelector(selector);
+}
+
+function findById(modal, id) {
+    const safeId = cssEscapeCompat(id);
+    if (modal && modal.querySelector) {
+        const el = modal.querySelector('#' + safeId);
+        if (el) return el;
+    }
+    return document.getElementById(id);
+}
+
+function findField(modal, nameOrId) {
+    if (!nameOrId) return null;
+    const byId = findById(modal, nameOrId);
+    if (byId) return byId;
+    const safeName = cssEscapeCompat(nameOrId);
+    return findInModal(modal, `[name="${safeName}"]`);
+}
+
+function findFieldByName(modal, name) {
+    if (!name) return null;
+    const safeName = cssEscapeCompat(name);
+    return findInModal(modal, `[name="${safeName}"]`);
+}
+
+function getFieldString(modal, keys) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < list.length; i++) {
+        const k = list[i];
+        const el = findField(modal, k);
+        if (el && 'value' in el) return String(el.value || '');
+    }
+    return '';
+}
+
+function setFieldValue(modal, keys, value) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < list.length; i++) {
+        const k = list[i];
+        const el = findField(modal, k);
+        if (!el) continue;
+        if ('checked' in el && (el.type === 'checkbox' || el.type === 'radio')) {
+            el.checked = !!value;
+            return true;
+        }
+        if ('value' in el) {
+            el.value = value === null || value === undefined ? '' : String(value);
+            return true;
+        }
+    }
+    return false;
+}
+
+function setFieldBoolean01(modal, keys, boolValue) {
+    const list = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < list.length; i++) {
+        const el = findField(modal, list[i]);
+        if (!el) continue;
+        if ('checked' in el && (el.type === 'checkbox' || el.type === 'radio')) {
+            el.checked = !!boolValue;
+            return true;
+        }
+        if ('value' in el) {
+            el.value = boolValue ? '1' : '0';
+            return true;
+        }
+    }
+    return false;
+}
+
+function parseIntOrNull(v) {
+    const n = parseInt(String(v || ''), 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+function parseFloatOrNull(v) {
+    const n = parseFloat(String(v || ''));
+    return Number.isFinite(n) ? n : null;
+}
+
+function getParamConfigListSafe() {
+    try {
+        const cfg = (window && window.paramConfig) ? window.paramConfig : (typeof paramConfig !== 'undefined' ? paramConfig : []);
+        return Array.isArray(cfg) ? cfg : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function fieldNameFromFullName(fullName) {
+    const v = fullName === null || fullName === undefined ? '' : String(fullName);
+    return v.replace(/^--/, '').replace(/^-/, '');
+}
+
+function isTruthyLogicValue(value) {
+    if (value === null || value === undefined) return false;
+    const v = String(value).trim().toLowerCase();
+    if (!v) return false;
+    return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+}
+
+function quoteArgIfNeeded(value) {
+    const v = value === null || value === undefined ? '' : String(value);
+    if (!v) return '';
+    if (!/\s|"/.test(v)) return v;
+    return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function splitCmdArgs(cmd) {
+    const s = cmd === null || cmd === undefined ? '' : String(cmd);
+    const tokens = [];
+    let buf = '';
+    let inQuotes = false;
+    let escape = false;
+
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (escape) {
+            buf += ch;
+            escape = false;
+            continue;
+        }
+        if (ch === '\\') {
+            escape = true;
+            continue;
+        }
+        if (ch === '"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (!inQuotes && /\s/.test(ch)) {
+            if (buf.length > 0) {
+                tokens.push(buf);
+                buf = '';
+            }
+            continue;
+        }
+        buf += ch;
+    }
+    if (buf.length > 0) tokens.push(buf);
+    return tokens;
+}
+
+function buildOptionLookupFromParamConfig(cfgList) {
+    const lookup = Object.create(null);
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName).trim();
+        if (fullName) lookup[fullName] = p;
+        const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation).trim();
+        if (abbr) lookup[abbr] = p;
+    }
+    return lookup;
+}
+
+function applyCmdToDynamicFields(modal, cmd) {
+    const cfgList = getParamConfigListSafe();
+    if (!cfgList.length) return;
+    const optionLookup = buildOptionLookupFromParamConfig(cfgList);
+    const tokens = splitCmdArgs(cmd);
+    const consumed = new Array(tokens.length).fill(false);
+    const valuesByField = Object.create(null);
+
+    function isKnownOption(token) {
+        if (!token) return false;
+        return !!optionLookup[token];
+    }
+
+    for (let i = 0; i < tokens.length; i++) {
+        const raw = tokens[i];
+        if (!raw) continue;
+        let opt = raw;
+        let inlineVal = null;
+        const eqIdx = raw.indexOf('=');
+        if (eqIdx > 0) {
+            const left = raw.slice(0, eqIdx);
+            if (isKnownOption(left)) {
+                opt = left;
+                inlineVal = raw.slice(eqIdx + 1);
+            }
+        }
+
+        if (!isKnownOption(opt)) continue;
+        const p = optionLookup[opt];
+        consumed[i] = true;
+        const fullName = p && p.fullName ? String(p.fullName) : opt;
+        const fieldName = fieldNameFromFullName(fullName);
+        if (!fieldName) continue;
+        const type = (p && p.type ? String(p.type) : 'STRING').toUpperCase();
+
+        if (type === 'LOGIC') {
+            valuesByField[fieldName] = '1';
+            continue;
+        }
+
+        let v = inlineVal;
+        if (v === null) {
+            const next = (i + 1) < tokens.length ? tokens[i + 1] : null;
+            if (next !== null && next !== undefined && !isKnownOption(next)) {
+                v = next;
+                consumed[i + 1] = true;
+                i++;
+            }
+        }
+        if (v !== null && v !== undefined) valuesByField[fieldName] = String(v);
+    }
+
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const type = (p.type === null || p.type === undefined) ? 'STRING' : String(p.type);
+        if (type.toUpperCase() !== 'LOGIC') continue;
+        const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName);
+        const fieldName = fieldNameFromFullName(fullName);
+        if (!fieldName) continue;
+        if (valuesByField[fieldName] !== '1') valuesByField[fieldName] = '0';
+    }
+
+    const entries = Object.keys(valuesByField);
+    for (let i = 0; i < entries.length; i++) {
+        const k = entries[i];
+        setFieldValue(modal, [k, 'param_' + k], valuesByField[k]);
+    }
+
+    const extras = [];
+    for (let i = 0; i < tokens.length; i++) {
+        if (consumed[i]) continue;
+        const t = tokens[i];
+        if (!t) continue;
+        extras.push(quoteArgIfNeeded(t));
+    }
+    const extraStr = extras.join(' ').trim();
+    if (extraStr) setFieldValue(modal, ['extraParams'], extraStr);
+}
+
+function extractLaunchConfigFromGetResponse(res, modelId) {
+    if (!(res && res.success)) return {};
+    const data = res.data;
+    if (!data) return {};
+    if (data && typeof data === 'object' && data.config && typeof data.config === 'object') {
+        return data.config || {};
+    }
+    if (data && typeof data === 'object') {
+        const direct = data[modelId];
+        if (direct && typeof direct === 'object') return direct;
+    }
+    return {};
+}
+
 function setModelActionMode(mode) {
     const resolved = mode === 'config' ? 'config' : 'load';
     window.__modelActionMode = resolved;
-    const titleText = document.getElementById('modelActionModalTitleText');
-    const icon = document.getElementById('modelActionModalIcon');
-    const submitBtn = document.getElementById('modelActionSubmitBtn');
+    const modal = getLoadModelModal();
+    const titleText = findById(modal, 'modelActionModalTitleText') || findInModal(modal, '.modal-title span');
+    const icon = findById(modal, 'modelActionModalIcon') || findInModal(modal, '.modal-title i');
+    const submitBtn = findById(modal, 'modelActionSubmitBtn')
+        || findInModal(modal, 'button[onclick*="submitModelAction"]')
+        || findInModal(modal, '.modal-footer .btn-primary');
     if (resolved === 'config') {
         if (titleText) titleText.textContent = '更新启动参数';
         if (icon) icon.className = 'fas fa-cog';
@@ -16,14 +294,17 @@ function setModelActionMode(mode) {
 }
 
 function loadModel(modelId, modelName, mode = 'load') {
+    const modal = getLoadModelModal();
+    if (modal) modal.classList.add('show');
+
     setModelActionMode(mode);
-    document.getElementById('modelId').value = modelId;
-    document.getElementById('modelName').value = modelName || modelId;
-    const hint = document.getElementById('ctxSizeVramHint');
+    setFieldValue(modal, ['modelId'], modelId);
+    setFieldValue(modal, ['modelName'], modelName || modelId);
+    const hint = findById(modal, 'ctxSizeVramHint');
     if (hint) hint.textContent = '';
     window.__loadModelSelectedDevices = ['All'];
     window.__loadModelSelectionFromConfig = true;
-    const deviceChecklistEl = document.getElementById('deviceChecklist');
+    const deviceChecklistEl = findById(modal, 'deviceChecklist');
     if (deviceChecklistEl) deviceChecklistEl.innerHTML = '<div class="settings-empty">加载中...</div>';
     window.__availableDevices = [];
     window.__availableDeviceCount = 0;
@@ -31,7 +312,7 @@ function loadModel(modelId, modelName, mode = 'load') {
 
     const currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
     const isVisionModel = !!(currentModel && (currentModel.isMultimodal || currentModel.mmproj));
-    const enableVisionGroup = document.getElementById('enableVisionGroup');
+    const enableVisionGroup = findById(modal, 'enableVisionGroup');
     if (enableVisionGroup) enableVisionGroup.style.display = isVisionModel ? '' : 'none';
 
     fetch(`/api/models/config/get?modelId=${encodeURIComponent(modelId)}`)
@@ -39,39 +320,50 @@ function loadModel(modelId, modelName, mode = 'load') {
             if (!(data && data.success) && mode === 'config') {
                 showToast('错误', (data && data.error) ? data.error : '获取配置失败', 'error');
             }
-            const config = (data && data.success && data.data) ? data.data.config : {};
-            if (config) {
-                if (config.ctxSize) document.getElementById('ctxSize').value = config.ctxSize;
-                if (config.batchSize) document.getElementById('batchSize').value = config.batchSize;
-                if (config.ubatchSize) document.getElementById('ubatchSize').value = config.ubatchSize;
-                if (config.temperature) document.getElementById('temperature').value = config.temperature;
-                if (config.topP) document.getElementById('topP').value = config.topP;
-                if (config.topK) document.getElementById('topK').value = config.topK;
-                if (config.minP) document.getElementById('minP').value = config.minP;
-                if (config.presencePenalty || config.presencePenalty === 0) document.getElementById('presencePenalty').value = config.presencePenalty;
-                if (config.repeatPenalty || config.repeatPenalty === 0) document.getElementById('repeatPenalty').value = config.repeatPenalty;
-                if (config.parallel) document.getElementById('parallel').value = config.parallel;
+            const config = extractLaunchConfigFromGetResponse(data, modelId);
+            if (config && typeof config === 'object') {
+                if (config.cmd !== undefined && config.cmd !== null && String(config.cmd).trim()) {
+                    const cmdStr = String(config.cmd);
+                    let applied = false;
+                    let attempts = 0;
+                    const maxAttempts = 60;
+                    const tryApply = () => {
+                        if (applied) return;
+                        attempts++;
+                        const cfgList = getParamConfigListSafe();
+                        const ready = cfgList && cfgList.length && findInModal(modal, '[name]') && findById(modal, 'extraParams');
+                        if (ready) {
+                            applied = true;
+                            applyCmdToDynamicFields(modal, cmdStr);
+                            if (config.extraParams !== undefined && config.extraParams !== null && String(config.extraParams).trim()) {
+                                setFieldValue(modal, ['extraParams'], String(config.extraParams));
+                            }
+                            return;
+                        }
+                        if (attempts >= maxAttempts) return;
+                        setTimeout(tryApply, 60);
+                    };
+                    tryApply();
+                } else if (config.extraParams !== undefined) {
+                    setFieldValue(modal, ['extraParams'], config.extraParams || '');
+                }
 
-                document.getElementById('noMmap').checked = !!config.noMmap;
-                document.getElementById('mlock').checked = !!config.mlock;
-                document.getElementById('embedding').checked = !!config.embedding;
-                document.getElementById('reranking').checked = !!config.reranking;
-                document.getElementById('flashAttention').checked = config.flashAttention !== undefined ? config.flashAttention : true;
-                document.getElementById('extraParams').value = config.extraParams || '';
-                const enableVisionEl = document.getElementById('enableVision');
-                if (enableVisionEl) enableVisionEl.checked = config.enableVision !== undefined ? !!config.enableVision : true;
+                const enableVisionEl = findField(modal, 'enableVision');
+                if (enableVisionEl && 'checked' in enableVisionEl) {
+                    enableVisionEl.checked = config.enableVision !== undefined ? !!config.enableVision : true;
+                }
                 window.__loadModelSelectedDevices = normalizeDeviceSelection(config.device);
                 window.__loadModelMainGpu = normalizeMainGpu(config.mg);
                 window.__loadModelSelectionFromConfig = true;
             }
 
             fetch('/api/llamacpp/list').then(r => r.json()).then(listData => {
-                const select = document.getElementById('llamaBinPathSelect');
+                const select = findById(modal, 'llamaBinPathSelect') || findFieldByName(modal, 'llamaBinPathSelect');
                 const paths = (listData && listData.success && listData.data) ? (listData.data.paths || []) : [];
-                select.innerHTML = paths.map(p => `<option value="${p}">${p}</option>`).join('');
+                if (select) select.innerHTML = paths.map(p => `<option value="${p}">${p}</option>`).join('');
 
                 if (config.llamaBinPath) {
-                    select.value = config.llamaBinPath;
+                    if (select) select.value = config.llamaBinPath;
                 } else {
                     fetch('/api/setting').then(rs => rs.json()).then(s => {
                         const currentBin = (s && s.success && s.data) ? s.data.llamaBin : null;
@@ -79,49 +371,193 @@ function loadModel(modelId, modelName, mode = 'load') {
                     }).catch(() => {});
                 }
 
-                select.onchange = function() { loadDeviceList(); };
+                if (select) select.onchange = function() { loadDeviceList(); };
                 loadDeviceList();
             }).finally(() => {
-                const modal = document.getElementById('loadModelModal');
-                modal.classList.add('show');
+                const modal2 = getLoadModelModal();
+                if (modal2) modal2.classList.add('show');
             });
         });
 }
 
-function submitModelAction() {
-    const mode = window.__modelActionMode === 'config' ? 'config' : 'load';
-    const form = document.getElementById('loadModelForm');
-    const formData = new FormData(form);
-    const data = {};
-    formData.forEach((value, key) => {
-        if (['ctxSize', 'batchSize', 'ubatchSize', 'topK', 'parallel'].includes(key)) data[key] = parseInt(value);
-        else if (['temperature', 'topP', 'minP', 'presencePenalty'].includes(key)) data[key] = parseFloat(value);
-        else if (['repeatPenalty'].includes(key)) data[key] = parseFloat(value);
-        else if (['noMmap', 'mlock', 'embedding', 'reranking'].includes(key)) data[key] = value === 'on';
-        else data[key] = value;
-    });
-    data.noMmap = document.getElementById('noMmap').checked;
-    data.mlock = document.getElementById('mlock').checked;
-    data.embedding = document.getElementById('embedding').checked;
-    data.reranking = document.getElementById('reranking').checked;
-    data.flashAttention = document.getElementById('flashAttention').checked;
-    data.llamaBinPath = document.getElementById('llamaBinPathSelect').value;
-    data.extraParams = document.getElementById('extraParams').value;
-    const enableVisionEl = document.getElementById('enableVision');
-    if (enableVisionEl) data.enableVision = enableVisionEl.checked;
+function buildConfigPayload(modal, form) {
+    const modelId = getFieldString(modal, ['modelId']);
+    const payload = { modelId };
+
+    const ctxSize = parseIntOrNull(getFieldString(modal, ['ctxSize', 'ctx-size', 'param_ctx-size']));
+    if (ctxSize !== null) payload.ctxSize = ctxSize;
+
+    const batchSize = parseIntOrNull(getFieldString(modal, ['batchSize', 'batch-size', 'param_batch-size']));
+    if (batchSize !== null) payload.batchSize = batchSize;
+
+    const ubatchSize = parseIntOrNull(getFieldString(modal, ['ubatchSize', 'ubatch-size', 'param_ubatch-size']));
+    if (ubatchSize !== null) payload.ubatchSize = ubatchSize;
+
+    const temperature = parseFloatOrNull(getFieldString(modal, ['temperature', 'temp', 'param_temp']));
+    if (temperature !== null) payload.temperature = temperature;
+
+    const topP = parseFloatOrNull(getFieldString(modal, ['topP', 'top-p', 'param_top-p']));
+    if (topP !== null) payload.topP = topP;
+
+    const topK = parseIntOrNull(getFieldString(modal, ['topK', 'top-k', 'param_top-k']));
+    if (topK !== null) payload.topK = topK;
+
+    const minP = parseFloatOrNull(getFieldString(modal, ['minP', 'min-p', 'param_min-p']));
+    if (minP !== null) payload.minP = minP;
+
+    const presencePenalty = parseFloatOrNull(getFieldString(modal, ['presencePenalty', 'presence-penalty', 'param_presence-penalty']));
+    if (presencePenalty !== null) payload.presencePenalty = presencePenalty;
+
+    const repeatPenalty = parseFloatOrNull(getFieldString(modal, ['repeatPenalty', 'repeat-penalty', 'param_repeat-penalty']));
+    if (repeatPenalty !== null) payload.repeatPenalty = repeatPenalty;
+
+    const parallel = parseIntOrNull(getFieldString(modal, ['parallel', 'param_parallel']));
+    if (parallel !== null) payload.parallel = parallel;
+
+    const cacheTypeK = getFieldString(modal, ['cacheTypeK', 'cache-type-k', 'param_cache-type-k']);
+    if (cacheTypeK) payload.cacheTypeK = cacheTypeK;
+
+    const cacheTypeV = getFieldString(modal, ['cacheTypeV', 'cache-type-v', 'param_cache-type-v']);
+    if (cacheTypeV) payload.cacheTypeV = cacheTypeV;
+
+    const noMmapEl = findField(modal, 'noMmap') || findFieldByName(modal, 'mmap') || findById(modal, 'param_mmap');
+    if (noMmapEl) {
+        if ('checked' in noMmapEl && noMmapEl.type === 'checkbox') payload.noMmap = !!noMmapEl.checked;
+        else payload.noMmap = String(noMmapEl.value || '') === '1' || String(noMmapEl.value || '').toLowerCase() === 'true' || String(noMmapEl.value || '') === 'on';
+    }
+
+    const mlockEl = findField(modal, 'mlock') || findById(modal, 'param_mlock');
+    if (mlockEl) {
+        if ('checked' in mlockEl && mlockEl.type === 'checkbox') payload.mlock = !!mlockEl.checked;
+        else payload.mlock = String(mlockEl.value || '') === '1' || String(mlockEl.value || '').toLowerCase() === 'true' || String(mlockEl.value || '') === 'on';
+    }
+
+    const embeddingEl = findField(modal, 'embedding') || findById(modal, 'param_embedding');
+    if (embeddingEl) {
+        if ('checked' in embeddingEl && embeddingEl.type === 'checkbox') payload.embedding = !!embeddingEl.checked;
+        else payload.embedding = String(embeddingEl.value || '') === '1' || String(embeddingEl.value || '').toLowerCase() === 'true' || String(embeddingEl.value || '') === 'on';
+    }
+
+    const rerankingEl = findField(modal, 'reranking') || findFieldByName(modal, 'rerank') || findById(modal, 'param_rerank');
+    if (rerankingEl) {
+        if ('checked' in rerankingEl && rerankingEl.type === 'checkbox') payload.reranking = !!rerankingEl.checked;
+        else payload.reranking = String(rerankingEl.value || '') === '1' || String(rerankingEl.value || '').toLowerCase() === 'true' || String(rerankingEl.value || '') === 'on';
+    }
+
+    const flashEl = findField(modal, 'flashAttention') || findFieldByName(modal, 'flash-attn') || findById(modal, 'param_flash-attn');
+    if (flashEl) {
+        if ('checked' in flashEl && flashEl.type === 'checkbox') payload.flashAttention = !!flashEl.checked;
+        else {
+            const v = String(flashEl.value || '').trim().toLowerCase();
+            if (v === 'off' || v === '0' || v === 'false') payload.flashAttention = false;
+            else if (v) payload.flashAttention = true;
+        }
+    }
+
+    const llamaBinPathSelect = findById(modal, 'llamaBinPathSelect') || findFieldByName(modal, 'llamaBinPathSelect');
+    if (llamaBinPathSelect && llamaBinPathSelect.value) payload.llamaBinPath = llamaBinPathSelect.value;
+
+    const extraParams = getFieldString(modal, ['extraParams']);
+    if (extraParams !== undefined) payload.extraParams = extraParams;
+
+    const enableVisionEl = findField(modal, 'enableVision');
+    if (enableVisionEl && 'checked' in enableVisionEl) payload.enableVision = !!enableVisionEl.checked;
 
     const selectedDevices = getSelectedDevicesFromChecklist();
     const availableCount = window.__availableDeviceCount;
     const isAllSelected = Number.isFinite(availableCount) && availableCount > 0 && selectedDevices.length === availableCount;
-    if (isAllSelected) data.device = ['All'];
-    else data.device = selectedDevices;
-    data.mg = getSelectedMainGpu();
+    payload.device = isAllSelected ? ['All'] : selectedDevices;
+    payload.mg = getSelectedMainGpu();
 
-    if (mode === 'config') {
-        delete data.modelName;
+    return payload;
+}
+
+function buildLoadModelPayload(form, modal) {
+    const modelId = getFieldString(modal, ['modelId']);
+    const modelName = getFieldString(modal, ['modelName']);
+    const llamaBinPathSelect = getFieldString(modal, ['llamaBinPathSelect']);
+
+    const selectedDevices = getSelectedDevicesFromChecklist();
+    const availableCount = window.__availableDeviceCount;
+    const isAllSelected = Number.isFinite(availableCount) && availableCount > 0 && selectedDevices.length === availableCount;
+
+    const cmdParts = [];
+
+    const cfgList = getParamConfigListSafe().slice().sort((a, b) => (a && a.sort ? a.sort : 0) - (b && b.sort ? b.sort : 0));
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName);
+        if (!fullName) continue;
+        const type = p.type === null || p.type === undefined ? 'STRING' : String(p.type);
+        const fieldName = fieldNameFromFullName(fullName);
+        if (!fieldName) continue;
+
+        const el = findFieldByName(modal, fieldName);
+        if (!el || !('value' in el)) continue;
+        const rawValue = String(el.value || '');
+
+        if (String(type).toUpperCase() === 'LOGIC') {
+            if (isTruthyLogicValue(rawValue)) {
+                cmdParts.push(fullName);
+            }
+            continue;
+        }
+
+        const trimmed = rawValue.trim();
+        if (!trimmed) continue;
+        cmdParts.push(fullName, quoteArgIfNeeded(trimmed));
     }
 
-    const submitBtn = document.getElementById('modelActionSubmitBtn');
+    const extraParams = getFieldString(modal, ['extraParams']).trim();
+    if (extraParams) {
+        cmdParts.push(extraParams);
+    }
+
+    return {
+        modelId,
+        modelName,
+        llamaBinPathSelect,
+        device: isAllSelected ? ['All'] : selectedDevices,
+        mg: getSelectedMainGpu(),
+        cmd: cmdParts.join(' ').trim()
+    };
+}
+
+function submitModelAction() {
+    const mode = window.__modelActionMode === 'config' ? 'config' : 'load';
+    const modal = getLoadModelModal();
+    const form = getLoadModelForm(modal);
+
+    let payload = null;
+    let modelIdForUi = getFieldString(modal, ['modelId']);
+    if (mode === 'config') {
+        const base = buildLoadModelPayload(form, modal);
+        modelIdForUi = base && base.modelId ? base.modelId : modelIdForUi;
+        const cfg = {
+            llamaBinPath: base && base.llamaBinPathSelect ? base.llamaBinPathSelect : '',
+            mg: base && base.mg !== undefined ? base.mg : -1,
+            cmd: base && base.cmd ? base.cmd : '',
+            device: base && Array.isArray(base.device) ? base.device : ['All']
+        };
+        payload = {};
+        payload[modelIdForUi] = cfg;
+    } else {
+        payload = buildLoadModelPayload(form, modal);
+        modelIdForUi = payload && payload.modelId ? payload.modelId : modelIdForUi;
+    }
+
+    const submitBtn = findById(modal, 'modelActionSubmitBtn')
+        || findInModal(modal, 'button[onclick*="submitModelAction"]')
+        || findInModal(modal, '.modal-footer .btn-primary');
+    if (!modelIdForUi) {
+        showToast('错误', '缺少必需的modelId参数', 'error');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = mode === 'config' ? '保存' : '加载模型';
+        }
+        return;
+    }
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = mode === 'config'
@@ -133,7 +569,7 @@ function submitModelAction() {
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {
         if (res.success) {
             if (mode === 'config') {
@@ -142,11 +578,15 @@ function submitModelAction() {
             } else {
                 if (res.data && res.data.async) {
                     showToast('模型加载中', '正在后台加载...', 'info');
-                    showModelLoadingState(data.modelId);
-                    window.pendingModelLoad = { modelId: data.modelId };
+                    showModelLoadingState(modelIdForUi);
+                    window.pendingModelLoad = { modelId: modelIdForUi };
                     loadModels();
                 } else {
-                    showToast('成功', '模型加载成功', 'success');
+                    if (res.data && res.data.processOnly) {
+                        showToast('成功', '参数已接收（未加载模型）', 'success');
+                    } else {
+                        showToast('成功', '模型加载成功', 'success');
+                    }
                     closeModal('loadModelModal');
                     loadModels();
                 }
@@ -170,16 +610,25 @@ function submitModelAction() {
 function submitLoadModel() { submitModelAction(); }
 
 function estimateVramAction() {
-    const modelId = document.getElementById('modelId').value;
+    const modal = getLoadModelModal();
+    const modelId = getFieldString(modal, ['modelId']);
     if (!modelId) {
         showToast('错误', '请先选择模型', 'error');
         return;
     }
-    const ctxSize = parseInt(document.getElementById('ctxSize').value || '2048', 10);
-    const batchSize = parseInt(document.getElementById('batchSize').value || '512', 10);
-    const ubatch = parseInt(document.getElementById('ubatchSize').value || '0', 10);
-    const flashAttention = document.getElementById('flashAttention').checked;
-    const enableVisionEl = document.getElementById('enableVision');
+    const ctxSize = parseInt(getFieldString(modal, ['ctxSize', 'ctx-size', 'param_ctx-size']) || '2048', 10);
+    const batchSize = parseInt(getFieldString(modal, ['batchSize', 'batch-size', 'param_batch-size']) || '512', 10);
+    const ubatch = parseInt(getFieldString(modal, ['ubatchSize', 'ubatch-size', 'param_ubatch-size']) || '0', 10);
+    let flashAttention = true;
+    const flashEl = findField(modal, 'flashAttention') || findFieldByName(modal, 'flash-attn') || findById(modal, 'param_flash-attn');
+    if (flashEl) {
+        if ('checked' in flashEl && flashEl.type === 'checkbox') flashAttention = !!flashEl.checked;
+        else {
+            const v = String(flashEl.value || '').trim().toLowerCase();
+            flashAttention = !(v === 'off' || v === '0' || v === 'false');
+        }
+    }
+    const enableVisionEl = findField(modal, 'enableVision');
     const payload = {
         modelId,
         ctxSize,
@@ -201,7 +650,7 @@ function estimateVramAction() {
                 const overhead = toMiB(bytes.runtimeOverhead || 0);
 
                 const text = `预计显存：总计 ${total} MiB（权重 ${weights}，KV ${kv}，其他 ${overhead}）`;
-                const hint = document.getElementById('ctxSizeVramHint');
+                const hint = findById(modal, 'ctxSizeVramHint');
                 if (hint) hint.textContent = text;
             } else {
                 showToast('错误', '返回数据格式不正确', 'error');
@@ -245,14 +694,16 @@ function normalizeMainGpu(v) {
 }
 
 function getSelectedMainGpu() {
-    const el = document.getElementById('mainGpuSelect');
+    const modal = getLoadModelModal();
+    const el = findById(modal, 'mainGpuSelect');
     if (!el) return -1;
     const n = parseInt(el.value, 10);
     return Number.isFinite(n) ? n : -1;
 }
 
 function renderMainGpuSelect(devices, selectedKeys) {
-    const select = document.getElementById('mainGpuSelect');
+    const modal = getLoadModelModal();
+    const select = findById(modal, 'mainGpuSelect');
     if (!select) return;
     const desired = normalizeMainGpu(window.__loadModelMainGpu);
     let effectiveDevices = Array.isArray(devices) ? devices.slice() : [];
@@ -301,7 +752,8 @@ function deviceMatchesSelection(deviceLabel, selectedEntries) {
 }
 
 function getSelectedDevicesFromChecklist() {
-    const list = document.getElementById('deviceChecklist');
+    const modal = getLoadModelModal();
+    const list = findById(modal, 'deviceChecklist');
     if (!list) return [];
     const values = Array.from(list.querySelectorAll('input[type="checkbox"][data-device-key]:checked'))
         .map(el => el.getAttribute('data-device-key'))
@@ -321,7 +773,8 @@ function getSelectedDevicesFromChecklist() {
 }
 
 function updateSelectedDevicesCacheFromChecklist() {
-    const list = document.getElementById('deviceChecklist');
+    const modal = getLoadModelModal();
+    const list = findById(modal, 'deviceChecklist');
     if (!list) return;
     const hasInputs = !!list.querySelector('input[type="checkbox"][data-device-key]');
     if (!hasInputs) return;
@@ -332,7 +785,8 @@ function updateSelectedDevicesCacheFromChecklist() {
 }
 
 function syncMainGpuSelectWithChecklist() {
-    const mainGpuEl = document.getElementById('mainGpuSelect');
+    const modal = getLoadModelModal();
+    const mainGpuEl = findById(modal, 'mainGpuSelect');
     if (mainGpuEl) window.__loadModelMainGpu = getSelectedMainGpu();
     updateSelectedDevicesCacheFromChecklist();
     renderMainGpuSelect(window.__availableDevices || [], window.__loadModelSelectedDevices || []);
@@ -340,16 +794,18 @@ function syncMainGpuSelectWithChecklist() {
 }
 
 function loadDeviceList() {
-    const list = document.getElementById('deviceChecklist');
+    const modal = getLoadModelModal();
+    const list = findById(modal, 'deviceChecklist');
     const allowReadFromChecklist = !window.__loadModelSelectionFromConfig;
     if (allowReadFromChecklist && list && list.querySelector('input[type="checkbox"][data-device-key]')) {
         updateSelectedDevicesCacheFromChecklist();
     }
-    const mainGpuEl = document.getElementById('mainGpuSelect');
+    const mainGpuEl = findById(modal, 'mainGpuSelect');
     if (mainGpuEl && mainGpuEl.options && mainGpuEl.options.length > 1) {
         window.__loadModelMainGpu = getSelectedMainGpu();
     }
-    const llamaBinPath = document.getElementById('llamaBinPathSelect').value;
+    const llamaSelect = findById(modal, 'llamaBinPathSelect') || findFieldByName(modal, 'llamaBinPathSelect');
+    const llamaBinPath = llamaSelect ? llamaSelect.value : '';
 
     if (!llamaBinPath) {
         if (list) list.innerHTML = '<div class="settings-empty">请先选择 Llama.cpp 版本</div>';
@@ -403,4 +859,3 @@ function loadDeviceList() {
 function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function(m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
 }
-

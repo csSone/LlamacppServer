@@ -409,6 +409,10 @@
         .modal-content.slots-modal { width: 95%; max-width: 1200px; max-height: 85vh; }
         .modal-content.load-model-modal { width: 95%; max-width: 1200px; }
         #slotsModal .modal-body { overflow: hidden; display: flex; flex-direction: column; }
+        #loadModelModal .modal-body { overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        #loadModelModal #loadModelForm { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        #loadModelModal .load-model-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: stretch; flex: 1; min-height: 0; }
+        #loadModelModal #basicParamsContainer, #loadModelModal #dynamicParamsContainer { overflow-y: auto; min-height: 0; }
 
         @keyframes slideIn {
             from { opacity: 0; transform: scale(0.95); }

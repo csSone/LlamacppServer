@@ -508,6 +508,48 @@ public class LlamaServerManager {
 		
 		return true; // 表示成功提交加载任务
 	}
+
+	public synchronized boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, String cmd) {
+		Map<String, Object> launchConfig = new HashMap<>();
+		launchConfig.put("llamaBinPath", llamaBinPath);
+		launchConfig.put("device", device);
+		launchConfig.put("mg", mg);
+		launchConfig.put("cmd", cmd);
+		this.configManager.saveLaunchConfig(modelId, launchConfig);
+
+		if (this.loadedProcesses.containsKey(modelId)) {
+			LlamaServer.sendModelLoadEvent(modelId, false, "模型已经加载");
+			return false;
+		}
+
+		GGUFModel targetModel = this.findModelById(modelId);
+		if (targetModel == null) {
+			LlamaServer.sendModelLoadEvent(modelId, false, "未找到ID为 " + modelId + " 的模型");
+			return false;
+		}
+
+		if (llamaBinPath == null || llamaBinPath.trim().isEmpty()) {
+			LlamaServer.sendModelLoadEvent(modelId, false, "未提供llamaBinPath");
+			return false;
+		}
+
+		synchronized (this.loadingModels) {
+			if (this.loadingModels.contains(targetModel.getModelId())) {
+				LlamaServer.sendModelLoadEvent(modelId, false, "该模型正在加载中");
+				return false;
+			}
+		}
+
+		final String cmdSafe = cmd == null ? "" : cmd.trim();
+		final String binSafe = llamaBinPath.trim();
+		final List<String> devSafe = device;
+		final Integer mgSafe = mg;
+
+		this.executorService.submit(() -> {
+			this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, cmdSafe);
+		});
+		return true;
+	}
 	
 	/**
 	 * 在后台线程中执行模型加载
@@ -634,6 +676,166 @@ public class LlamaServerManager {
 				this.loadingModels.remove(targetModel.getModelId());
 			}
 		}
+	}
+
+	private synchronized void loadModelInBackgroundFromCmd(String modelId, GGUFModel targetModel, String llamaBinPath, List<String> device,
+			Integer mg, String cmd) {
+		int port = this.getNextAvailablePort();
+
+		String commandStr = buildCommandStr(targetModel, port, llamaBinPath, device, mg, cmd);
+
+		String processName = "llama-server-" + modelId;
+		LlamaCppProcess process = new LlamaCppProcess(processName, commandStr);
+
+		System.out.println("启动命令：" + commandStr);
+
+		CountDownLatch latch = new CountDownLatch(1);
+		AtomicBoolean loadSuccess = new AtomicBoolean(false);
+
+		process.setOutputHandler(line -> {
+			if (line.contains("srv  update_slots: all slots are idle")) {
+				loadSuccess.set(true);
+				latch.countDown();
+			}
+			if (line.contains("main: exiting due to model loading error")) {
+				loadSuccess.set(false);
+				latch.countDown();
+			}
+			if (line.contains("Inferior") && line.contains("detached")) {
+				System.err.println("检测到模型进程异常终止: " + line);
+				loadSuccess.set(false);
+				this.loadedProcesses.remove(modelId);
+				this.modelPorts.remove(modelId);
+				LlamaServer.sendModelStopEvent(modelId, false, "模型进程异常终止: " + line);
+				latch.countDown();
+			}
+			if (line.startsWith("error")) {
+				System.err.println("检测到模型进程异常终止: " + line);
+				loadSuccess.set(false);
+				this.loadedProcesses.remove(modelId);
+				this.modelPorts.remove(modelId);
+				latch.countDown();
+			}
+		});
+
+		boolean started = process.start();
+		if (!started) {
+			LlamaServer.sendModelLoadEvent(modelId, false, "启动模型进程失败");
+			return;
+		} else {
+			synchronized (this.loadingModels) {
+				this.loadingModels.add(targetModel.getModelId());
+			}
+		}
+
+		try {
+			boolean timeout = !latch.await(10, TimeUnit.MINUTES);
+			if (timeout) {
+				process.stop();
+				LlamaServer.sendModelLoadEvent(modelId, false, "模型加载超时");
+				return;
+			}
+
+			if (loadSuccess.get()) {
+				this.loadedProcesses.put(modelId, process);
+				this.modelPorts.put(modelId, port);
+				LlamaServer.sendModelLoadEvent(modelId, true, "模型加载成功，端口: " + port);
+			} else {
+				process.stop();
+				LlamaServer.sendModelLoadEvent(modelId, false, "模型加载失败");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			process.stop();
+			LlamaServer.sendModelLoadEvent(modelId, false, "模型加载被中断");
+		} finally {
+			synchronized (this.loadingModels) {
+				this.loadingModels.remove(targetModel.getModelId());
+			}
+		}
+	}
+
+	private static String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, String cmd) {
+		StringBuilder sb = new StringBuilder();
+
+		String exe = llamaBinPath + File.separator + "llama-server";
+		sb.append(quoteIfNeeded(exe));
+
+		sb.append(" -m ");
+		String modelFile = targetModel.getPath() + "/" + targetModel.getPrimaryModel().getFileName();
+		sb.append(quoteIfNeeded(modelFile));
+
+		sb.append(" --port ");
+		sb.append(port);
+
+		if (targetModel.getMmproj() != null && !cmdHasFlag(cmd, "--mmproj")) {
+			sb.append(" --mmproj ");
+			String mmprojFile = targetModel.getPath() + "/" + targetModel.getMmproj().getFileName();
+			sb.append(quoteIfNeeded(mmprojFile));
+		}
+
+		if (device != null && !device.isEmpty()) {
+			if (device.size() == 1) {
+				if (!"All".equals(device.get(0))) {
+					sb.append(" -sm none -dev ");
+					sb.append(quoteIfNeeded(device.get(0)));
+					sb.append(" -mg ");
+					sb.append(mg != null ? String.valueOf(mg) : "0");
+				}
+			} else {
+				sb.append(" -dev ");
+				sb.append(quoteIfNeeded(String.join(",", device)));
+			}
+		}
+
+		if (cmd != null && !cmd.trim().isEmpty()) {
+			sb.append(' ');
+			sb.append(cmd.trim());
+		}
+
+		if (!cmdHasFlag(cmd, "--no-webui") && !cmdHasFlag(cmd, "--webui")) {
+			sb.append(" --no-webui");
+		}
+		if (!cmdHasFlag(cmd, "--metrics")) {
+			sb.append(" --metrics");
+		}
+		if (!cmdHasFlag(cmd, "--slot-save-path")) {
+			sb.append(" --slot-save-path ");
+			sb.append(quoteIfNeeded(LlamaServer.getCachePath().toFile().getAbsolutePath()));
+		}
+		if (!cmdHasFlag(cmd, "--cache-ram")) {
+			sb.append(" --cache-ram -1");
+		}
+
+		return sb.toString().trim();
+	}
+
+	private static boolean cmdHasFlag(String cmd, String flag) {
+		if (cmd == null || flag == null || flag.trim().isEmpty()) {
+			return false;
+		}
+		String f = flag.trim();
+		String s = " " + cmd.trim() + " ";
+		return s.contains(" " + f + " ") || s.contains(" " + f + "=");
+	}
+
+	private static String quoteIfNeeded(String s) {
+		if (s == null) {
+			return "";
+		}
+		String t = s;
+		boolean needs = false;
+		for (int i = 0; i < t.length(); i++) {
+			char c = t.charAt(i);
+			if (Character.isWhitespace(c) || c == '"') {
+				needs = true;
+				break;
+			}
+		}
+		if (!needs) {
+			return t;
+		}
+		return "\"" + t.replace("\"", "\\\"") + "\"";
 	}
 	
 	/**

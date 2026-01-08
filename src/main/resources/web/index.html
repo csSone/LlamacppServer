@@ -128,9 +128,10 @@
             </div>
             <div class="modal-body">
                 <form id="loadModelForm">
-                    <!-- 上半部分：基础参数设置（左）和计算设备（右）各占50% -->
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start;">
-                        <div>
+                    <!-- 左右两侧布局 -->
+                    <div class="load-model-layout">
+                        <!-- 左侧：模型ID、Llama.cpp 版本、设备选择 -->
+                        <div id="basicParamsContainer">
                             <div class="form-group">
                                 <label class="form-label" for="modelId">模型ID</label>
                                 <input type="text" class="form-control" id="modelId" name="modelId" readonly style="background-color: #f3f4f6; display: none;">
@@ -138,78 +139,10 @@
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label" for="ctxSize">上下文大小 (ctx-size)</label>
-                                <input type="number" class="form-control" id="ctxSize" name="ctxSize" min="1" placeholder="例如: 2048" value="32768">
-                                <small class="form-text">模型的最大上下文长度</small>
-                                <small class="form-text" id="ctxSizeVramHint" style="color: var(--success-color);"></small>
-                            </div>
-                            
-                            <div class="form-group">
                                 <label class="form-label" for="llamaBinPathSelect">Llama.cpp 版本</label>
                                 <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
                             </div>
                             
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div class="form-group">
-                                    <label class="form-label" for="cacheTypeK">K缓存量化类型</label>
-                                    <select class="form-control" id="cacheTypeK" name="cacheTypeK">
-                                        <option value="f32">f32</option>
-                                        <option value="f16" selected>f16</option>
-                                        <option value="bf16">bf16</option>
-                                        <option value="q8_0">q8_0</option>
-                                        <option value="q4_0">q4_0</option>
-                                        <option value="q4_1">q4_1</option>
-                                        <option value="iq4_nl">iq4_nl</option>
-                                        <option value="q5_0">q5_0</option>
-                                        <option value="q5_1">q5_1</option>
-                                    </select>
-                                    <small class="form-text">K缓存的数据类型</small>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="cacheTypeV">V缓存量化类型</label>
-                                    <select class="form-control" id="cacheTypeV" name="cacheTypeV">
-                                        <option value="f32">f32</option>
-                                        <option value="f16" selected>f16</option>
-                                        <option value="bf16">bf16</option>
-                                        <option value="q8_0">q8_0</option>
-                                        <option value="q4_0">q4_0</option>
-                                        <option value="q4_1">q4_1</option>
-                                        <option value="iq4_nl">iq4_nl</option>
-                                        <option value="q5_0">q5_0</option>
-                                        <option value="q5_1">q5_1</option>
-                                    </select>
-                                    <small class="form-text">V缓存的数据类型</small>
-                                </div>
-                            </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="noMmap" name="noMmap" checked>
-                                    <label class="form-check-label" for="noMmap">禁用内存映射 (no-mmap)</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="mlock" name="mlock">
-                                    <label class="form-check-label" for="mlock">锁定内存 (mlock)</label>
-                                </div>
-                                <div class="form-check" id="enableVisionGroup" style="display: none;">
-                                    <input type="checkbox" class="form-check-input" id="enableVision" name="enableVision" checked>
-                                    <label class="form-check-label" for="enableVision">开启视觉</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="embedding" name="embedding">
-                                    <label class="form-check-label" for="embedding">Embedding模式</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="reranking" name="reranking">
-                                    <label class="form-check-label" for="reranking">Reranking模式</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="flashAttention" name="flashAttention" checked>
-                                    <label class="form-check-label" for="flashAttention">Flash Attention</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
                             <div class="form-group">
                                 <label class="form-label" for="mainGpuSelect">主GPU (main-gpu)</label>
                                 <select class="form-control" id="mainGpuSelect" name="mg">
@@ -217,6 +150,7 @@
                                 </select>
                                 <small class="form-text">选择 llama.cpp 运行所使用的主要 GPU（INDEX，从 0 开始）</small>
                             </div>
+                            
                             <div class="form-group">
                                 <label class="form-label">可用计算设备</label>
                                 <small class="form-text">默认已勾选全部设备；取消勾选可排除设备</small>
@@ -225,55 +159,13 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <!-- 下半部分：详细参数设置，占据100%宽度 -->
-                    <div style="margin-top: 1.25rem;">
-                        <details style="border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.5rem;">
-                            <summary style="cursor: pointer; font-size: 0.875rem; color: var(--primary-color); font-weight: 500;">高级参数 (Temperature, Top-P, etc.)</summary>
-                            <div style="padding-top: 1rem; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem;">
-                                <div class="form-group">
-                                    <label class="form-label" for="temperature">Temperature</label>
-                                    <input type="number" step="0.01" class="form-control" id="temperature" name="temperature" value="0.7">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="topP">Top P</label>
-                                    <input type="number" step="0.01" class="form-control" id="topP" name="topP" value="0.95">
-                                </div>
-                                 <div class="form-group">
-                                    <label class="form-label" for="topK">Top K</label>
-                                    <input type="number" class="form-control" id="topK" name="topK" value="40">
-                                </div>
-                                 <div class="form-group">
-                                    <label class="form-label" for="minP">Min P</label>
-                                    <input type="number" step="0.01" class="form-control" id="minP" name="minP" value="0.05">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="presencePenalty">Presence Penalty</label>
-                                    <input type="number" step="0.01" class="form-control" id="presencePenalty" name="presencePenalty" value="0.0">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="repeatPenalty">Repeat Penalty</label>
-                                    <input type="number" step="0.01" class="form-control" id="repeatPenalty" name="repeatPenalty" value="1.10">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="batchSize">batch-size</label>
-                                    <input type="number" class="form-control" id="batchSize" name="batchSize" min="1" placeholder="例如: 512" value="1024">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="ubatchSize">ubatch-size</label>
-                                    <input type="number" class="form-control" id="ubatchSize" name="ubatchSize" min="1" placeholder="例如: 512" value="2048">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="parallel">parallel</label>
-                                    <input type="number" class="form-control" id="parallel" name="parallel" min="1" placeholder="例如: 4" value="4">
-                                </div>
+                        
+                        <!-- 右侧：全部的参数配置 -->
+                        <div id="dynamicParamsContainer">
+                            <div class="loading-spinner">
+                                <div class="spinner"></div>
                             </div>
-                            <div class="form-group" style="margin-top: 1rem;">
-                                <label class="form-label" for="extraParams">额外参数</label>
-                                <textarea class="form-control" id="extraParams" name="extraParams" rows="2" placeholder="例如: --grp-attn-n 8 --grp-attn-w 512"></textarea>
-                                <small class="form-text">输入额外的命令行参数，用空格分隔</small>
-                            </div>
-                        </details>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -428,7 +320,139 @@
             loadModels();
             initWebSocket();
             initModelSearch();
+            loadParamConfig();
         });
+        
+        // --- 动态参数配置 ---
+        let paramConfig = [];
+        
+        // 加载参数配置
+        function loadParamConfig() {
+            fetch('/api/models/param/list')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.params) {
+                        paramConfig = data.params;
+                        renderDynamicParams();
+                    } else {
+                        console.error('加载参数配置失败:', data.error || '未知错误');
+                        document.getElementById('dynamicParamsContainer').innerHTML =
+                            '<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div><div class="empty-state-title">加载失败</div><div class="empty-state-text">无法加载参数配置</div></div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('加载参数配置出错:', error);
+                    document.getElementById('dynamicParamsContainer').innerHTML =
+                        '<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div><div class="empty-state-title">网络错误</div><div class="empty-state-text">无法连接到服务器</div></div>';
+                });
+        }
+        
+        // 渲染动态参数
+        function renderDynamicParams() {
+            const container = document.getElementById('dynamicParamsContainer');
+            if (!container) return;
+            
+            // 按 sort 排序
+            const sortedParams = [...paramConfig].sort((a, b) => (a.sort || 0) - (b.sort || 0));
+            
+            let html = '';
+            
+            // 渲染所有参数
+            if (sortedParams.length > 0) {
+                html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
+                sortedParams.forEach(param => {
+                    html += renderParamField(param, false);
+                });
+                html += '</div>';
+            }
+            
+            // 添加额外参数输入框
+            html += '<div class="form-group" style="margin-top: 1rem;">';
+            html += '<label class="form-label" for="extraParams">额外参数</label>';
+            html += '<textarea class="form-control" id="extraParams" name="extraParams" rows="2" placeholder="例如: --grp-attn-n 8 --grp-attn-w 512"></textarea>';
+            html += '<small class="form-text">输入额外的命令行参数，用空格分隔</small>';
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+        
+        // 渲染单个参数字段
+        function renderParamField(param, isBasic) {
+            const fieldName = param.fullName.replace(/^--/, '').replace(/^-/, '');
+            const fieldId = 'param_' + fieldName;
+            const displayName = param.name;
+            const description = param.description || '';
+            const defaultValue = param.defaultValue || '';
+            const type = param.type || 'STRING';
+            const values = param.values || [];
+            
+            let html = '';
+            
+            // 生成带 tooltip 的 label
+            const labelHtml = description
+                ? `<label class="form-label" for="${fieldId}">${displayName} <i class="fas fa-question-circle" style="color: #F1F1F1; cursor: help; margin-left: 4px;" title="${description}"></i></label>`
+                : `<label class="form-label" for="${fieldId}">${displayName}</label>`;
+            
+            // 如果有 values，使用下拉选单
+            if (values && values.length > 0) {
+                html += '<div class="form-group">';
+                html += labelHtml;
+                html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
+                values.forEach(v => {
+                    const selected = v === defaultValue ? 'selected' : '';
+                    html += `<option value="${v}" ${selected}>${v}</option>`;
+                });
+                html += '</select>';
+                html += '</div>';
+            } else {
+                // 根据 type 渲染不同的输入控件
+                switch (type) {
+                    case 'INTEGER':
+                        html += '<div class="form-group">';
+                        html += labelHtml;
+                        html += `<input type="number" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
+                        html += '</div>';
+                        break;
+                        
+                    case 'FLOAT':
+                        html += '<div class="form-group">';
+                        html += labelHtml;
+                        html += `<input type="number" step="0.01" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
+                        html += '</div>';
+                        break;
+                        
+                    case 'BOOLEAN':
+                        html += '<div class="form-group">';
+                        html += labelHtml;
+                        html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
+                        html += `<option value="0" ${defaultValue === '0' || defaultValue === 'false' ? 'selected' : ''}>false</option>`;
+                        html += `<option value="1" ${defaultValue === '1' || defaultValue === 'true' || defaultValue === 'on' ? 'selected' : ''}>true</option>`;
+                        html += '</select>';
+                        html += '</div>';
+                        break;
+                        
+                    case 'LOGIC':
+                        html += '<div class="form-group">';
+                        html += labelHtml;
+                        html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
+                        html += `<option value="0" ${defaultValue === '0' || defaultValue === 'false' ? 'selected' : ''}>false</option>`;
+                        html += `<option value="1" ${defaultValue === '1' || defaultValue === 'true' ? 'selected' : ''}>true</option>`;
+                        html += '</select>';
+                        html += '</div>';
+                        break;
+                        
+                    case 'STRING':
+                    default:
+                        html += '<div class="form-group">';
+                        html += labelHtml;
+                        html += `<input type="text" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
+                        html += '</div>';
+                        break;
+                }
+            }
+            
+            return html;
+        }
 
         function formatFileSize(size) {
             if (size < 1024) return size + ' B';

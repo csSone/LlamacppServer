@@ -12,6 +12,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -41,7 +42,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -155,6 +159,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		// 模型列表API
 		if (uri.startsWith("/api/models/list")) {
 			this.handleModelListRequest(ctx, request);
+			return;
+		}
+		// 列出可用的参数
+		if (uri.startsWith("/api/models/param/list")) {
+			this.handleParamListRequest(ctx, request);
 			return;
 		}
 		// 显存估算API
@@ -699,6 +708,43 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	}
 
 	/**
+	 * 处理参数列表请求
+	 * 返回 param.json 文件的全部内容
+	 *
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleParamListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		// 断言一下请求方式
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
+		try {
+			// 读取 param.json 文件
+			File paramFile = new File("param.json");
+			if (!paramFile.exists()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("参数配置文件不存在: param.json"));
+				return;
+			}
+			
+			// 读取文件内容
+			String content = new String(Files.readAllBytes(paramFile.toPath()), StandardCharsets.UTF_8);
+			
+			// 解析为JSON对象并验证格式
+			Object parsed = gson.fromJson(content, Object.class);
+			
+			// 构建响应
+			Map<String, Object> response = new HashMap<>();
+			response.put("success", true);
+			response.put("params", parsed);
+			LlamaServer.sendJsonResponse(ctx, response);
+		} catch (Exception e) {
+			logger.error("获取参数列表时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取参数列表失败: " + e.getMessage()));
+		}
+	}
+
+	/**
 	 * 估算模型显存需求
 	 * 
 	 * @param ctx
@@ -924,35 +970,333 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				return;
 			}
 
-			// 解析JSON请求体为LoadModelRequest对象
-			LoadModelRequest loadRequest = gson.fromJson(content, LoadModelRequest.class);
+			JsonElement root = gson.fromJson(content, JsonElement.class);
+
+			LoadModelRequest loadRequest = null;
+			String modelName = null;
+
+			if (root != null && root.isJsonObject()) {
+				JsonObject obj = root.getAsJsonObject();
+				if (obj.has("cmd") && obj.get("cmd") != null && !obj.get("cmd").isJsonNull()) {
+					String modelId = getJsonString(obj, "modelId", null);
+					String modelNameCmd = getJsonString(obj, "modelName", null);
+					String llamaBinPathSelect = getJsonString(obj, "llamaBinPathSelect", null);
+					if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+						llamaBinPathSelect = getJsonString(obj, "llamaBinPath", null);
+					}
+					List<String> device = getJsonStringList(obj.get("device"));
+					Integer mg = getJsonInt(obj, "mg", null);
+					String cmd = getJsonString(obj, "cmd", "").trim();
+
+					if (modelId == null || modelId.trim().isEmpty()) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+						return;
+					}
+					if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供llamaBinPath"));
+						return;
+					}
+					LlamaServerManager manager = LlamaServerManager.getInstance();
+					if (manager.getLoadedProcesses().containsKey(modelId)) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型已经加载"));
+						return;
+					}
+					if (manager.isLoading(modelId)) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该模型正在加载中"));
+						return;
+					}
+					if (manager.findModelById(modelId) == null) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到ID为 " + modelId + " 的模型"));
+						return;
+					}
+
+					boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, cmd);
+					if (!started) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
+						return;
+					}
+
+					Map<String, Object> data = new HashMap<>();
+					data.put("async", true);
+					data.put("modelId", modelId);
+					data.put("modelName", modelNameCmd);
+					data.put("llamaBinPathSelect", llamaBinPathSelect);
+					data.put("device", device);
+					data.put("mg", mg);
+					data.put("cmd", cmd);
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+					return;
+				}
+				boolean isNewFormat = obj.has("params") && obj.get("params").isJsonArray();
+				if (isNewFormat) {
+					loadRequest = new LoadModelRequest();
+					modelName = getJsonString(obj, "modelName", null);
+
+					String modelId = getJsonString(obj, "modelId", null);
+					loadRequest.setModelId(modelId);
+
+					String llamaBinPathSelect = getJsonString(obj, "llamaBinPathSelect", null);
+					if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+						llamaBinPathSelect = getJsonString(obj, "llamaBinPath", null);
+					}
+					loadRequest.setLlamaBinPath(llamaBinPathSelect);
+
+					loadRequest.setMg(getJsonInt(obj, "mg", null));
+					loadRequest.setDevice(getJsonStringList(obj.get("device")));
+
+					JsonArray params = obj.getAsJsonArray("params");
+					for (int i = 0; i < params.size(); i++) {
+						JsonElement it = params.get(i);
+						if (it == null || !it.isJsonObject())
+							continue;
+						JsonObject p = it.getAsJsonObject();
+						String name = getJsonString(p, "name", null);
+						if (name == null || name.trim().isEmpty())
+							continue;
+						JsonElement vEl = p.get("value");
+						String vStr = jsonValueToString(vEl);
+
+						switch (name) {
+						case "ctx-size":
+							loadRequest.setCtxSize(parseInteger(vStr));
+							break;
+						case "batch-size":
+							loadRequest.setBatchSize(parseInteger(vStr));
+							break;
+						case "ubatch-size":
+							loadRequest.setUbatchSize(parseInteger(vStr));
+							break;
+						case "temp":
+							loadRequest.setTemperature(parseDouble(vStr));
+							break;
+						case "top-p":
+							loadRequest.setTopP(parseDouble(vStr));
+							break;
+						case "top-k":
+							loadRequest.setTopK(parseInteger(vStr));
+							break;
+						case "min-p":
+							loadRequest.setMinP(parseDouble(vStr));
+							break;
+						case "presence-penalty":
+							loadRequest.setPresencePenalty(parseDouble(vStr));
+							break;
+						case "repeat-penalty":
+							loadRequest.setRepeatPenalty(parseDouble(vStr));
+							break;
+						case "mmap":
+							loadRequest.setNoMmap(parseBool01(vStr));
+							break;
+						case "mlock":
+							loadRequest.setMlock(parseBool01(vStr));
+							break;
+						case "embedding":
+							loadRequest.setEmbedding(parseBool01(vStr));
+							break;
+						case "rerank":
+							loadRequest.setReranking(parseBool01(vStr));
+							break;
+						case "flash-attn":
+							loadRequest.setFlashAttention(parseFlashAttn(vStr));
+							break;
+						case "parallel":
+							loadRequest.setParallel(parseInteger(vStr));
+							break;
+						case "cache-type-k":
+							loadRequest.setCacheTypeK(emptyToNull(vStr));
+							break;
+						case "cache-type-v":
+							loadRequest.setCacheTypeV(emptyToNull(vStr));
+							break;
+						case "extraParams":
+							loadRequest.setExtraParams(vStr);
+							break;
+						case "enableVision":
+							loadRequest.setEnableVision(parseBool01(vStr));
+							break;
+						case "slotSavePath":
+							loadRequest.setSlotSavePath(emptyToNull(vStr));
+							break;
+						default:
+							break;
+						}
+					}
+				}
+			}
+
+			if (loadRequest == null) {
+				loadRequest = gson.fromJson(content, LoadModelRequest.class);
+			}
 
 			logger.info("收到加载模型请求: {}", loadRequest);
 
-			// 验证必需的参数
-			if (loadRequest.getModelId() == null || loadRequest.getModelId().trim().isEmpty()) {
+			if (loadRequest == null || loadRequest.getModelId() == null || loadRequest.getModelId().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
 
-			// 调用LlamaServerManager异步加载模型
+			Map<String, Object> data = new HashMap<>();
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			ModelLaunchOptions options = ModelLaunchOptions.fromLoadRequest(loadRequest);
-			boolean taskSubmitted = manager.loadModelAsync(loadRequest.getModelId(), options);
-
-			if (taskSubmitted) {
-				Map<String, Object> data = new HashMap<>();
-				data.put("message", "模型加载任务已提交，请等待WebSocket通知");
-				data.put("async", true);
-				data.put("modelId", loadRequest.getModelId());
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型加载任务提交失败，可能模型已加载或不存在"));
+			if (manager.getLoadedProcesses().containsKey(loadRequest.getModelId())) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型已经加载"));
+				return;
 			}
+			if (manager.isLoading(loadRequest.getModelId())) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该模型正在加载中"));
+				return;
+			}
+			ModelLaunchOptions options = ModelLaunchOptions.fromLoadRequest(loadRequest);
+			boolean started = manager.loadModelAsync(loadRequest.getModelId(), options);
+			if (!started) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
+				return;
+			}
+
+			data.put("async", true);
+			data.put("modelId", loadRequest.getModelId());
+			data.put("modelName", modelName);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.error("加载模型时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型失败: " + e.getMessage()));
 		}
+	}
+
+	private static String emptyToNull(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim();
+		return t.isEmpty() ? null : t;
+	}
+
+	private static String getJsonString(JsonObject o, String key, String fallback) {
+		if (o == null || key == null || !o.has(key) || o.get(key) == null || o.get(key).isJsonNull())
+			return fallback;
+		try {
+			return o.get(key).getAsString();
+		} catch (Exception e) {
+			return fallback;
+		}
+	}
+
+	private static Integer getJsonInt(JsonObject o, String key, Integer fallback) {
+		if (o == null || key == null || !o.has(key) || o.get(key) == null || o.get(key).isJsonNull())
+			return fallback;
+		try {
+			return o.get(key).getAsInt();
+		} catch (Exception e) {
+			try {
+				String s = o.get(key).getAsString();
+				return parseInteger(s);
+			} catch (Exception e2) {
+				return fallback;
+			}
+		}
+	}
+
+	private static List<String> getJsonStringList(JsonElement el) {
+		if (el == null || el.isJsonNull())
+			return null;
+		try {
+			if (el.isJsonArray()) {
+				JsonArray arr = el.getAsJsonArray();
+				List<String> out = new ArrayList<>();
+				for (int i = 0; i < arr.size(); i++) {
+					JsonElement it = arr.get(i);
+					if (it == null || it.isJsonNull())
+						continue;
+					String s = null;
+					try {
+						s = it.getAsString();
+					} catch (Exception e) {
+						s = jsonValueToString(it);
+					}
+					if (s != null && !s.trim().isEmpty())
+						out.add(s.trim());
+				}
+				return out;
+			}
+			String s = el.getAsString();
+			if (s == null || s.trim().isEmpty())
+				return null;
+			return Arrays.asList(s.trim());
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static String jsonValueToString(JsonElement el) {
+		if (el == null || el.isJsonNull())
+			return "";
+		try {
+			if (el.isJsonArray()) {
+				return el.toString();
+			}
+			if (el.isJsonObject()) {
+				return el.toString();
+			}
+			return el.getAsString();
+		} catch (Exception e) {
+			try {
+				return el.toString();
+			} catch (Exception e2) {
+				return "";
+			}
+		}
+	}
+
+	private static Integer parseInteger(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim();
+		if (t.isEmpty())
+			return null;
+		try {
+			return Integer.valueOf(Integer.parseInt(t, 10));
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static Double parseDouble(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim();
+		if (t.isEmpty())
+			return null;
+		try {
+			return Double.valueOf(Double.parseDouble(t));
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static Boolean parseBool01(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim().toLowerCase();
+		if (t.isEmpty())
+			return null;
+		if ("1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t))
+			return Boolean.TRUE;
+		if ("0".equals(t) || "false".equals(t) || "off".equals(t) || "no".equals(t))
+			return Boolean.FALSE;
+		return null;
+	}
+
+	private static Boolean parseFlashAttn(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim().toLowerCase();
+		if (t.isEmpty())
+			return null;
+		if ("auto".equals(t))
+			return null;
+		if ("on".equals(t))
+			return Boolean.TRUE;
+		if ("off".equals(t))
+			return Boolean.FALSE;
+		return parseBool01(t);
 	}
 
 	/**
@@ -1024,10 +1368,13 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				return;
 			}
 			ConfigManager configManager = ConfigManager.getInstance();
-			Map<String, Object> launchConfig = configManager.getLaunchConfig(modelId);
+			Map<String, Map<String, Object>> allConfigs = configManager.loadAllLaunchConfigs();
+			Map<String, Object> launchConfig = allConfigs.get(modelId);
+			if (launchConfig == null) {
+				launchConfig = new HashMap<>();
+			}
 			Map<String, Object> data = new HashMap<>();
-			data.put("modelId", modelId);
-			data.put("config", launchConfig);
+			data.put(modelId, launchConfig);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.error("获取模型启动配置时发生错误", e);
@@ -1051,32 +1398,56 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
 				return;
 			}
-			LoadModelRequest loadRequest = gson.fromJson(content, LoadModelRequest.class);
-			if (loadRequest == null || loadRequest.getModelId() == null || loadRequest.getModelId().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
-				return;
-			}
+
 			ConfigManager configManager = ConfigManager.getInstance();
-			Map<String, Object> currentConfig = configManager.getLaunchConfig(loadRequest.getModelId());
-			if (currentConfig == null) {
-				currentConfig = new HashMap<>();
-			}
-			ModelLaunchOptions options = ModelLaunchOptions.fromLoadRequest(loadRequest);
-			Map<String, Object> updates = options.toConfigMap();
-			for (Map.Entry<String, Object> entry : updates.entrySet()) {
-				if (entry.getValue() != null) {
-					currentConfig.put(entry.getKey(), entry.getValue());
-				}
-			}
-			boolean saved = configManager.saveLaunchConfig(loadRequest.getModelId(), currentConfig);
-			if (!saved) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型启动配置失败"));
+			JsonElement root = gson.fromJson(content, JsonElement.class);
+			if (root == null || !root.isJsonObject()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
 				return;
 			}
-			Map<String, Object> data = new HashMap<>();
-			data.put("modelId", loadRequest.getModelId());
-			data.put("config", currentConfig);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+			JsonObject obj = root.getAsJsonObject();
+			Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
+
+			Map<String, Object> savedData = new HashMap<>();
+
+			if (obj.has("modelId")) {
+				String modelId = obj.get("modelId").getAsString();
+				if (modelId == null || modelId.trim().isEmpty()) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+					return;
+				}
+				JsonElement cfgEl = obj.has("config") ? obj.get("config") : obj;
+				Map<String, Object> cfgMap = gson.fromJson(cfgEl, mapType);
+				if (cfgMap == null) cfgMap = new HashMap<>();
+				cfgMap.remove("modelId");
+				cfgMap.remove("config");
+				boolean saved = configManager.saveLaunchConfig(modelId, cfgMap);
+				if (!saved) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型启动配置失败"));
+					return;
+				}
+				savedData.put(modelId, cfgMap);
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(savedData));
+				return;
+			}
+
+			for (Map.Entry<String, JsonElement> e : obj.entrySet()) {
+				String modelId = e.getKey();
+				if (modelId == null || modelId.trim().isEmpty()) continue;
+				JsonElement cfgEl = e.getValue();
+				if (cfgEl == null || cfgEl.isJsonNull()) continue;
+				if (!cfgEl.isJsonObject()) continue;
+				Map<String, Object> cfgMap = gson.fromJson(cfgEl, mapType);
+				if (cfgMap == null) cfgMap = new HashMap<>();
+				boolean saved = configManager.saveLaunchConfig(modelId, cfgMap);
+				if (!saved) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型启动配置失败"));
+					return;
+				}
+				savedData.put(modelId, cfgMap);
+			}
+
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(savedData));
 		} catch (Exception e) {
 			logger.error("设置模型启动配置时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型启动配置失败: " + e.getMessage()));

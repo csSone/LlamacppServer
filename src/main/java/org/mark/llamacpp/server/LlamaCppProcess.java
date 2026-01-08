@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -106,14 +108,14 @@ public class LlamaCppProcess {
 		
 		try {
 			// 使用ProcessBuilder启动进程，可以更好地控制进程
-			ProcessBuilder pb = new ProcessBuilder(cmd.split("\\s+"));
+			List<String> args = splitCommandLineArgs(cmd);
+			ProcessBuilder pb = new ProcessBuilder(args);
 			pb.redirectErrorStream(true); // 不合并错误流和标准输出流
 			
 			// 设置LD_LIBRARY_PATH环境变量，解决共享库加载问题
 			// 从命令中提取llama-server的路径，并设置其所在目录为库搜索路径
-			String[] cmdParts = cmd.split("\\s+");
-			if (cmdParts.length > 0) {
-				String serverPath = cmdParts[0];
+			if (!args.isEmpty()) {
+				String serverPath = args.get(0);
 				// 如果是绝对路径
 				if (serverPath.startsWith("/")) {
 					int lastSlash = serverPath.lastIndexOf('/');
@@ -154,6 +156,73 @@ public class LlamaCppProcess {
 			e.printStackTrace();
 			return false;
 		}
+	}
+
+	private static List<String> splitCommandLineArgs(String commandLine) {
+		List<String> out = new ArrayList<>();
+		if (commandLine == null) {
+			return out;
+		}
+		String s = commandLine.trim();
+		if (s.isEmpty()) {
+			return out;
+		}
+
+		StringBuilder cur = new StringBuilder();
+		boolean inSingle = false;
+		boolean inDouble = false;
+
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+
+			if (inDouble && c == '\\') {
+				if (i + 1 < s.length()) {
+					char n = s.charAt(i + 1);
+					if (n == '"') {
+						cur.append(n);
+						i++;
+						continue;
+					}
+				}
+				cur.append(c);
+				continue;
+			}
+			if (inSingle && c == '\\') {
+				if (i + 1 < s.length()) {
+					char n = s.charAt(i + 1);
+					if (n == '\'') {
+						cur.append(n);
+						i++;
+						continue;
+					}
+				}
+				cur.append(c);
+				continue;
+			}
+
+			if (c == '"' && !inSingle) {
+				inDouble = !inDouble;
+				continue;
+			}
+			if (c == '\'' && !inDouble) {
+				inSingle = !inSingle;
+				continue;
+			}
+
+			if (!inSingle && !inDouble && Character.isWhitespace(c)) {
+				if (cur.length() > 0) {
+					out.add(cur.toString());
+					cur.setLength(0);
+				}
+				continue;
+			}
+
+			cur.append(c);
+		}
+		if (cur.length() > 0) {
+			out.add(cur.toString());
+		}
+		return out;
 	}
 	
 	/**
