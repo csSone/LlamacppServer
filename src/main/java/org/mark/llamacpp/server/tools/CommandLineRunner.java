@@ -1,9 +1,13 @@
 package org.mark.llamacpp.server.tools;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -132,6 +136,7 @@ public class CommandLineRunner {
 
 		ProcessBuilder pb = new ProcessBuilder(commandArray);
 		pb.redirectErrorStream(false); // 不合并错误流和标准输出流
+		applyExecutableDirEnv(pb, commandArray);
 
 		Process process;
 		try {
@@ -189,6 +194,53 @@ public class CommandLineRunner {
 			if (process.isAlive()) {
 				process.destroyForcibly();
 			}
+		}
+	}
+
+	private static void applyExecutableDirEnv(ProcessBuilder pb, String[] commandArray) {
+		if (pb == null || commandArray == null || commandArray.length == 0) {
+			return;
+		}
+		String exe = commandArray[0];
+		if (exe == null || exe.isBlank()) {
+			return;
+		}
+		File exeFile = new File(exe);
+		File exeDir = exeFile.getParentFile();
+		try {
+			Path real = exeFile.toPath().toRealPath();
+			if (real.getParent() != null) {
+				exeDir = real.getParent().toFile();
+			}
+		} catch (Exception ignored) {
+		}
+		if (exeDir == null) {
+			return;
+		}
+
+		pb.directory(exeDir);
+
+		String osName = System.getProperty("os.name");
+		String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
+		Map<String, String> env = pb.environment();
+
+		if (os.contains("win")) {
+			String currentPath = env.get("PATH");
+			String dir = exeDir.getAbsolutePath();
+			if (currentPath == null || currentPath.isBlank()) {
+				env.put("PATH", dir);
+			} else if (!currentPath.contains(dir)) {
+				env.put("PATH", dir + ";" + currentPath);
+			}
+			return;
+		}
+
+		String currentLdPath = env.get("LD_LIBRARY_PATH");
+		String dir = exeDir.getAbsolutePath();
+		if (currentLdPath == null || currentLdPath.isBlank()) {
+			env.put("LD_LIBRARY_PATH", dir);
+		} else if (!currentLdPath.contains(dir)) {
+			env.put("LD_LIBRARY_PATH", dir + ":" + currentLdPath);
 		}
 	}
 
