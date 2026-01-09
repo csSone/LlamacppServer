@@ -58,6 +58,17 @@ jobs:
             -d build/classes \
             -cp "$CLASSPATH"
 
+      - name: 复制 resources 到 classes 目录
+        run: |
+          if [ -d "src/main/resources" ]; then
+            cp -r src/main/resources/* build/classes/
+            echo "已复制 resources 到 classes 目录"
+            echo "classes 目录内容:"
+            ls -la build/classes/
+          else
+            echo "resources 目录不存在，跳过复制"
+          fi
+
       - name: 验证编译结果
         run: |
           echo "编译输出文件:"
