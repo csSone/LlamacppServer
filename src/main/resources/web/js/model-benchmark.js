@@ -1,4 +1,10 @@
 function openModelBenchmarkDialog(modelId, modelName) {
+    window.__benchmarkModelId = modelId;
+    window.__benchmarkModelName = modelName;
+    if (typeof loadModel === 'function') {
+        loadModel(modelId, modelName, 'benchmark');
+        return;
+    }
     const modalId = 'modelBenchmarkModal';
     let modal = document.getElementById(modalId);
     if (!modal) {
@@ -26,225 +32,16 @@ function openModelBenchmarkDialog(modelId, modelName) {
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="form-label" for="benchmarkOutputSelect">输出格式 (-o)</label>
-                                    <select class="form-control" id="benchmarkOutputSelect">
-                                        <option value="md">md</option>
-                                        <option value="csv">csv</option>
-                                        <option value="json">json</option>
-                                        <option value="jsonl">jsonl</option>
-                                        <option value="sql">sql</option>
-                                    </select>
-                                    <small class="form-text">llama-bench 输出会保存到 benchmarks 文件夹</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkOutputErrSelect">错误输出格式 (-oe)</label>
-                                    <select class="form-control" id="benchmarkOutputErrSelect">
-                                        <option value="">不输出</option>
-                                        <option value="md">md</option>
-                                        <option value="csv">csv</option>
-                                        <option value="json">json</option>
-                                        <option value="jsonl">jsonl</option>
-                                        <option value="sql">sql</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
                                     <label class="form-label">可用计算设备 (-dev)</label>
-                                    <small class="form-text">未启用或未选择设备时，使用 auto</small>
-                                    <label style="display:inline-flex; align-items:center; gap:8px; margin-bottom:8px;">
-                                        <input type="checkbox" id="benchmarkEnableDeviceSelect">
-                                        启用设备选择
-                                    </label>
+                                    <small class="form-text">默认已勾选全部设备；取消勾选可排除设备；未选择设备时，使用 auto</small>
                                     <div id="benchmarkDeviceChecklist" style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem; max-height: 260px; overflow: auto;">
                                         <div class="settings-empty">请先选择 Llama.cpp 版本</div>
                                     </div>
                                 </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkRpcInput">RPC 设备 (-rpc)</label>
-                                    <input type="text" class="form-control" id="benchmarkRpcInput" placeholder="例如: 127.0.0.1:50052,127.0.0.1:50053">
-                                </div>
                             </div>
 
                             <div id="benchmarkParamsContainer">
-                                <div class="form-group">
-                                    <label class="form-label">重复次数 (-r)</label>
-                                    <input type="number" class="form-control" id="benchmarkInputRepetitions" min="1" value="5">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkNumaSelect">NUMA 模式 (--numa)</label>
-                                    <select class="form-control" id="benchmarkNumaSelect">
-                                        <option value="">disabled</option>
-                                        <option value="distribute">distribute</option>
-                                        <option value="isolate">isolate</option>
-                                        <option value="numactl">numactl</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkPrioSelect">优先级 (--prio)</label>
-                                    <select class="form-control" id="benchmarkPrioSelect">
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">测试间隔 (--delay, seconds)</label>
-                                    <input type="number" class="form-control" id="benchmarkDelayInput" min="0" step="1" value="0">
-                                </div>
-
-                                <div class="form-group">
-                                    <label style="display:inline-flex; align-items:center; gap:8px;">
-                                        <input type="checkbox" id="benchmarkVerboseCheckbox">
-                                        verbose (-v)
-                                    </label>
-                                    <label style="display:inline-flex; align-items:center; gap:8px; margin-left: 18px;">
-                                        <input type="checkbox" id="benchmarkProgressCheckbox">
-                                        progress (--progress)
-                                    </label>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">提示长度 (-p, --n-prompt)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputNPrompt" value="512" placeholder="例如: 512 或 512,1024 或 0-4096+512">
-                                    <small class="form-text">支持逗号、范围与步长（参考 README-beanch.md）</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">生成长度 (-n, --n-gen)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputNGen" value="128" placeholder="例如: 128 或 128,256">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">Prompt+生成 (-pg)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputPg" placeholder="例如: 512,128 或 256,64">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">预填深度 (-d, --n-depth)</label>
-                                    <input type="text" class="form-control" id="benchmarkDepthInput" value="0" placeholder="例如: 0 或 512 或 0,512">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">批量 (-b, --batch-size)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputBatchSize" value="2048" placeholder="例如: 128,256,512,1024">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">子批 (-ub, --ubatch-size)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputUBatchSize" value="512" placeholder="例如: 512">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">缓存类型 K (-ctk)</label>
-                                    <input type="text" class="form-control" id="benchmarkCacheTypeKInput" value="f16" placeholder="例如: f16">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">缓存类型 V (-ctv)</label>
-                                    <input type="text" class="form-control" id="benchmarkCacheTypeVInput" value="f16" placeholder="例如: f16">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">线程 (-t, --threads)</label>
-                                    <input type="text" class="form-control" id="benchmarkInputThreads" placeholder="例如: 8 或 4,8,16">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">CPU Mask (-C)</label>
-                                    <input type="text" class="form-control" id="benchmarkCpuMaskInput" placeholder="例如: 0x0 或 0xff,0xff00">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkCpuStrictSelect">CPU Strict (--cpu-strict)</label>
-                                    <select class="form-control" id="benchmarkCpuStrictSelect">
-                                        <option value="">默认</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">Poll (--poll)</label>
-                                    <input type="number" class="form-control" id="benchmarkPollInput" min="0" max="100" step="1" value="50">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">GPU Layers (-ngl)</label>
-                                    <input type="text" class="form-control" id="benchmarkGpuLayersInput" value="99" placeholder="例如: 0 或 99">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">CPU MOE (-ncmoe)</label>
-                                    <input type="text" class="form-control" id="benchmarkCpuMoeInput" value="0" placeholder="例如: 0">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkSplitModeSelect">Split Mode (-sm)</label>
-                                    <select class="form-control" id="benchmarkSplitModeSelect">
-                                        <option value="">默认</option>
-                                        <option value="none">none</option>
-                                        <option value="layer">layer</option>
-                                        <option value="row">row</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">主 GPU (-mg)</label>
-                                    <input type="text" class="form-control" id="benchmarkMainGpuInput" placeholder="例如: 0">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkNoKvSelect">禁用 KV Offload (-nkvo)</label>
-                                    <select class="form-control" id="benchmarkNoKvSelect">
-                                        <option value="">默认</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkFlashAttnSelect">Flash Attention (-fa)</label>
-                                    <select class="form-control" id="benchmarkFlashAttnSelect">
-                                        <option value="">默认</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkMmapSelect">内存映射 (-mmp, --mmap)</label>
-                                    <select class="form-control" id="benchmarkMmapSelect">
-                                        <option value="">默认</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="benchmarkEmbeddingsSelect">Embeddings (-embd)</label>
-                                    <select class="form-control" id="benchmarkEmbeddingsSelect">
-                                        <option value="">默认</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">Tensor Split (-ts)</label>
-                                    <input type="text" class="form-control" id="benchmarkTensorSplitInput" placeholder="例如: 0 或 0.00 或 0.5/0.5">
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="form-label">额外参数</label>
-                                    <textarea class="form-control" id="benchmarkInputExtraParams" rows="2" placeholder="例如: -ot layer.*=f16 -nopo 1"></textarea>
-                                    <small class="form-text">不在表单中的参数可写在这里，用空格分隔</small>
-                                </div>
+                                <div class="settings-empty">加载中...</div>
                             </div>
                         </div>
                     </form>
@@ -260,25 +57,13 @@ function openModelBenchmarkDialog(modelId, modelName) {
         root.appendChild(modal);
     }
 
-    window.__benchmarkModelId = modelId;
-    window.__benchmarkModelName = modelName;
-
     const nameEl = document.getElementById('benchmarkModelName');
     if (nameEl) nameEl.textContent = modelName || modelId;
 
-    const enableDeviceSelectEl = document.getElementById('benchmarkEnableDeviceSelect');
-    const deviceListEl = document.getElementById('benchmarkDeviceChecklist');
-    if (enableDeviceSelectEl && deviceListEl) {
-        enableDeviceSelectEl.checked = false;
-        enableDeviceSelectEl.onchange = () => {
-            const enabled = !!enableDeviceSelectEl.checked;
-            Array.from(deviceListEl.querySelectorAll('input[type="checkbox"][data-device-value]')).forEach(cb => {
-                cb.disabled = !enabled;
-            });
-        };
-    }
-
     resetModelBenchmarkForm();
+    if (typeof ensureBenchmarkParamsReady === 'function') {
+        try { ensureBenchmarkParamsReady(); } catch (e) {}
+    }
 
     const binSelect = document.getElementById('benchmarkLlamaBinPathSelect');
     if (!binSelect) {
@@ -311,64 +96,289 @@ function openModelBenchmarkDialog(modelId, modelName) {
         });
 }
 
+let benchmarkParamConfig = null;
+let benchmarkParamConfigPromise = null;
+
+function escapeHtmlCompat(str) {
+    return String(str).replace(/[&<>"']/g, function(m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+}
+
+function escapeAttrCompat(str) {
+    return escapeHtmlCompat(str).replace(/`/g, '&#96;');
+}
+
+function loadBenchmarkParamConfig() {
+    if (benchmarkParamConfigPromise) return benchmarkParamConfigPromise;
+    benchmarkParamConfigPromise = fetch('/api/models/param/benchmark/list')
+        .then(r => r.json())
+        .then(d => {
+            if (d && d.success && Array.isArray(d.params)) {
+                benchmarkParamConfig = d.params;
+                window.benchmarkParamConfig = d.params;
+            } else {
+                benchmarkParamConfig = [];
+                window.benchmarkParamConfig = [];
+            }
+            return benchmarkParamConfig;
+        })
+        .catch(() => {
+            benchmarkParamConfig = [];
+            window.benchmarkParamConfig = [];
+            return benchmarkParamConfig;
+        });
+    return benchmarkParamConfigPromise;
+}
+
+function getBenchmarkParamByFullName(fullName) {
+    const list = Array.isArray(benchmarkParamConfig) ? benchmarkParamConfig : (Array.isArray(window.benchmarkParamConfig) ? window.benchmarkParamConfig : []);
+    const key = fullName == null ? '' : String(fullName);
+    if (!key) return null;
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p) continue;
+        if (String(p.fullName || '') === key) return p;
+    }
+    return null;
+}
+
+function getBenchmarkDefault(fullName, fallback) {
+    const p = getBenchmarkParamByFullName(fullName);
+    const v = p && p.defaultValue !== undefined && p.defaultValue !== null ? String(p.defaultValue) : '';
+    const trimmed = v.trim();
+    return trimmed.length ? trimmed : (fallback == null ? '' : String(fallback));
+}
+
+function renderBenchmarkFieldFromParam(param, opts) {
+    const p = param || {};
+    const id = opts && opts.id ? String(opts.id) : '';
+    const type = opts && opts.type ? String(opts.type) : String(p.type || 'STRING');
+    const values = (opts && Array.isArray(opts.values)) ? opts.values : (Array.isArray(p.values) ? p.values : []);
+    const defaultValue = (opts && opts.defaultValue !== undefined) ? String(opts.defaultValue || '') : String(p.defaultValue || '');
+    const name = p.name != null ? String(p.name) : '';
+    const desc = p.description != null ? String(p.description) : '';
+    const fullName = p.fullName != null ? String(p.fullName) : '';
+    const abbr = p.abbreviation != null ? String(p.abbreviation) : '';
+    const dataFullNameAttr = fullName ? ` data-benchmark-fullname="${escapeAttrCompat(fullName)}"` : '';
+    const labelSuffix = (abbr || fullName) ? ` (${escapeHtmlCompat(abbr || fullName)})` : '';
+    const labelHtml = desc
+        ? `<label class="form-label" for="${escapeAttrCompat(id)}">${escapeHtmlCompat(name)}${labelSuffix} <i class="fas fa-question-circle" style="color: #DCDCDC; cursor: help; margin-left: 4px;" title="${escapeAttrCompat(desc)}"></i></label>`
+        : `<label class="form-label" for="${escapeAttrCompat(id)}">${escapeHtmlCompat(name)}${labelSuffix}</label>`;
+
+    const groupStyle = opts && opts.groupStyle ? ` style="${opts.groupStyle}"` : '';
+    let html = `<div class="form-group"${groupStyle}>${labelHtml}`;
+
+    const kind = String(type || '').toUpperCase();
+    if (kind === 'LOGIC') {
+        const normalize = (raw) => {
+            const v = raw == null ? '' : String(raw).trim().toLowerCase();
+            if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return 'true';
+            return 'false';
+        };
+        const selected = normalize(defaultValue);
+        html += `<select class="form-control" id="${escapeAttrCompat(id)}"${dataFullNameAttr}>`;
+        html += `<option value="true"${selected === 'true' ? ' selected' : ''}>true</option>`;
+        html += `<option value="false"${selected === 'false' ? ' selected' : ''}>false</option>`;
+        html += `</select>`;
+        if (opts && opts.helpText) html += `<small class="form-text">${escapeHtmlCompat(opts.helpText)}</small>`;
+        html += `</div>`;
+        return html;
+    }
+
+    if (values && values.length > 0) {
+        html += `<select class="form-control" id="${escapeAttrCompat(id)}"${dataFullNameAttr}>`;
+        for (let i = 0; i < values.length; i++) {
+            const v = values[i] == null ? '' : String(values[i]);
+            const selected = String(v) === String(defaultValue) ? ' selected' : '';
+            html += `<option value="${escapeAttrCompat(v)}"${selected}>${escapeHtmlCompat(v)}</option>`;
+        }
+        html += `</select>`;
+        if (opts && opts.helpText) html += `<small class="form-text">${escapeHtmlCompat(opts.helpText)}</small>`;
+        html += `</div>`;
+        return html;
+    }
+
+    if (kind === 'INTEGER') {
+        const min = opts && opts.min !== undefined ? ` min="${escapeAttrCompat(opts.min)}"` : '';
+        const step = opts && opts.step !== undefined ? ` step="${escapeAttrCompat(opts.step)}"` : '';
+        const placeholder = opts && opts.placeholder ? ` placeholder="${escapeAttrCompat(opts.placeholder)}"` : '';
+        html += `<input type="number" class="form-control" id="${escapeAttrCompat(id)}"${dataFullNameAttr}${min}${step} value="${escapeAttrCompat(defaultValue)}"${placeholder}>`;
+        if (opts && opts.helpText) html += `<small class="form-text">${escapeHtmlCompat(opts.helpText)}</small>`;
+        html += `</div>`;
+        return html;
+    }
+
+    if (kind === 'FLOAT') {
+        const step = opts && opts.step !== undefined ? ` step="${escapeAttrCompat(opts.step)}"` : ' step="0.01"';
+        const placeholder = opts && opts.placeholder ? ` placeholder="${escapeAttrCompat(opts.placeholder)}"` : '';
+        html += `<input type="number" class="form-control" id="${escapeAttrCompat(id)}"${dataFullNameAttr}${step} value="${escapeAttrCompat(defaultValue)}"${placeholder}>`;
+        if (opts && opts.helpText) html += `<small class="form-text">${escapeHtmlCompat(opts.helpText)}</small>`;
+        html += `</div>`;
+        return html;
+    }
+
+    const placeholder = opts && opts.placeholder ? ` placeholder="${escapeAttrCompat(opts.placeholder)}"` : '';
+    html += `<input type="text" class="form-control" id="${escapeAttrCompat(id)}"${dataFullNameAttr} value="${escapeAttrCompat(defaultValue)}"${placeholder}>`;
+    if (opts && opts.helpText) html += `<small class="form-text">${escapeHtmlCompat(opts.helpText)}</small>`;
+    html += `</div>`;
+    return html;
+}
+
+function renderBenchmarkParamsContainer() {
+    const unifiedModal = document.getElementById('loadModelModal');
+    const inUnified = !!(unifiedModal && unifiedModal.classList && unifiedModal.classList.contains('show') && window.__modelActionMode === 'benchmark');
+    const standaloneModal = document.getElementById('modelBenchmarkModal');
+    const root = inUnified ? unifiedModal : standaloneModal;
+    const container = root ? root.querySelector('#benchmarkParamsContainer') : document.getElementById('benchmarkParamsContainer');
+    if (!container) return;
+
+    const sorted = (Array.isArray(benchmarkParamConfig) ? benchmarkParamConfig : []).slice().sort((a, b) => (a && a.sort ? a.sort : 0) - (b && b.sort ? b.sort : 0));
+    const fields = [];
+    const makeId = (fullName) => {
+        const s = fullName == null ? '' : String(fullName);
+        if (!s) return '';
+        return 'benchmark_param_' + s.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    };
+
+    for (let i = 0; i < sorted.length; i++) {
+        const p = sorted[i];
+        if (!p) continue;
+        const fullName = p.fullName == null ? '' : String(p.fullName);
+        if (!fullName) continue;
+        const id = makeId(fullName);
+        const type = p.type == null ? '' : String(p.type).toUpperCase();
+        const opts = { id: id };
+        fields.push(renderBenchmarkFieldFromParam(p, opts));
+    }
+
+    if (!fields.length) {
+        container.innerHTML = '<div class="settings-empty">无可用参数</div>';
+        return;
+    }
+
+    container.innerHTML = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">${fields.join('')}</div>`;
+}
+
+function ensureBenchmarkParamsReady() {
+    return loadBenchmarkParamConfig().then(() => {
+        renderBenchmarkParamsContainer();
+        resetModelBenchmarkForm();
+    });
+}
+
 function resetModelBenchmarkForm() {
-    const form = document.getElementById('modelBenchmarkForm');
-    if (form) form.reset();
+    const unifiedModal = document.getElementById('loadModelModal');
+    const inUnified = !!(unifiedModal && unifiedModal.classList && unifiedModal.classList.contains('show') && window.__modelActionMode === 'benchmark');
+    const form = inUnified ? (unifiedModal ? unifiedModal.querySelector('form') : null) : document.getElementById('modelBenchmarkForm');
+    if (form && !inUnified) form.reset();
+    const root = inUnified ? unifiedModal : (document.getElementById('modelBenchmarkModal') || document);
 
-    const rep = document.getElementById('benchmarkInputRepetitions');
-    if (rep) rep.value = '5';
-
-    const output = document.getElementById('benchmarkOutputSelect');
-    if (output) output.value = 'md';
-
-    const outputErr = document.getElementById('benchmarkOutputErrSelect');
-    if (outputErr) outputErr.value = '';
-
-    const prio = document.getElementById('benchmarkPrioSelect');
-    if (prio) prio.value = '0';
-
-    const delay = document.getElementById('benchmarkDelayInput');
-    if (delay) delay.value = '0';
-
-    const poll = document.getElementById('benchmarkPollInput');
-    if (poll) poll.value = '50';
-
-    const p = document.getElementById('benchmarkInputNPrompt');
-    if (p) p.value = '512';
-
-    const n = document.getElementById('benchmarkInputNGen');
-    if (n) n.value = '128';
-
-    const batch = document.getElementById('benchmarkInputBatchSize');
-    if (batch) batch.value = '2048';
-
-    const ubatch = document.getElementById('benchmarkInputUBatchSize');
-    if (ubatch) ubatch.value = '512';
-
-    const ctk = document.getElementById('benchmarkCacheTypeKInput');
-    if (ctk) ctk.value = 'f16';
-
-    const ctv = document.getElementById('benchmarkCacheTypeVInput');
-    if (ctv) ctv.value = 'f16';
-
-    const depth = document.getElementById('benchmarkDepthInput');
-    if (depth) depth.value = '0';
-
-    const ngl = document.getElementById('benchmarkGpuLayersInput');
-    if (ngl) ngl.value = '99';
-
-    const ncmoe = document.getElementById('benchmarkCpuMoeInput');
-    if (ncmoe) ncmoe.value = '0';
-
-    const enableDeviceSelectEl = document.getElementById('benchmarkEnableDeviceSelect');
-    if (enableDeviceSelectEl) enableDeviceSelectEl.checked = false;
+    const cfgList = Array.isArray(benchmarkParamConfig) ? benchmarkParamConfig : (Array.isArray(window.benchmarkParamConfig) ? window.benchmarkParamConfig : []);
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const fullName = p.fullName == null ? '' : String(p.fullName);
+        if (!fullName) continue;
+        const selector = '[data-benchmark-fullname="' + fullName.replace(/"/g, '\\"') + '"]';
+        const el = (root && root.querySelector) ? root.querySelector(selector) : document.querySelector(selector);
+        if (!el) continue;
+        const type = p.type == null ? '' : String(p.type).toUpperCase();
+        const def = p.defaultValue == null ? '' : String(p.defaultValue);
+        if (type === 'LOGIC') {
+            const v = def.trim().toLowerCase();
+            el.value = (v === '1' || v === 'true' || v === 'on' || v === 'yes') ? 'true' : 'false';
+        } else if ('value' in el) {
+            el.value = def;
+        }
+    }
 
     const deviceListEl = document.getElementById('benchmarkDeviceChecklist');
     if (deviceListEl) {
         Array.from(deviceListEl.querySelectorAll('input[type="checkbox"][data-device-value]')).forEach(cb => {
-            cb.checked = false;
-            cb.disabled = true;
+            cb.checked = true;
+            cb.disabled = false;
         });
+    }
+
+    const deviceChecklistEl = document.getElementById('deviceChecklist');
+    if (deviceChecklistEl) {
+        Array.from(deviceChecklistEl.querySelectorAll('input[type="checkbox"][data-device-key]')).forEach(cb => {
+            cb.checked = true;
+            cb.disabled = false;
+        });
+    }
+}
+
+function quoteArgIfNeeded(value) {
+    const v = value === null || value === undefined ? '' : String(value);
+    if (!v) return '';
+    if (!/\s|"/.test(v)) return v;
+    return '"' + v.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function isTruthyLogicValue(value) {
+    const v = value === null || value === undefined ? '' : String(value).trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+}
+
+function getBenchmarkParamFieldEl(root, fullName) {
+    const selector = '[data-benchmark-fullname="' + String(fullName).replace(/"/g, '\\"') + '"]';
+    if (root && root.querySelector) {
+        const el = root.querySelector(selector);
+        if (el) return el;
+    }
+    return document.querySelector(selector);
+}
+
+function buildBenchmarkCmdFromDynamicFields(root, cfgList) {
+    const list = (Array.isArray(cfgList) ? cfgList : []).slice().sort((a, b) => (a && a.sort ? a.sort : 0) - (b && b.sort ? b.sort : 0));
+    const cmdParts = [];
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p) continue;
+        const fullName = p.fullName == null ? '' : String(p.fullName);
+        if (!fullName) continue;
+        const el = getBenchmarkParamFieldEl(root, fullName);
+        if (!el || !('value' in el)) continue;
+        const type = p.type == null ? '' : String(p.type).toUpperCase();
+        const rawValue = String(el.value || '');
+        if (type === 'LOGIC') {
+            if (isTruthyLogicValue(rawValue)) cmdParts.push(fullName);
+            continue;
+        }
+        const trimmed = rawValue.trim();
+        if (!trimmed) continue;
+        cmdParts.push(fullName, quoteArgIfNeeded(trimmed));
+    }
+    return cmdParts.join(' ').trim();
+}
+
+function appendBenchmarkDeviceArgs(cmdParts, listEl) {
+    if (!listEl) return;
+    const hasDeviceValue = !!listEl.querySelector('input[type="checkbox"][data-device-value]');
+    const hasDeviceKey = !!listEl.querySelector('input[type="checkbox"][data-device-key]');
+    let values = [];
+    let totalCount = 0;
+    if (hasDeviceValue) {
+        const all = Array.from(listEl.querySelectorAll('input[type="checkbox"][data-device-value]'));
+        totalCount = all.length;
+        values = all
+            .filter(cb => cb.checked)
+            .map(cb => cb.getAttribute('data-device-value'))
+            .filter(v => v && String(v).trim().length > 0);
+    } else if (hasDeviceKey) {
+        const all = Array.from(listEl.querySelectorAll('input[type="checkbox"][data-device-key]'));
+        totalCount = all.length;
+        values = all
+            .filter(cb => cb.checked)
+            .map(cb => cb.getAttribute('data-device-key'))
+            .map(v => {
+                if (v === null || v === undefined) return '';
+                return String(v).trim().split(':')[0];
+            })
+            .filter(v => v && String(v).trim().length > 0 && v !== 'All' && v !== '-1');
+    }
+    if (values.length > 0 && values.length < totalCount) {
+        cmdParts.push('-dev', values.join('/'));
     }
 }
 
@@ -394,7 +404,6 @@ function loadBenchmarkDevices(llamaBinPath) {
                 listEl.innerHTML = '<div class="settings-empty">未发现可用设备</div>';
                 return;
             }
-            const enabled = !!(document.getElementById('benchmarkEnableDeviceSelect') && document.getElementById('benchmarkEnableDeviceSelect').checked);
             const html = devices.map((raw, idx) => {
                 const line = (raw == null) ? '' : String(raw);
                 const trimmed = line.trim();
@@ -404,7 +413,7 @@ function loadBenchmarkDevices(llamaBinPath) {
                 const safeId = 'benchmarkDevice_' + idx;
                 return `
                     <label style="display:flex; align-items:flex-start; gap:10px; padding:6px 4px;">
-                        <input type="checkbox" id="${safeId}" data-device-value="${value}" ${enabled ? '' : 'disabled'}>
+                        <input type="checkbox" id="${safeId}" data-device-value="${value}" checked>
                         <span style="font-size: 13px; color: var(--text-secondary);">${trimmed || value}</span>
                     </label>
                 `;
@@ -417,132 +426,37 @@ function loadBenchmarkDevices(llamaBinPath) {
 }
 
 function submitModelBenchmark() {
-    const modelId = window.__benchmarkModelId;
-    const modelName = window.__benchmarkModelName;
+    const unifiedModal = document.getElementById('loadModelModal');
+    const inUnified = !!(unifiedModal && unifiedModal.classList && unifiedModal.classList.contains('show') && window.__modelActionMode === 'benchmark');
+
+    const modelId = inUnified ? ((document.getElementById('modelId') && document.getElementById('modelId').value) ? String(document.getElementById('modelId').value).trim() : '') : window.__benchmarkModelId;
+    const modelName = inUnified ? ((document.getElementById('modelName') && document.getElementById('modelName').value) ? String(document.getElementById('modelName').value).trim() : '') : window.__benchmarkModelName;
     if (!modelId) {
         showToast('错误', '未选择模型', 'error');
         return;
     }
 
-    const repInput = document.getElementById('benchmarkInputRepetitions');
-    const outputSelect = document.getElementById('benchmarkOutputSelect');
-    const outputErrSelect = document.getElementById('benchmarkOutputErrSelect');
-    const numaSelect = document.getElementById('benchmarkNumaSelect');
-    const prioSelect = document.getElementById('benchmarkPrioSelect');
-    const delayInput = document.getElementById('benchmarkDelayInput');
-    const verboseCheckbox = document.getElementById('benchmarkVerboseCheckbox');
-    const progressCheckbox = document.getElementById('benchmarkProgressCheckbox');
-
-    const nPromptInput = document.getElementById('benchmarkInputNPrompt');
-    const nGenInput = document.getElementById('benchmarkInputNGen');
-    const pgInput = document.getElementById('benchmarkInputPg');
-    const depthInput = document.getElementById('benchmarkDepthInput');
-    const batchInput = document.getElementById('benchmarkInputBatchSize');
-    const ubatchInput = document.getElementById('benchmarkInputUBatchSize');
-    const cacheTypeKInput = document.getElementById('benchmarkCacheTypeKInput');
-    const cacheTypeVInput = document.getElementById('benchmarkCacheTypeVInput');
-    const threadsInput = document.getElementById('benchmarkInputThreads');
-    const cpuMaskInput = document.getElementById('benchmarkCpuMaskInput');
-    const cpuStrictSelect = document.getElementById('benchmarkCpuStrictSelect');
-    const pollInput = document.getElementById('benchmarkPollInput');
-    const nglInput = document.getElementById('benchmarkGpuLayersInput');
-    const ncmoeInput = document.getElementById('benchmarkCpuMoeInput');
-    const splitModeSelect = document.getElementById('benchmarkSplitModeSelect');
-    const mainGpuInput = document.getElementById('benchmarkMainGpuInput');
-    const noKvSelect = document.getElementById('benchmarkNoKvSelect');
-    const flashAttnSelect = document.getElementById('benchmarkFlashAttnSelect');
-    const mmapSelect = document.getElementById('benchmarkMmapSelect');
-    const embeddingsSelect = document.getElementById('benchmarkEmbeddingsSelect');
-    const tensorSplitInput = document.getElementById('benchmarkTensorSplitInput');
-    const rpcInput = document.getElementById('benchmarkRpcInput');
-    const extraInput = document.getElementById('benchmarkInputExtraParams');
-
-    const btn = document.getElementById('benchmarkRunBtn');
-    const binSelect = document.getElementById('benchmarkLlamaBinPathSelect');
-
-    let repetitions = repInput ? parseInt(repInput.value, 10) : 3;
-    const output = outputSelect ? outputSelect.value.trim() : '';
-    const outputErr = outputErrSelect ? outputErrSelect.value.trim() : '';
-    const numa = numaSelect ? numaSelect.value.trim() : '';
-    const prio = prioSelect ? prioSelect.value.trim() : '';
-    const delay = delayInput ? delayInput.value.trim() : '';
-    const verbose = !!(verboseCheckbox && verboseCheckbox.checked);
-    const progress = !!(progressCheckbox && progressCheckbox.checked);
-
-    const p = nPromptInput ? nPromptInput.value.trim() : '';
-    const n = nGenInput ? nGenInput.value.trim() : '';
-    const pg = pgInput ? pgInput.value.trim() : '';
-    const depth = depthInput ? depthInput.value.trim() : '';
-    const batchSize = batchInput ? batchInput.value.trim() : '';
-    const ubatchSize = ubatchInput ? ubatchInput.value.trim() : '';
-    const cacheTypeK = cacheTypeKInput ? cacheTypeKInput.value.trim() : '';
-    const cacheTypeV = cacheTypeVInput ? cacheTypeVInput.value.trim() : '';
-    const t = threadsInput ? threadsInput.value.trim() : '';
-    const cpuMask = cpuMaskInput ? cpuMaskInput.value.trim() : '';
-    const cpuStrict = cpuStrictSelect ? cpuStrictSelect.value.trim() : '';
-    const poll = pollInput ? pollInput.value.trim() : '';
-    const ngl = nglInput ? nglInput.value.trim() : '';
-    const ncmoe = ncmoeInput ? ncmoeInput.value.trim() : '';
-    const splitMode = splitModeSelect ? splitModeSelect.value.trim() : '';
-    const mg = mainGpuInput ? mainGpuInput.value.trim() : '';
-    const nkvo = noKvSelect ? noKvSelect.value.trim() : '';
-    const fa = flashAttnSelect ? flashAttnSelect.value.trim() : '';
-    const mmp = mmapSelect ? mmapSelect.value.trim() : '';
-    const embd = embeddingsSelect ? embeddingsSelect.value.trim() : '';
-    const tensorSplit = tensorSplitInput ? tensorSplitInput.value.trim() : '';
-    const rpc = rpcInput ? rpcInput.value.trim() : '';
-    const extraParams = extraInput ? extraInput.value.trim() : '';
+    const btn = inUnified ? document.getElementById('modelActionSubmitBtn') : document.getElementById('benchmarkRunBtn');
+    const binSelect = (inUnified ? document.getElementById('llamaBinPathSelect') : document.getElementById('benchmarkLlamaBinPathSelect')) || document.getElementById('benchmarkLlamaBinPathSelect') || document.getElementById('llamaBinPathSelect');
     const llamaBinPath = binSelect ? (binSelect.value || '').trim() : '';
-
-    if (isNaN(repetitions) || repetitions <= 0) repetitions = 3;
     if (!llamaBinPath) {
         showToast('错误', '请先选择 Llama.cpp 版本路径', 'error');
         return;
     }
 
-    const payload = { modelId: modelId };
-    if (repetitions > 0) payload.repetitions = repetitions;
-    if (output) payload.output = output;
-    if (outputErr) payload.outputErr = outputErr;
-    if (numa) payload.numa = numa;
-    if (prio) payload.prio = prio;
-    if (delay) payload.delay = delay;
-    if (verbose) payload.verbose = true;
-    if (progress) payload.progress = true;
-    if (rpc) payload.rpc = rpc;
-
-    if (p) payload.p = p;
-    if (n) payload.n = n;
-    if (t) payload.t = t;
-    if (batchSize) payload.batchSize = batchSize;
-    if (ubatchSize) payload.ubatchSize = ubatchSize;
-    if (pg) payload.pg = pg;
-    if (depth) payload.depth = depth;
-    if (cacheTypeK) payload.cacheTypeK = cacheTypeK;
-    if (cacheTypeV) payload.cacheTypeV = cacheTypeV;
-    if (cpuMask) payload.cpuMask = cpuMask;
-    if (cpuStrict) payload.cpuStrict = cpuStrict;
-    if (poll) payload.poll = poll;
-    if (ngl) payload.ngl = ngl;
-    if (ncmoe) payload.ncmoe = ncmoe;
-    if (splitMode) payload.splitMode = splitMode;
-    if (mg) payload.mg = mg;
-    if (nkvo) payload.nkvo = nkvo;
-    if (fa) payload.fa = fa;
-    if (mmp) payload.mmp = mmp;
-    if (embd) payload.embd = embd;
-    if (tensorSplit) payload.tensorSplit = tensorSplit;
-    if (extraParams) payload.extraParams = extraParams;
-    const enableDeviceSelectEl = document.getElementById('benchmarkEnableDeviceSelect');
-    const listEl = document.getElementById('benchmarkDeviceChecklist');
-    if (enableDeviceSelectEl && enableDeviceSelectEl.checked && listEl) {
-        const values = Array.from(listEl.querySelectorAll('input[type="checkbox"][data-device-value]'))
-            .filter(cb => cb.checked)
-            .map(cb => cb.getAttribute('data-device-value'))
-            .filter(v => v && v.trim().length > 0);
-        if (values.length) payload.device = values.join('/');
+    const cfgList = Array.isArray(benchmarkParamConfig) ? benchmarkParamConfig : (Array.isArray(window.benchmarkParamConfig) ? window.benchmarkParamConfig : []);
+    const root = inUnified ? unifiedModal : (document.getElementById('modelBenchmarkModal') || document);
+    const cmdParts = [];
+    const dynamicCmd = buildBenchmarkCmdFromDynamicFields(root, cfgList);
+    if (dynamicCmd) cmdParts.push(dynamicCmd);
+    const listEl = document.getElementById('benchmarkDeviceChecklist') || document.getElementById('deviceChecklist');
+    appendBenchmarkDeviceArgs(cmdParts, listEl);
+    const cmd = cmdParts.join(' ').trim();
+    if (!cmd) {
+        showToast('错误', '缺少必需的cmd参数', 'error');
+        return;
     }
-    payload.llamaBinPath = llamaBinPath;
+    const payload = { modelId: modelId, llamaBinPath: llamaBinPath, cmd: cmd };
 
     if (btn) {
         btn.disabled = true;
@@ -562,7 +476,7 @@ function submitModelBenchmark() {
                 showToast('错误', message, 'error');
             } else {
                 const data = res.data || {};
-                closeModal('modelBenchmarkModal');
+                closeModal(inUnified ? 'loadModelModal' : 'modelBenchmarkModal');
                 showModelBenchmarkResultModal(modelId, modelName, data);
             }
         })

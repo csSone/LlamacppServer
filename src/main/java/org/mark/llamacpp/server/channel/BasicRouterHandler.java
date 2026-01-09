@@ -164,6 +164,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			this.handleParamListRequest(ctx, request);
 			return;
 		}
+		// 列出可用的参数API
+		if (uri.startsWith("/api/models/param/benchmark/list")) {
+			this.handleParamBenchmarkListRequest(ctx, request);
+			return;
+		}
 		// 显存估算API
 		if (uri.startsWith("/api/models/vram/estimate")) {
 			this.handleVramEstimateRequest(ctx, request);
@@ -742,6 +747,29 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		} catch (Exception e) {
 			logger.error("获取参数列表时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取参数列表失败: " + e.getMessage()));
+		}
+	}
+	
+	private void handleParamBenchmarkListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
+		try {
+			File paramFile = new File("benchmark-params.json");
+			if (!paramFile.exists()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("参数配置文件不存在: benchmark-params.json"));
+				return;
+			}
+
+			String content = new String(Files.readAllBytes(paramFile.toPath()), StandardCharsets.UTF_8);
+			Object parsed = gson.fromJson(content, Object.class);
+
+			Map<String, Object> response = new HashMap<>();
+			response.put("success", true);
+			response.put("params", parsed);
+			LlamaServer.sendJsonResponse(ctx, response);
+		} catch (Exception e) {
+			logger.error("获取基准测试参数列表时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取基准测试参数列表失败: " + e.getMessage()));
 		}
 	}
 
@@ -1566,239 +1594,14 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
-			int repetitions = json.has("repetitions") ? json.get("repetitions").getAsInt() : 3;
-			String p = null;
-			if (json.has("p") && !json.get("p").isJsonNull()) {
-				p = json.get("p").getAsString();
-			} else if (json.has("nPrompt") && !json.get("nPrompt").isJsonNull()) {
-				p = json.get("nPrompt").getAsString();
+			String cmd = JsonUtil.getJsonString(json, "cmd", null);
+			if (cmd != null) {
+				cmd = cmd.trim();
+				if (cmd.isEmpty()) cmd = null;
 			}
-			if (p != null) {
-				p = p.trim();
-				if (p.isEmpty()) {
-					p = null;
-				}
-			}
-			String n = null;
-			if (json.has("n") && !json.get("n").isJsonNull()) {
-				n = json.get("n").getAsString();
-			} else if (json.has("nGen") && !json.get("nGen").isJsonNull()) {
-				n = json.get("nGen").getAsString();
-			}
-			if (n != null) {
-				n = n.trim();
-				if (n.isEmpty()) {
-					n = null;
-				}
-			}
-			String t = null;
-			if (json.has("t") && !json.get("t").isJsonNull()) {
-				t = json.get("t").getAsString();
-			} else if (json.has("threads") && !json.get("threads").isJsonNull()) {
-				t = json.get("threads").getAsString();
-			}
-			if (t != null) {
-				t = t.trim();
-				if (t.isEmpty()) {
-					t = null;
-				}
-			}
-			String batchSize = null;
-			if (json.has("batchSize") && !json.get("batchSize").isJsonNull()) {
-				batchSize = json.get("batchSize").getAsString();
-				if (batchSize != null) {
-					batchSize = batchSize.trim();
-					if (batchSize.isEmpty()) {
-						batchSize = null;
-					}
-				}
-			}
-			String ubatchSize = null;
-			if (json.has("ubatchSize") && !json.get("ubatchSize").isJsonNull()) {
-				ubatchSize = json.get("ubatchSize").getAsString();
-				if (ubatchSize != null) {
-					ubatchSize = ubatchSize.trim();
-					if (ubatchSize.isEmpty()) {
-						ubatchSize = null;
-					}
-				}
-			}
-			String pg = null;
-			if (json.has("pg") && !json.get("pg").isJsonNull()) {
-				pg = json.get("pg").getAsString();
-				if (pg != null) {
-					pg = pg.trim();
-					if (pg.isEmpty()) {
-						pg = null;
-					}
-				}
-			}
-			String fa = null;
-			if (json.has("fa") && !json.get("fa").isJsonNull()) {
-				fa = json.get("fa").getAsString();
-				if (fa != null) {
-					fa = fa.trim();
-					if (fa.isEmpty()) {
-						fa = null;
-					}
-				}
-			}
-			String mmp = null;
-			if (json.has("mmp") && !json.get("mmp").isJsonNull()) {
-				mmp = json.get("mmp").getAsString();
-				if (mmp != null) {
-					mmp = mmp.trim();
-					if (mmp.isEmpty()) {
-						mmp = null;
-					}
-				}
-			}
-			String outputFormat = JsonUtil.getJsonString(json, "output", null);
-			if (outputFormat != null) {
-				outputFormat = outputFormat.trim();
-				if (outputFormat.isEmpty()) outputFormat = null;
-			}
-			String outputErrFormat = JsonUtil.getJsonString(json, "outputErr", null);
-			if (outputErrFormat != null) {
-				outputErrFormat = outputErrFormat.trim();
-				if (outputErrFormat.isEmpty()) outputErrFormat = null;
-			}
-			String numa = JsonUtil.getJsonString(json, "numa", null);
-			if (numa != null) {
-				numa = numa.trim();
-				if (numa.isEmpty()) numa = null;
-			}
-			String prio = JsonUtil.getJsonString(json, "prio", null);
-			if (prio != null) {
-				prio = prio.trim();
-				if (prio.isEmpty()) prio = null;
-			}
-			String delay = JsonUtil.getJsonString(json, "delay", null);
-			if (delay != null) {
-				delay = delay.trim();
-				if (delay.isEmpty()) delay = null;
-			}
-			boolean verbose = false;
-			if (json.has("verbose") && json.get("verbose") != null && !json.get("verbose").isJsonNull()) {
-				try {
-					verbose = json.get("verbose").getAsBoolean();
-				} catch (Exception e) {
-					try {
-						String s = json.get("verbose").getAsString();
-						verbose = "1".equals(s) || "true".equalsIgnoreCase(s);
-					} catch (Exception ignore) {
-						verbose = false;
-					}
-				}
-			}
-			boolean progress = false;
-			if (json.has("progress") && json.get("progress") != null && !json.get("progress").isJsonNull()) {
-				try {
-					progress = json.get("progress").getAsBoolean();
-				} catch (Exception e) {
-					try {
-						String s = json.get("progress").getAsString();
-						progress = "1".equals(s) || "true".equalsIgnoreCase(s);
-					} catch (Exception ignore) {
-						progress = false;
-					}
-				}
-			}
-			String rpc = JsonUtil.getJsonString(json, "rpc", null);
-			if (rpc != null) {
-				rpc = rpc.trim();
-				if (rpc.isEmpty()) rpc = null;
-			}
-			String depth = JsonUtil.getJsonString(json, "depth", null);
-			if (depth == null || depth.trim().isEmpty()) depth = JsonUtil.getJsonString(json, "d", null);
-			if (depth != null) {
-				depth = depth.trim();
-				if (depth.isEmpty()) depth = null;
-			}
-			String cacheTypeK = JsonUtil.getJsonString(json, "cacheTypeK", null);
-			if (cacheTypeK != null) {
-				cacheTypeK = cacheTypeK.trim();
-				if (cacheTypeK.isEmpty()) cacheTypeK = null;
-			}
-			String cacheTypeV = JsonUtil.getJsonString(json, "cacheTypeV", null);
-			if (cacheTypeV != null) {
-				cacheTypeV = cacheTypeV.trim();
-				if (cacheTypeV.isEmpty()) cacheTypeV = null;
-			}
-			String cpuMask = JsonUtil.getJsonString(json, "cpuMask", null);
-			if (cpuMask != null) {
-				cpuMask = cpuMask.trim();
-				if (cpuMask.isEmpty()) cpuMask = null;
-			}
-			String cpuStrict = JsonUtil.getJsonString(json, "cpuStrict", null);
-			if (cpuStrict != null) {
-				cpuStrict = cpuStrict.trim();
-				if (cpuStrict.isEmpty()) cpuStrict = null;
-			}
-			String poll = JsonUtil.getJsonString(json, "poll", null);
-			if (poll != null) {
-				poll = poll.trim();
-				if (poll.isEmpty()) poll = null;
-			}
-			String ngl = JsonUtil.getJsonString(json, "ngl", null);
-			if (ngl != null) {
-				ngl = ngl.trim();
-				if (ngl.isEmpty()) ngl = null;
-			}
-			String ncmoe = JsonUtil.getJsonString(json, "ncmoe", null);
-			if (ncmoe != null) {
-				ncmoe = ncmoe.trim();
-				if (ncmoe.isEmpty()) ncmoe = null;
-			}
-			String splitMode = JsonUtil.getJsonString(json, "splitMode", null);
-			if (splitMode != null) {
-				splitMode = splitMode.trim();
-				if (splitMode.isEmpty()) splitMode = null;
-			}
-			String mg = JsonUtil.getJsonString(json, "mg", null);
-			if (mg != null) {
-				mg = mg.trim();
-				if (mg.isEmpty()) mg = null;
-			}
-			String nkvo = JsonUtil.getJsonString(json, "nkvo", null);
-			if (nkvo != null) {
-				nkvo = nkvo.trim();
-				if (nkvo.isEmpty()) nkvo = null;
-			}
-			String device = JsonUtil.getJsonString(json, "device", null);
-			if (device != null) {
-				device = device.trim();
-				if (device.isEmpty()) device = null;
-			}
-			String embd = JsonUtil.getJsonString(json, "embd", null);
-			if (embd != null) {
-				embd = embd.trim();
-				if (embd.isEmpty()) embd = null;
-			}
-			String tensorSplit = JsonUtil.getJsonString(json, "tensorSplit", null);
-			if (tensorSplit != null) {
-				tensorSplit = tensorSplit.trim();
-				if (tensorSplit.isEmpty()) tensorSplit = null;
-			}
-			String overrideTensors = JsonUtil.getJsonString(json, "overrideTensors", null);
-			if (overrideTensors != null) {
-				overrideTensors = overrideTensors.trim();
-				if (overrideTensors.isEmpty()) overrideTensors = null;
-			}
-			String noOpOffload = JsonUtil.getJsonString(json, "noOpOffload", null);
-			if (noOpOffload != null) {
-				noOpOffload = noOpOffload.trim();
-				if (noOpOffload.isEmpty()) noOpOffload = null;
-			}
-			String extraParams = null;
-			if (json.has("extraParams") && !json.get("extraParams").isJsonNull()) {
-				extraParams = json.get("extraParams").getAsString();
-				if (extraParams != null) {
-					extraParams = extraParams.trim();
-					if (extraParams.isEmpty()) {
-						extraParams = null;
-					}
-				}
+			if (cmd == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的cmd参数"));
+				return;
 			}
 			String llamaBinPath = null;
 			if (json.has("llamaBinPath") && !json.get("llamaBinPath").isJsonNull()) {
@@ -1809,9 +1612,6 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 						llamaBinPath = null;
 					}
 				}
-			}
-			if (repetitions <= 0) {
-				repetitions = 1;
 			}
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			manager.listModel();
@@ -1842,144 +1642,10 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			}
 			List<String> command = new ArrayList<>();
 			command.add(benchFile.getAbsolutePath());
-			if (numa != null) {
-				command.add("--numa");
-				command.add(numa);
-			}
-			if (prio != null) {
-				command.add("--prio");
-				command.add(prio);
-			}
-			if (delay != null) {
-				command.add("--delay");
-				command.add(delay);
-			}
-			if (outputFormat != null) {
-				command.add("-o");
-				command.add(outputFormat);
-			}
-			if (outputErrFormat != null) {
-				command.add("-oe");
-				command.add(outputErrFormat);
-			}
-			if (verbose) {
-				command.add("-v");
-			}
-			if (progress) {
-				command.add("--progress");
-			}
-			if (rpc != null) {
-				command.add("-rpc");
-				command.add(rpc);
-			}
 			command.add("-m");
 			command.add(modelPath);
-			command.add("-r");
-			command.add(String.valueOf(repetitions));
-			if (p != null) {
-				command.add("-p");
-				command.add(p);
-			}
-			if (n != null) {
-				command.add("-n");
-				command.add(n);
-			}
-			if (depth != null) {
-				command.add("-d");
-				command.add(depth);
-			}
-			if (batchSize != null) {
-				command.add("-b");
-				command.add(batchSize);
-			}
-			if (ubatchSize != null) {
-				command.add("-ub");
-				command.add(ubatchSize);
-			}
-			if (cacheTypeK != null) {
-				command.add("-ctk");
-				command.add(cacheTypeK);
-			}
-			if (cacheTypeV != null) {
-				command.add("-ctv");
-				command.add(cacheTypeV);
-			}
-			if (t != null) {
-				command.add("-t");
-				command.add(t);
-			}
-			if (cpuMask != null) {
-				command.add("-C");
-				command.add(cpuMask);
-			}
-			if (cpuStrict != null) {
-				command.add("--cpu-strict");
-				command.add(cpuStrict);
-			}
-			if (poll != null) {
-				command.add("--poll");
-				command.add(poll);
-			}
-			if (ngl != null) {
-				command.add("-ngl");
-				command.add(ngl);
-			}
-			if (ncmoe != null) {
-				command.add("-ncmoe");
-				command.add(ncmoe);
-			}
-			if (splitMode != null) {
-				command.add("-sm");
-				command.add(splitMode);
-			}
-			if (mg != null) {
-				command.add("-mg");
-				command.add(mg);
-			}
-			if (nkvo != null) {
-				command.add("-nkvo");
-				command.add(nkvo);
-			}
-			if (pg != null) {
-				command.add("-pg");
-				command.add(pg);
-			}
-			if (fa != null) {
-				command.add("-fa");
-				command.add(fa);
-			}
-			if (device != null) {
-				command.add("-dev");
-				command.add(device);
-			}
-			if (mmp != null) {
-				command.add("-mmp");
-				command.add(mmp);
-			}
-			if (embd != null) {
-				command.add("-embd");
-				command.add(embd);
-			}
-			if (tensorSplit != null) {
-				command.add("-ts");
-				command.add(tensorSplit);
-			}
-			if (overrideTensors != null) {
-				command.add("-ot");
-				command.add(overrideTensors);
-			}
-			if (noOpOffload != null) {
-				command.add("-nopo");
-				command.add(noOpOffload);
-			}
-			if (extraParams != null && !extraParams.isEmpty()) {
-				String[] parts = extraParams.split("\\s+");
-				for (String part : parts) {
-					if (!part.isEmpty()) {
-						command.add(part);
-					}
-				}
-			}
+			List<String> cmdArgs = sanitizeBenchmarkCmdArgs(splitCmdArgs(cmd));
+			command.addAll(cmdArgs);
 			String commandStr = String.join(" ", command);
 			ProcessBuilder pb = new ProcessBuilder(command);
 			pb.redirectErrorStream(true);
@@ -2292,6 +1958,65 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			// URL 格式错误、编码失败等，返回空 Map（可根据需求改为抛异常）
 			return new HashMap<>();
 		}
+	}
+	
+	private static List<String> splitCmdArgs(String cmd) {
+		String s = cmd == null ? "" : cmd;
+		List<String> tokens = new ArrayList<>();
+		StringBuilder buf = new StringBuilder();
+		boolean inQuotes = false;
+		boolean escape = false;
+		
+		for (int i = 0; i < s.length(); i++) {
+			char ch = s.charAt(i);
+			if (escape) {
+				buf.append(ch);
+				escape = false;
+				continue;
+			}
+			if (ch == '\\') {
+				escape = true;
+				continue;
+			}
+			if (ch == '"') {
+				inQuotes = !inQuotes;
+				continue;
+			}
+			if (!inQuotes && Character.isWhitespace(ch)) {
+				if (buf.length() > 0) {
+					tokens.add(buf.toString());
+					buf.setLength(0);
+				}
+				continue;
+			}
+			buf.append(ch);
+		}
+		if (buf.length() > 0) tokens.add(buf.toString());
+		return tokens;
+	}
+	
+	private static List<String> sanitizeBenchmarkCmdArgs(List<String> args) {
+		if (args == null || args.isEmpty()) return new ArrayList<>();
+		List<String> input = args;
+		String first = input.get(0);
+		if (first != null) {
+			String f = first.trim().toLowerCase();
+			if (f.endsWith("llama-bench") || f.endsWith("llama-bench.exe")) {
+				input = input.subList(1, input.size());
+			}
+		}
+		
+		List<String> out = new ArrayList<>(Math.max(0, input.size()));
+		for (int i = 0; i < input.size(); i++) {
+			String a = input.get(i);
+			if (a == null) continue;
+			if ("-m".equals(a) || "--model".equals(a)) {
+				i++;
+				continue;
+			}
+			out.add(a);
+		}
+		return out;
 	}
 
 	/**

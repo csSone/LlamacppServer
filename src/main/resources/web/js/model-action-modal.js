@@ -274,7 +274,7 @@ function extractLaunchConfigFromGetResponse(res, modelId) {
 }
 
 function setModelActionMode(mode) {
-    const resolved = mode === 'config' ? 'config' : 'load';
+    const resolved = mode === 'config' ? 'config' : (mode === 'benchmark' ? 'benchmark' : 'load');
     window.__modelActionMode = resolved;
     const modal = getLoadModelModal();
     const titleText = findById(modal, 'modelActionModalTitleText') || findInModal(modal, '.modal-title span');
@@ -282,10 +282,33 @@ function setModelActionMode(mode) {
     const submitBtn = findById(modal, 'modelActionSubmitBtn')
         || findInModal(modal, 'button[onclick*="submitModelAction"]')
         || findInModal(modal, '.modal-footer .btn-primary');
+    const dynamicParams = findById(modal, 'dynamicParamsContainer');
+    const benchmarkParams = findById(modal, 'benchmarkParamsContainer');
+    const mainGpuGroup = findById(modal, 'mainGpuGroup');
+    const estimateBtn = findById(modal, 'estimateVramBtn');
+    const resetBtn = findById(modal, 'modelActionResetBtn');
+
+    if (dynamicParams) dynamicParams.style.display = resolved === 'benchmark' ? 'none' : '';
+    if (benchmarkParams) benchmarkParams.style.display = resolved === 'benchmark' ? '' : 'none';
+    if (mainGpuGroup) mainGpuGroup.style.display = '';
+    if (estimateBtn) estimateBtn.style.display = resolved === 'benchmark' ? 'none' : '';
+    if (resetBtn) resetBtn.style.display = resolved === 'benchmark' ? '' : 'none';
+
+    if (resolved === 'benchmark') {
+        const hasBenchmarkFields = !!findInModal(modal, '#benchmarkParamsContainer input, #benchmarkParamsContainer select, #benchmarkParamsContainer textarea');
+        if (!hasBenchmarkFields && typeof ensureBenchmarkParamsReady === 'function') {
+            try { ensureBenchmarkParamsReady(); } catch (e) {}
+        }
+    }
+
     if (resolved === 'config') {
         if (titleText) titleText.textContent = '更新启动参数';
         if (icon) icon.className = 'fas fa-cog';
         if (submitBtn) submitBtn.textContent = '保存';
+    } else if (resolved === 'benchmark') {
+        if (titleText) titleText.textContent = '模型性能测试';
+        if (icon) icon.className = 'fas fa-tachometer-alt';
+        if (submitBtn) submitBtn.textContent = '开始测试';
     } else {
         if (titleText) titleText.textContent = '加载模型';
         if (icon) icon.className = 'fas fa-upload';
@@ -433,8 +456,16 @@ function buildLoadModelPayload(modal) {
 }
 
 function submitModelAction() {
-    const mode = window.__modelActionMode === 'config' ? 'config' : 'load';
+    const mode = window.__modelActionMode === 'config' ? 'config' : (window.__modelActionMode === 'benchmark' ? 'benchmark' : 'load');
     const modal = getLoadModelModal();
+    if (mode === 'benchmark') {
+        if (typeof submitModelBenchmark === 'function') {
+            submitModelBenchmark();
+            return;
+        }
+        showToast('错误', '未找到模型性能测试函数', 'error');
+        return;
+    }
 
     let payload = null;
     let modelIdForUi = getFieldString(modal, ['modelId']);

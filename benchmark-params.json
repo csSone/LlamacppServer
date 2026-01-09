@@ -1,0 +1,247 @@
+[
+  {
+    "name": "重复次数",
+    "fullName": "--repetitions",
+    "abbreviation": "-r",
+    "type": "INTEGER",
+    "defaultValue": "5",
+    "description": "测试重复次数，用于获得更稳定的性能数据。值越大，结果越稳定但测试耗时越长。",
+    "sort": 0
+  },
+  {
+    "name": "输出格式",
+    "fullName": "--output",
+    "abbreviation": "-o",
+    "type": "STRING",
+    "defaultValue": "md",
+    "description": "指定测试结果的输出格式。输出文件会保存到 benchmarks 文件夹。",
+    "values": [
+      "md",
+      "csv",
+      "json",
+      "jsonl",
+      "sql"
+    ],
+    "sort": 1
+  },
+  {
+    "name": "错误输出格式",
+    "fullName": "--output-err",
+    "abbreviation": "-oe",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "指定错误输出的格式。留空表示不输出错误信息。",
+    "values": [
+      "",
+      "md",
+      "csv",
+      "json",
+      "jsonl",
+      "sql"
+    ],
+    "sort": 2
+  },
+  {
+    "name": "测试间隔",
+    "fullName": "--delay",
+    "abbreviation": "--delay",
+    "type": "INTEGER",
+    "defaultValue": "0",
+    "description": "测试之间的延迟时间（秒），用于让系统冷却或避免资源竞争。",
+    "sort": 7
+  },
+  {
+    "name": "详细输出",
+    "fullName": "--verbose",
+    "abbreviation": "-v",
+    "type": "LOGIC",
+    "defaultValue": "0",
+    "description": "启用详细输出模式，显示更多调试信息。",
+    "sort": 8
+  },
+  {
+    "name": "提示长度",
+    "fullName": "--n-prompt",
+    "abbreviation": "-p",
+    "type": "STRING",
+    "defaultValue": "512",
+    "description": "提示词的 token 数量。支持多种格式：单个值（512）、多个值（512,1024）、范围（0-4096）、范围加步长（0-4096+512）。",
+    "sort": 10
+  },
+  {
+    "name": "生成长度",
+    "fullName": "--n-gen",
+    "abbreviation": "-n",
+    "type": "STRING",
+    "defaultValue": "128",
+    "description": "生成的 token 数量。可以指定多个值进行测试，用逗号分隔。例如: 128,256",
+    "sort": 11
+  },
+  {
+    "name": "Prompt+生成",
+    "fullName": "--pg",
+    "abbreviation": "-pg",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "同时指定提示和生成的长度。格式为 prompt,gen，例如: 512,128",
+    "sort": 12
+  },
+  {
+    "name": "预填深度",
+    "fullName": "--n-depth",
+    "abbreviation": "-d",
+    "type": "STRING",
+    "defaultValue": "0",
+    "description": "预填充深度，用于测试不同 KV 缓存状态下的性能。0 表示从头开始，其他值表示使用部分预填充的缓存。",
+    "sort": 13
+  },
+  {
+    "name": "批量大小",
+    "fullName": "--batch-size",
+    "abbreviation": "-b",
+    "type": "STRING",
+    "defaultValue": "2048",
+    "description": "逻辑批大小，影响预填充阶段一次能处理的 token 数量。可以指定多个值进行测试，用逗号分隔。例如: 128,256,512,1024",
+    "sort": 14
+  },
+  {
+    "name": "微批大小",
+    "fullName": "--ubatch-size",
+    "abbreviation": "-ub",
+    "type": "STRING",
+    "defaultValue": "512",
+    "description": "物理微批大小，用于将大的逻辑 batch 拆分为多个小的 micro-batch 执行。可以指定多个值进行测试，用逗号分隔。例如: 128,256,512,1024",
+    "sort": 15
+  },
+  {
+    "name": "缓存类型 K",
+    "fullName": "--cache-type-k",
+    "abbreviation": "-ctk",
+    "type": "STRING",
+    "defaultValue": "f16",
+    "description": "设置 KV 缓存中 K 向量的数据类型。不同精度影响显存占用和性能。",
+    "values": [
+      "f32",
+      "f16",
+      "bf16",
+      "q8_0",
+      "q4_0",
+      "q4_1",
+      "iq4_nl",
+      "q5_0",
+      "q5_1"
+    ],
+    "sort": 16
+  },
+  {
+    "name": "缓存类型 V",
+    "fullName": "--cache-type-v",
+    "abbreviation": "-ctv",
+    "type": "STRING",
+    "defaultValue": "f16",
+    "description": "设置 KV 缓存中 V 向量的数据类型。不同精度影响显存占用和性能。",
+    "values": [
+      "f32",
+      "f16",
+      "bf16",
+      "q8_0",
+      "q4_0",
+      "q4_1",
+      "iq4_nl",
+      "q5_0",
+      "q5_1"
+    ],
+    "sort": 17
+  },
+  {
+    "name": "线程数",
+    "fullName": "--threads",
+    "abbreviation": "-t",
+    "type": "STRING",
+    "defaultValue": "-1",
+    "description": "推理过程中使用的 CPU 线程数。可以指定多个值进行测试，用逗号分隔。例如: 8 或 4,8,16。留空表示自动检测。",
+    "sort": 18
+  },
+  {
+    "name": "GPU 层数",
+    "fullName": "--n-gpu-layers",
+    "abbreviation": "-ngl",
+    "type": "STRING",
+    "defaultValue": "99",
+    "description": "卸载到 GPU 的模型层数。0 表示全部在 CPU，99 表示尽可能多。可以指定多个值进行测试。",
+    "sort": 22
+  },
+  {
+    "name": "CPU MOE",
+    "fullName": "--n-cpu-moe",
+    "abbreviation": "-ncmoe",
+    "type": "STRING",
+    "defaultValue": "0",
+    "description": "强制将 MOE（混合专家）层的专家计算放在 CPU 上执行。0 表示禁用。",
+    "sort": 23
+  },
+  {
+    "name": "Split Mode",
+    "fullName": "--split-mode",
+    "abbreviation": "-sm",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "模型在多 GPU 间的分割模式。none 表示不分割，layer 表示按层分割，row 表示按行分割。",
+    "values": [
+      "",
+      "none",
+      "layer",
+      "row"
+    ],
+    "sort": 24
+  },
+  {
+    "name": "禁用 KV Offload",
+    "fullName": "--no-kv-offload",
+    "abbreviation": "-nkvo",
+    "type": "INTEGER",
+    "defaultValue": "",
+    "description": "禁用 KV 缓存卸载到 GPU，强制使用 CPU 存储 KV 缓存。",
+    "values": [
+      "",
+      "0",
+      "1"
+    ],
+    "sort": 26
+  },
+  {
+    "name": "Flash Attention",
+    "fullName": "--flash-attn",
+    "abbreviation": "-fa",
+    "type": "STRING",
+    "defaultValue": "on",
+    "description": "启用 Flash Attention 优化，可以提升注意力计算的性能，特别是在长上下文场景下。",
+    "values": [
+      "on",
+      "off"
+    ],
+    "sort": 27
+  },
+  {
+    "name": "内存映射加载",
+    "fullName": "--mmap",
+    "abbreviation": "-mmp",
+    "type": "STRING",
+    "defaultValue": "on",
+    "description": "禁用后不使用内存映射（mmap）方式加载模型文件，而是将权重数据以常规方式读入内存。mmap 通常能减少启动时的拷贝并让操作系统按需分页加载，启动更快且对内存更友好；禁用 mmap 在某些文件系统/网络盘/权限限制/容器环境下可避免映射失败、SIGBUS、或异常卡顿，但往往会增加一次性内存占用并延长加载时间。建议在“加载慢、加载失败或运行不稳定”时切换该选项做对比测试，选择更稳定/更快的组合。",
+	"values": [
+	  "on",
+	  "off"
+	],
+    "sort": 2
+  },
+  {
+    "name": "Tensor Split",
+    "fullName": "--tensor-split",
+    "abbreviation": "-ts",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "在多 GPU 间分配张量的比例。例如: 0 表示自动，0.5/0.5 表示平均分配到两个 GPU。",
+    "sort": 30
+  }
+]

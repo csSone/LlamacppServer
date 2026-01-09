@@ -16,6 +16,9 @@ public class ParamStruct implements Comparable<ParamStruct> {
 		LOGIC
 	}
 	
+	
+	
+	
 	/**
 	 * 	展示的名字。
 	 */

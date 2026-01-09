@@ -143,7 +143,7 @@
                                 <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
                             </div>
                             
-                            <div class="form-group">
+                            <div class="form-group" id="mainGpuGroup">
                                 <label class="form-label" for="mainGpuSelect">主GPU (main-gpu)</label>
                                 <select class="form-control" id="mainGpuSelect" name="mg">
                                     <option value="-1">默认</option>
@@ -166,12 +166,18 @@
                                 <div class="spinner"></div>
                             </div>
                         </div>
+                        <div id="benchmarkParamsContainer" style="display:none;">
+                            <div class="loading-spinner">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('loadModelModal')">取消</button>
-                <button class="btn btn-secondary" onclick="estimateVramAction()"><i class="fas fa-memory"></i> 估算显存</button>
+                <button class="btn btn-secondary" id="estimateVramBtn" onclick="estimateVramAction()"><i class="fas fa-memory"></i> 估算显存</button>
+                <button class="btn btn-secondary" id="modelActionResetBtn" style="display:none;" onclick="resetModelBenchmarkForm()">重置</button>
                 <button class="btn btn-primary" id="modelActionSubmitBtn" onclick="submitModelAction()">加载模型</button>
             </div>
         </div>
