@@ -100,7 +100,7 @@ public class AnthropicRouterHandler extends SimpleChannelInboundHandler<FullHttp
 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		logger.info("客户端连接关闭：{}", ctx);
+		//logger.info("客户端连接关闭：{}", ctx);
 		// 事件通知
 		this.anthropicService.channelInactive(ctx);
 		super.channelInactive(ctx);

@@ -124,7 +124,7 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		logger.info("客户端连接关闭：{}", ctx);
+		//logger.info("客户端连接关闭：{}", ctx);
 		// 事件通知
 		this.openAIServerHandler.channelInactive(ctx);
 		super.channelInactive(ctx);
