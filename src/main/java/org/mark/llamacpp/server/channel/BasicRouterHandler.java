@@ -79,7 +79,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
 		// 1.
 		String uri = request.uri();
-		logger.info("收到请求: {} {}", request.method().name(), uri);
+		//logger.info("收到请求: {} {}", request.method().name(), uri);
 		// 傻逼浏览器不知道为什么一直在他妈的访问/.well-known/appspecific/com.chrome.devtools.json
 		if ("/.well-known/appspecific/com.chrome.devtools.json".equals(uri)) {
 			ctx.close();
