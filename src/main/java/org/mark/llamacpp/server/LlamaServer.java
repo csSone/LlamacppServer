@@ -86,7 +86,7 @@ public class LlamaServer {
 	/**
 	 * 	默认llama.cpp目录
 	 */
-	private static final String DEFAULT_LLAMACPP_DIRECTORY = Paths.get(System.getProperty("user.dir"), "llama.cpp").toString();
+	private static final String DEFAULT_LLAMACPP_DIRECTORY = Paths.get(System.getProperty("user.dir"), "llamacpp").toString();
 	
 	
 	/**
