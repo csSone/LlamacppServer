@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ import org.mark.llamacpp.server.channel.DownloadRouterHandler;
 import org.mark.llamacpp.server.channel.OpenAIRouterHandler;
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
+import org.mark.llamacpp.server.struct.LlamaCppDataStruct;
 import org.mark.llamacpp.server.struct.ModelPathConfig;
 import org.mark.llamacpp.server.websocket.WebSocketManager;
 import org.mark.llamacpp.server.websocket.WebSocketServerHandler;
@@ -77,6 +79,17 @@ public class LlamaServer {
 	private static final String DEFAULT_DOWNLOAD_DIRECTORY = Paths.get(System.getProperty("user.dir"), "downloads").toString();
 	
 	/**
+	 * 	默认模型目录
+	 */
+	private static final String DEFAULT_MODELS_DIRECTORY = Paths.get(System.getProperty("user.dir"), "models").toString();
+	
+	/**
+	 * 	默认llama.cpp目录
+	 */
+	private static final String DEFAULT_LLAMACPP_DIRECTORY = Paths.get(System.getProperty("user.dir"), "llama.cpp").toString();
+	
+	
+	/**
 	 * 	日志的路径
 	 */
 	private static final Path CONSOLE_LOG_PATH = Paths.get("logs", "console.log");
@@ -105,6 +118,30 @@ public class LlamaServer {
     public static final PrintStream out = System.out;
     
     public static final PrintStream err = System.err;
+    
+    // 一些默认的目录，必须创建
+    static {
+    	// 默认的模型目录
+    	try {
+    		String currentDir = System.getProperty("user.dir");
+        	Path configDir = Paths.get(currentDir, "models");
+    		if (!Files.exists(configDir)) {
+    			Files.createDirectories(configDir);
+    		}	
+    	}catch (Exception e) {
+    		e.printStackTrace();
+		}
+    	// 
+    	try {
+    		String currentDir = System.getProperty("user.dir");
+        	Path configDir = Paths.get(currentDir, "llama.cpp");
+    		if (!Files.exists(configDir)) {
+    			Files.createDirectories(configDir);
+    		}	
+    	}catch (Exception e) {
+    		e.printStackTrace();
+		}
+    }
     
     
     /**
@@ -209,6 +246,18 @@ public class LlamaServer {
     public static void setDownloadDirectory(String downloadDirectory) {
         LlamaServer.downloadDirectory = downloadDirectory;
     }
+    
+    // ==================== 默认路径的get方法 ====================
+    
+    public static String getDefaultLlamaCppPath() {
+    	return DEFAULT_LLAMACPP_DIRECTORY;
+    }
+    
+    
+    public static String getDefaultModelsPath() {
+    	return DEFAULT_MODELS_DIRECTORY;
+    }
+    
     
 	public static void main(String[] args) {
 		try {
@@ -507,6 +556,46 @@ public class LlamaServer {
 		logger.info("模型路径配置已保存到文件: {}", configFile.toString());
 	}
 
+	//================================================================================================
+	
+	/**
+	 * 	扫描默认目录下是否存在llamacpp。
+	 * @return
+	 */
+	public static List<LlamaCppDataStruct> scanLlamaCpp() {
+		List<LlamaCppDataStruct> result = new ArrayList<>();
+		String root = DEFAULT_LLAMACPP_DIRECTORY;
+		// 检查根目录是否存在且为目录
+		Path rootPath = Paths.get(root);
+		if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+			return result; // 目录不存在或不是目录，直接返回空列表
+		}
+		try {
+			// 遍历根目录下的所有子目录
+			Files.list(rootPath).filter(Files::isDirectory) // 只处理子文件夹
+					.forEach(subDir -> {
+						// 检查子目录中是否包含 llama-server 或 llama-server.exe
+						Path serverPathLinux = subDir.resolve("llama-server");
+						Path serverPathWin = subDir.resolve("llama-server.exe");
+						// 检查 Linux/macOS 版本
+						if (Files.exists(serverPathLinux) && Files.isExecutable(serverPathLinux)) {
+							result.add(new LlamaCppDataStruct(subDir.getFileName().toString(), subDir.toString(), "https://github.com/ggml-org/llama.cpp"));
+							return; // 找到一个即可，跳过Windows检查
+						}
+						// 检查 Windows 版本
+						if (Files.exists(serverPathWin) && Files.isExecutable(serverPathWin)) {
+							result.add(new LlamaCppDataStruct(subDir.getFileName().toString(), subDir.toString(), "https://github.com/ggml-org/llama.cpp"));
+						}
+					});
+		} catch (Exception e) {
+			e.printStackTrace();
+			// 可选：记录日志，如 log.warn("Failed to scan llamaCpp directory: " + root, e);
+			// 为保持健壮性，即使出错也不中断，返回已找到的结果
+		}
+		return result;
+	}
+	
+	
 	//================================================================================================
 	
 	/**

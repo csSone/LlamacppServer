@@ -26,6 +26,12 @@ public class ModelPathDataStruct {
 	public ModelPathDataStruct() {
 		
 	}
+	
+	public ModelPathDataStruct(String path, String name, String description) {
+		this.path  = path;
+		this.name = name;
+		this.description = description;
+	}
 
 
 	public String getPath() {

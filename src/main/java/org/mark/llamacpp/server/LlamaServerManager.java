@@ -78,7 +78,7 @@ public class LlamaServerManager {
     /**
      * 存放模型的路径（支持多个根目录）。
      */
-    private List<String> modelPaths = new ArrayList<>(java.util.Arrays.asList("Y:\\Models"));
+    private List<ModelPathDataStruct> modelPaths = new ArrayList<>();
 	
 	
 	/**
@@ -127,29 +127,15 @@ public class LlamaServerManager {
 			try {
 				Path configFile = LlamaServer.getModelPathConfigPath();
 				ModelPathConfig cfg = LlamaServer.readModelPathConfig(configFile);
-				List<String> paths = new ArrayList<>();
+				
+				List<ModelPathDataStruct> paths = new ArrayList<>();
 				if (cfg != null && cfg.getItems() != null) {
 					for (ModelPathDataStruct item : cfg.getItems()) {
 						if (item == null || item.getPath() == null) continue;
 						String p = item.getPath().trim();
 						if (p.isEmpty()) continue;
-						boolean exists = false;
-						for (String e : paths) {
-							if (e == null) continue;
-							String os = System.getProperty("os.name");
-							if (os != null && os.toLowerCase().contains("win")) {
-								if (p.equalsIgnoreCase(e)) {
-									exists = true;
-									break;
-								}
-							} else {
-								if (p.equals(e)) {
-									exists = true;
-									break;
-								}
-							}
-						}
-						if (!exists) paths.add(p);
+						// 判断路径是否存在
+						paths.add(item);
 					}
 				}
 				if (!paths.isEmpty()) {
@@ -157,37 +143,7 @@ public class LlamaServerManager {
 					return;
 				}
 			} catch (Exception e) {
-			}
-
-			// 获取当前工作目录
-			String currentDir = System.getProperty("user.dir");
-			Path configDir = Paths.get(currentDir, "config");
-			Path settingsPath = configDir.resolve("settings.json");
-			
-			// 检查文件是否存在
-			if (Files.exists(settingsPath)) {
-				// 读取文件内容
-				String json = new String(Files.readAllBytes(settingsPath), StandardCharsets.UTF_8);
-				
-				// 解析JSON
-				JsonObject settings = gson.fromJson(json, JsonObject.class);
-				
-                if (settings.has("modelPaths") && settings.get("modelPaths").isJsonArray()) {
-                    List<String> paths = new ArrayList<>();
-                    settings.get("modelPaths").getAsJsonArray().forEach(e -> {
-                        String p = e.getAsString();
-                        if (p != null && !p.trim().isEmpty()) paths.add(p.trim());
-                    });
-                    if (!paths.isEmpty()) this.modelPaths = paths;
-                } else if (settings.has("modelPath")) {
-                    String p = settings.get("modelPath").getAsString();
-                    if (p != null && !p.trim().isEmpty()) this.modelPaths = new ArrayList<>(java.util.Arrays.asList(p.trim()));
-                }
-				
-				
-				System.out.println("已从配置文件加载设置: " + settingsPath.toString());
-			} else {
-				System.out.println("配置文件不存在，使用默认设置: " + settingsPath.toString());
+				e.printStackTrace();
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -199,21 +155,20 @@ public class LlamaServerManager {
      * 	设置模型路径列表
      * @param paths
      */
-    public void setModelPaths(List<String> paths) {
+    public void setModelPaths(List<ModelPathDataStruct> paths) {
         this.modelPaths = new ArrayList<>();
         if (paths != null) {
-            for (String p : paths) {
-                if (p != null && !p.trim().isEmpty()) this.modelPaths.add(p.trim());
+            for (ModelPathDataStruct p : paths) {
+                if (p != null && !p.getPath().trim().isEmpty()) this.modelPaths.add(p);
             }
         }
-        if (this.modelPaths.isEmpty()) this.modelPaths.add("Y:\\Models");
     }
 
     /**
      * 	获取当前设定的模型路径列表
      * @return
      */
-    public List<String> getModelPaths() {
+    public List<ModelPathDataStruct> getModelPaths() {
         return new ArrayList<>(this.modelPaths);
     }
 	
@@ -236,9 +191,14 @@ public class LlamaServerManager {
             // 如果列表是空的，就去检索
             if(this.list.size() == 0 || reload) {
                 this.list.clear();
-                for (String root : this.modelPaths) {
-                    if (root == null || root.trim().isEmpty()) continue;
-                    Path modelDir = Paths.get(root.trim());
+                // 新建一个临时集合
+                List<ModelPathDataStruct> list = new ArrayList<>(this.modelPaths);
+                // 扫描默认目录
+                list.add(new ModelPathDataStruct(LlamaServer.getDefaultModelsPath(), "", ""));
+                
+                for (ModelPathDataStruct root : list) {
+                    if (root == null || root.getPath().trim().isEmpty()) continue;
+                    Path modelDir = Paths.get(root.getPath().trim());
                     if (!Files.exists(modelDir) || !Files.isDirectory(modelDir)) {
                         continue;
                     }

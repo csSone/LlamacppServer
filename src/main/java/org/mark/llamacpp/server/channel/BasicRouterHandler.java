@@ -1493,6 +1493,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			Path configFile = LlamaServer.getLlamaCppConfigPath();
 			LlamaCppConfig cfg = LlamaServer.readLlamaCppConfig(configFile);
 			List<LlamaCppDataStruct> items = cfg.getItems();
+			// 扫描一遍，加入新的。
+			List<LlamaCppDataStruct> list = LlamaServer.scanLlamaCpp();
+			if(list != null && list.size() > 0)
+				items.addAll(list);
+			
 			Map<String, Object> data = new HashMap<>();
 			data.put("items", items);
 			data.put("count", items == null ? 0 : items.size());
@@ -1841,7 +1846,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		return s;
 	}
 
-	private ModelPathConfig ensureModelPathConfigInitialized(ModelPathConfig cfg, List<String> legacyPaths, Path configFile)
+	private ModelPathConfig ensureModelPathConfigInitialized(ModelPathConfig cfg, List<ModelPathDataStruct> legacyPaths, Path configFile)
 			throws Exception {
 		if (cfg == null) {
 			cfg = new ModelPathConfig();
@@ -1855,11 +1860,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return cfg;
 		}
 		List<ModelPathDataStruct> migrated = new ArrayList<>();
-		for (String p : legacyPaths) {
-			if (p == null || p.trim().isEmpty()) {
+		for (ModelPathDataStruct p : legacyPaths) {
+			if (p == null || p.getPath().trim().isEmpty()) {
 				continue;
 			}
-			String normalized = p.trim();
+			String normalized = p.getPath().trim();
 			boolean exists = false;
 			for (ModelPathDataStruct i : migrated) {
 				if (i != null && i.getPath() != null && this.isSamePath(normalized, i.getPath().trim())) {
@@ -1889,7 +1894,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return;
 		}
 		List<ModelPathDataStruct> items = cfg.getItems();
-		List<String> paths = new ArrayList<>();
+		List<ModelPathDataStruct> paths = new ArrayList<>();
 		if (items != null) {
 			for (ModelPathDataStruct i : items) {
 				if (i == null || i.getPath() == null || i.getPath().trim().isEmpty()) {
@@ -1897,14 +1902,14 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				}
 				String p = i.getPath().trim();
 				boolean exists = false;
-				for (String e : paths) {
-					if (this.isSamePath(p, e)) {
+				for (ModelPathDataStruct e : paths) {
+					if (this.isSamePath(p, e.getPath().trim())) {
 						exists = true;
 						break;
 					}
 				}
 				if (!exists) {
-					paths.add(p);
+					paths.add(i);
 				}
 			}
 		}

@@ -20,6 +20,18 @@ public class LlamaCppDataStruct {
 	 * 	描述。
 	 */
 	private String description;
+	
+	
+	public LlamaCppDataStruct() {
+		
+	}
+	
+	
+	public LlamaCppDataStruct(String name, String path, String description) {
+		this.name = name;
+		this.path = path;
+		this.description = description;
+	}
 
 	
 	public String getName() {
