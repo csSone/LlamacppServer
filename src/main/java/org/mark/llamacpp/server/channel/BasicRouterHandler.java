@@ -906,10 +906,10 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					flashAttention);
 			
 			VramEstimation result = new VramEstimation(
-					est.getTotalBytes(), 
-					est.getModelWeightsBytes(),
-					est.getKvCacheBytes(), 
-					est.getRuntimeOverheadBytes());
+					est.totalBytes(), 
+					est.modelWeightsBytes(),
+					est.kvCacheBytes(), 
+					est.runtimeOverheadBytes());
 			// 整合一下
 			Map<String, Object> data = new HashMap<>();
 			data.put("modelId", modelId);

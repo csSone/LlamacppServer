@@ -51,14 +51,6 @@ public class LlamaServerTest {
 //		} catch (IOException | URISyntaxException | InterruptedException e) {
 //			e.printStackTrace();
 //		}
-		
-		
-		Estimate est = VramEstimator.estimate(
-			    new File("C:\\Users\\Mark\\Models\\GGUF\\HY-MT1.5-1.8B-Q8_0\\HY-MT1.5-1.8B-Q8_0.gguf"),
-			    8192,
-			    KvCacheType.BF16,
-			    true
-			);
 	}
 
 }
