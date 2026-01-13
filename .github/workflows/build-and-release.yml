@@ -281,9 +281,6 @@ jobs:
           - `llama-server-${{ steps.get_version.outputs.version }}-windows-vulkan.zip` - Vulkan 版本（通用 GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-windows-hip.zip` - HIP 版本（AMD GPU）
           
-          # **macOS:**
-          #  - `llama-server-${{ steps.get_version.outputs.version }}-macos-arm64.zip` - Apple Silicon (M1/M2/M3)
-          
           ### 📝 使用方法
           
           **Linux:**
@@ -303,23 +300,12 @@ jobs:
           run.bat
           ```
           
-          # **macOS:**
-          #  ```bash
-          #  # Apple Silicon 用户
-          #  unzip llama-server-${{ steps.get_version.outputs.version }}-macos-arm64.zip
-          #  cd llama-server-${{ steps.get_version.outputs.version }}-macos-arm64
-          #  chmod +x run.sh
-          #  chmod +x jre/bin/java
-          #  ./run.sh
-          #  ```
-          
           **注意：**
           - 本版本已内置精简版 JRE，无需额外安装 Java 环境。
-          - Linux 和 macOS 用户需要为 `run.sh` 和 `jre/bin/java` 添加执行权限。
-          - Windows 用户请根据你的 GPU 选择对应的版本：
+          - 请根据你的 GPU 选择对应的版本：
             - NVIDIA GPU: 使用 cuda12 版本
             - AMD GPU: 使用 hip 版本
-            - 其他 GPU 或不确定: 使用 vulkan 版本
+            - 其他 GPU（如核显） 或不确定: 使用 vulkan 版本
           
           ---
           
