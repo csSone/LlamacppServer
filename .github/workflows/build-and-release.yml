@@ -123,7 +123,8 @@ jobs:
           cat > build/run.bat << 'EOF'
           @echo off
           cd /d "%~dp0"
-          jre\bin\java.exe -Xms64m -Xmx64m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
+          start "" jre\bin\javaw.exe -Xms64m -Xmx64m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
+
           EOF
 
       - name: 复制 README 到 build 目录
