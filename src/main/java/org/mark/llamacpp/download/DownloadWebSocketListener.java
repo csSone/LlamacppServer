@@ -1,5 +1,7 @@
 package org.mark.llamacpp.download;
 
+import org.mark.llamacpp.download.struct.DownloadProgress;
+import org.mark.llamacpp.download.struct.DownloadState;
 import org.mark.llamacpp.server.websocket.WebSocketManager;
 
 /**
@@ -14,7 +16,7 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
     }
     
     @Override
-    public void onStateChanged(DownloadTask task, BasicDownloader.DownloadState oldState, BasicDownloader.DownloadState newState) {
+    public void onStateChanged(DownloadTask task, DownloadState oldState, DownloadState newState) {
         // 广播状态变化事件
         webSocketManager.sendDownloadStatusEvent(
             task.getTaskId(),
@@ -29,11 +31,11 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
     }
     
     @Override
-    public void onProgressUpdated(DownloadTask task, BasicDownloader.DownloadProgress progress) {
+    public void onProgressUpdated(DownloadTask task, DownloadProgress progress) {
         // 广播所有任务的进度，包括正在下载和暂停的任务
     	/*
-        if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING ||
-            task.getState() == BasicDownloader.DownloadState.IDLE) {
+        if (task.getState() == DownloadState.DOWNLOADING ||
+            task.getState() == DownloadState.IDLE) {
             
         }
         */
@@ -52,7 +54,7 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
         // 广播任务完成事件
         webSocketManager.sendDownloadStatusEvent(
             task.getTaskId(),
-            BasicDownloader.DownloadState.COMPLETED.toString(),
+            DownloadState.COMPLETED.toString(),
             task.getDownloadedBytes(),
             task.getTotalBytes(),
             task.getPartsCompleted(),
@@ -67,7 +69,7 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
         // 广播任务失败事件
         webSocketManager.sendDownloadStatusEvent(
             task.getTaskId(),
-            BasicDownloader.DownloadState.FAILED.toString(),
+            DownloadState.FAILED.toString(),
             task.getDownloadedBytes(),
             task.getTotalBytes(),
             task.getPartsCompleted(),
@@ -82,7 +84,7 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
         // 广播任务暂停事件
         webSocketManager.sendDownloadStatusEvent(
             task.getTaskId(),
-            BasicDownloader.DownloadState.IDLE.toString(),
+            DownloadState.IDLE.toString(),
             task.getDownloadedBytes(),
             task.getTotalBytes(),
             task.getPartsCompleted(),
@@ -97,7 +99,7 @@ public class DownloadWebSocketListener implements DownloadProgressListener {
         // 广播任务恢复事件
         webSocketManager.sendDownloadStatusEvent(
             task.getTaskId(),
-            BasicDownloader.DownloadState.DOWNLOADING.toString(),
+            DownloadState.DOWNLOADING.toString(),
             task.getDownloadedBytes(),
             task.getTotalBytes(),
             task.getPartsCompleted(),

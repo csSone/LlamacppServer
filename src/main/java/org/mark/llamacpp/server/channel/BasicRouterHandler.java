@@ -39,10 +39,10 @@ import org.mark.llamacpp.server.struct.LlamaCppDataStruct;
 import org.mark.llamacpp.server.struct.ModelPathConfig;
 import org.mark.llamacpp.server.struct.ModelPathDataStruct;
 import org.mark.llamacpp.server.struct.StopModelRequest;
-import org.mark.llamacpp.server.struct.VramEstimation;
 import org.mark.llamacpp.server.tools.CommandLineRunner;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.VramEstimator;
+import org.mark.llamacpp.server.tools.struct.VramEstimation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

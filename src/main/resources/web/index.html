@@ -19,7 +19,7 @@
         </div>
         <nav class="sidebar-nav">
         
-            <a href="#" class="nav-item active" onclick="showModelList(); return false;">
+            <a href="#" class="nav-item active" id="nav-model-list" onclick="showModelList(); return false;">
                 <i class="fas fa-cubes"></i>
                 <span>模型列表</span>
             </a>
@@ -35,7 +35,7 @@
                 <i class="fas fa-download"></i>
                 <span>下载管理</span>
             </a>
-            <a href="hf.html" class="nav-item">
+            <a href="#" class="nav-item" id="nav-hf" onclick="showHuggingFace(); return false;">
                 <i class="fas fa-cloud"></i>
                 <span>HuggingFace 模型</span>
             </a>
@@ -43,11 +43,11 @@
                 <i class="fas fa-terminal"></i>
                 <span>控制台日志</span>
             </a>
-            <a href="#" class="nav-item" onclick="showLlamaCppSetting(); return false;">
+            <a href="#" class="nav-item" id="nav-llamacpp" onclick="showLlamaCppSetting(); return false;">
                 <i class="fas fa-microchip"></i>
                 <span>Llama.cpp 路径</span>
             </a>
-            <a href="#" class="nav-item" onclick="showModelPathSetting(); return false;">
+            <a href="#" class="nav-item" id="nav-model-path" onclick="showModelPathSetting(); return false;">
                 <i class="fas fa-folder-open"></i>
                 <span>模型路径配置</span>
             </a>
@@ -210,6 +210,42 @@
                     <div class="loading-spinner">
                         <div class="spinner"></div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main class="main-area" id="main-hf" style="display: none">
+        <div class="top-bar">
+            <h1 class="page-title">HuggingFace 模型浏览</h1>
+        </div>
+
+        <div class="content-scrollable">
+            <div class="hf-search-row">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="hfSearchInput" class="search-input" placeholder="搜索 GGUF 模型（例如：Qwen3 8B）">
+                </div>
+                <select id="hfBaseSelect" class="form-control" style="padding: 4px 8px; width: auto; font-size: 0.875rem;">
+                    <option value="mirror" selected>hf-mirror.com</option>
+                    <option value="official">huggingface.co</option>
+                </select>
+                <select id="hfLimit" class="form-control" style="padding: 4px 8px; width: auto; font-size: 0.875rem;">
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <button class="btn btn-primary" onclick="hfSearch()">
+                    <i class="fas fa-search"></i>
+                    搜索
+                </button>
+            </div>
+            <div class="model-list-container">
+                <div id="hfHitsList">
+                    <div class="empty-state">输入关键字并点击搜索</div>
+                </div>
+                <div class="hf-hits-footer" id="hfHitsFooter" style="display:none;">
+                    <button class="btn btn-secondary" id="hfLoadMoreBtn" onclick="hfLoadMore()">加载更多</button>
                 </div>
             </div>
         </div>
@@ -378,6 +414,32 @@
         </div>
     </div>
 
+    <div class="modal" id="hfGgufModal">
+        <div class="modal-content" style="max-width: 1100px; height: 85vh;">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-file"></i> GGUF 文件</h3>
+                <button class="modal-close" onclick="closeModal('hfGgufModal')">&times;</button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+                <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <div class="mono" id="hfGgufModalRepo" style="color: var(--text-secondary); font-size: 0.875rem; font-weight: 700;">-</div>
+                    <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="copyAllGgufLinks()" title="复制所有下载链接">
+                            <i class="fas fa-copy"></i>
+                            复制全部
+                        </button>
+                    </div>
+                </div>
+                <div id="hfGgufList" style="flex: 1; min-height: 0; overflow: auto;">
+                    <div class="empty-state">选择一个模型以列出 GGUF 文件</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('hfGgufModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Container -->
     <div id="dynamicModalRoot"></div>
     <div class="toast-container" id="toastContainer"></div>
@@ -385,6 +447,7 @@
     <script src="js/websocket.js"></script>
     <script src="js/console-modal.js"></script>
     <script src="js/model-llamacpp-setting.js"></script>
+    <script src="js/hf.js"></script>
     
     <script>
         // --- Initialization ---
@@ -1014,11 +1077,13 @@
             document.getElementById('main-model-list').style.display = '';
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
             //refreshModels();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
-            navItems[0].classList.add('active'); // 模型列表
+            const nav = document.getElementById('nav-model-list');
+            if (nav) nav.classList.add('active');
         }
 
         // 显示 Llama.cpp 设置页面
@@ -1026,11 +1091,13 @@
             document.getElementById('main-model-list').style.display = 'none';
             document.getElementById('main-llamacpp-setting').style.display = '';
             document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
             loadLlamaCppList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
-            navItems[5].classList.add('active'); // Llama.cpp 路径
+            const nav = document.getElementById('nav-llamacpp');
+            if (nav) nav.classList.add('active');
         }
 
         // 显示模型路径配置页面
@@ -1038,11 +1105,24 @@
             document.getElementById('main-model-list').style.display = 'none';
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = '';
+            document.getElementById('main-hf').style.display = 'none';
             loadModelPathList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
-            navItems[6].classList.add('active'); // 模型路径配置
+            const nav = document.getElementById('nav-model-path');
+            if (nav) nav.classList.add('active');
+        }
+
+        function showHuggingFace() {
+            document.getElementById('main-model-list').style.display = 'none';
+            document.getElementById('main-llamacpp-setting').style.display = 'none';
+            document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-hf').style.display = '';
+            const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const nav = document.getElementById('nav-hf');
+            if (nav) nav.classList.add('active');
         }
 
         // 加载模型路径列表

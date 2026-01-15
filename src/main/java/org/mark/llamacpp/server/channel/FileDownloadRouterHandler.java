@@ -1,6 +1,17 @@
 package org.mark.llamacpp.server.channel;
 
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+import org.mark.llamacpp.download.struct.ModelDownloadRequest;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.service.DownloadService;
 
@@ -18,10 +29,22 @@ import io.netty.util.CharsetUtil;
  */
 public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     
-    private final DownloadService downloadService = new DownloadService();
-    private final Gson gson = new Gson();
+	/**
+	 * 	下载服务
+	 */
+    private static final DownloadService downloadService = DownloadService.getInstance();
     
+    /**
+     * 	JSON处理器
+     */
+    private static final Gson gson = new Gson();
+    
+    
+    /**
+     * 	空的构造器。
+     */
     public FileDownloadRouterHandler() {
+    	
     }
     
 	@Override
@@ -94,7 +117,140 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 	 * @param request
 	 */
 	private void handleModelDonwload(ChannelHandlerContext ctx, FullHttpRequest request) {
-		
+		if (request.method() != HttpMethod.POST) {
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "只支持POST请求");
+			return;
+		}
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+				return;
+			}
+			ModelDownloadRequest req = gson.fromJson(content, ModelDownloadRequest.class);
+			if (req == null) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+				return;
+			}
+			String author = trimToNull(req.getAuthor());
+			String modelId = trimToNull(req.getModelId());
+			String[] downloadUrl = req.getDownloadUrl();
+			if (author == null) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "author不能为空");
+				return;
+			}
+			if (modelId == null) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "modelId不能为空");
+				return;
+			}
+			if (downloadUrl == null || downloadUrl.length == 0) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "downloadUrl不能为空");
+				return;
+			}
+			String safeAuthor = sanitizePathSegment(author);
+			String safeModelId = sanitizePathSegment(modelId);
+			if (safeAuthor.isBlank()) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "author不合法");
+				return;
+			}
+			if (safeModelId.isBlank()) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "modelId不合法");
+				return;
+			}
+
+			Path baseDir = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
+			Path targetDir = baseDir.resolve(safeAuthor).resolve(safeModelId).toAbsolutePath().normalize();
+			if (!targetDir.startsWith(baseDir)) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "保存路径不合法");
+				return;
+			}
+			// 检查目标目录能否被使用。
+			if (Files.exists(targetDir)) {
+				try (Stream<Path> entries = Files.list(targetDir)) {
+			        if (entries.findAny().isPresent()) {
+			            // 如果流中有元素（即目录不为空），则报错
+			            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且非空");
+			            return;
+			        }
+			    } catch (IOException e) {
+			        // 处理可能发生的IO异常，例如没有读取权限
+			        LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "无法检查目标目录状态: " + e.getMessage());
+			        return;
+			    }
+				//LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在");
+				//return;
+			}else {
+				// 创建目录
+				Files.createDirectories(targetDir);	
+			}
+
+			List<Map<String, Object>> taskResults = new ArrayList<>();
+			boolean allSuccess = true;
+			for (int i = 0; i < downloadUrl.length; i++) {
+				String url = trimToNull(downloadUrl[i]);
+				if (url == null) {
+					allSuccess = false;
+					Map<String, Object> r = new HashMap<>();
+					r.put("success", false);
+					r.put("error", "downloadUrl包含空值");
+					taskResults.add(r);
+					continue;
+				}
+				String fileName = null;
+				if (i == 0) {
+					fileName = sanitizeFileName(req.getName());
+				}
+				Map<String, Object> r = downloadService.createModelDownloadTask(url, targetDir.toString(), fileName);
+				if (!Boolean.TRUE.equals(r.get("success"))) {
+					allSuccess = false;
+				}
+				taskResults.add(r);
+			}
+
+			Map<String, Object> resp = new HashMap<>();
+			resp.put("success", allSuccess);
+			resp.put("path", targetDir.toString());
+			resp.put("tasks", taskResults);
+			LlamaServer.sendJsonResponse(ctx, resp);
+		} catch (Exception e) {
+			e.printStackTrace();
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+					"创建模型下载任务失败: " + e.getMessage());
+		}
+	}
+
+	private static String trimToNull(String s) {
+		if (s == null) {
+			return null;
+		}
+		String t = s.trim();
+		return t.isEmpty() ? null : t;
+	}
+
+	private static String sanitizePathSegment(String segment) {
+		if (segment == null) {
+			return "";
+		}
+		String s = segment.trim();
+		if (s.isEmpty()) {
+			return "";
+		}
+		return s.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+	}
+
+	private static String sanitizeFileName(String fileName) {
+		String f = trimToNull(fileName);
+		if (f == null) {
+			return null;
+		}
+		try {
+			f = Paths.get(f).getFileName().toString();
+		} catch (Exception e) {
+			return null;
+		}
+		f = f.replaceAll("[<>:\"/\\\\|?*]", "_");
+		f = f.trim();
+		return f.isEmpty() ? null : f;
 	}
     
 	/**

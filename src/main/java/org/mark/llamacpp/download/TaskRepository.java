@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.mark.llamacpp.download.struct.DownloadState;
+
 /**
  * 任务仓库，负责任务的持久化存储和恢复
  */
@@ -131,9 +133,9 @@ public class TaskRepository {
                         task.setPaused(false);
                         
                         // 如果任务正在下载或暂停中，重置为准备状态
-                        if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING ||
-                            task.getState() == BasicDownloader.DownloadState.PREPARING) {
-                            task.setState(BasicDownloader.DownloadState.IDLE);
+                        if (task.getState() == DownloadState.DOWNLOADING ||
+                            task.getState() == DownloadState.PREPARING) {
+                            task.setState(DownloadState.IDLE);
                         }
                         
                         tasks.put(task.getTaskId(), task);
@@ -154,9 +156,9 @@ public class TaskRepository {
                             task.setPaused(false);
                             
                             // 如果任务正在下载或暂停中，重置为准备状态
-                            if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING ||
-                                task.getState() == BasicDownloader.DownloadState.PREPARING) {
-                                task.setState(BasicDownloader.DownloadState.IDLE);
+                            if (task.getState() == DownloadState.DOWNLOADING ||
+                                task.getState() == DownloadState.PREPARING) {
+                                task.setState(DownloadState.IDLE);
                             }
                             
                             tasks.put(task.getTaskId(), task);

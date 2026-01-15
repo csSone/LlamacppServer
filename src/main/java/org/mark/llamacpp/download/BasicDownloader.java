@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -32,130 +31,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.mark.llamacpp.download.struct.DownloadProgress;
+import org.mark.llamacpp.download.struct.DownloadState;
+import org.mark.llamacpp.download.struct.Part;
+import org.mark.llamacpp.download.struct.PartDownloadTask;
+import org.mark.llamacpp.download.struct.PartWithFile;
+
 /**
  * 	基本下载器的实现。本来想自己改的，做了一半背疼。画了个工作流程让AI自己做了。
  */
 public class BasicDownloader {
-	
-	public enum DownloadState {
-		IDLE,
-		PREPARING,
-		DOWNLOADING,
-		MERGING,
-		VERIFYING,
-		COMPLETED,
-		FAILED
-	}
-	
-	public static final class DownloadProgress {
-		private final DownloadState state;
-		private final URI sourceUri;
-		private final URI finalUri;
-		private final Path targetFile;
-		private final long totalBytes;
-		private final long downloadedBytes;
-		private final int partsTotal;
-		private final int partsCompleted;
-		private final long startedAtNanos;
-		private final long finishedAtNanos;
-		private final String errorMessage;
-		
-		private DownloadProgress(
-				DownloadState state,
-				URI sourceUri,
-				URI finalUri,
-				Path targetFile,
-				long totalBytes,
-				long downloadedBytes,
-				int partsTotal,
-				int partsCompleted,
-				long startedAtNanos,
-				long finishedAtNanos,
-				String errorMessage) {
-			this.state = state;
-			this.sourceUri = sourceUri;
-			this.finalUri = finalUri;
-			this.targetFile = targetFile;
-			this.totalBytes = totalBytes;
-			this.downloadedBytes = downloadedBytes;
-			this.partsTotal = partsTotal;
-			this.partsCompleted = partsCompleted;
-			this.startedAtNanos = startedAtNanos;
-			this.finishedAtNanos = finishedAtNanos;
-			this.errorMessage = errorMessage;
-		}
-		
-		public DownloadState getState() {
-			return state;
-		}
-		
-		public URI getSourceUri() {
-			return sourceUri;
-		}
-		
-		public URI getFinalUri() {
-			return finalUri;
-		}
-		
-		public Path getTargetFile() {
-			return targetFile;
-		}
-		
-		public long getTotalBytes() {
-			return totalBytes;
-		}
-		
-		public long getDownloadedBytes() {
-			return downloadedBytes;
-		}
-		
-		public int getPartsTotal() {
-			return partsTotal;
-		}
-		
-		public int getPartsCompleted() {
-			return partsCompleted;
-		}
-		
-		public String getErrorMessage() {
-			return errorMessage;
-		}
-		
-		public double getProgressRatio() {
-			if (totalBytes <= 0) {
-				return 0.0;
-			}
-			double r = (double) downloadedBytes / (double) totalBytes;
-			if (r < 0.0) {
-				return 0.0;
-			}
-			if (r > 1.0) {
-				return 1.0;
-			}
-			return r;
-		}
-		
-		public long getElapsedMillis() {
-			long start = startedAtNanos;
-			if (start <= 0) {
-				return 0;
-			}
-			long end = finishedAtNanos > 0 ? finishedAtNanos : System.nanoTime();
-			long diff = end - start;
-			if (diff < 0) {
-				return 0;
-			}
-			return diff / 1_000_000L;
-		}
-		
-		public long getSpeedBytesPerSecond() {
-			long elapsedMillis = getElapsedMillis();
-			if (elapsedMillis <= 0) {
-				return 0;
-			}
-			return (downloadedBytes * 1000L) / elapsedMillis;
-		}
-	}
 	
 	/**
 	 * 	输入的原始地址
@@ -1062,18 +947,18 @@ public class BasicDownloader {
 		for (int i = 0; i < parts.size(); i++) {
 			ordered.add(new PartWithFile(parts.get(i), partFiles.get(i)));
 		}
-		ordered.sort(Comparator.comparingLong(p -> p.part.startInclusive));
+		ordered.sort(Comparator.comparingLong(p -> p.getPart().getStartInclusive()));
 		
 		try (RandomAccessFile raf = new RandomAccessFile(target.toString(), "rw")) {
 			for (PartWithFile pwf : ordered) {
-				long expected = pwf.part.length();
-				long actual = Files.size(pwf.file);
+				long expected = pwf.getPart().length();
+				long actual = Files.size(pwf.getFile());
 				if (actual != expected) {
-					throw new IOException("分片大小不匹配: " + pwf.file.getFileName() + " 期望: " + expected + " 实际: " + actual);
+					throw new IOException("分片大小不匹配: " + pwf.getFile().getFileName() + " 期望: " + expected + " 实际: " + actual);
 				}
 				
-				raf.seek(pwf.part.startInclusive);
-				try (InputStream in = new BufferedInputStream(Files.newInputStream(pwf.file))) {
+				raf.seek(pwf.getPart().getStartInclusive());
+				try (InputStream in = new BufferedInputStream(Files.newInputStream(pwf.getFile()))) {
 					byte[] buffer = new byte[1024 * 256];
 					int read;
 					while ((read = in.read(buffer)) != -1) {
@@ -1217,202 +1102,6 @@ public class BasicDownloader {
 			start = end + 1;
 		}
 		return result;
-	}
-	
-	private static final class Part {
-		private final long startInclusive;
-		private final long endInclusive;
-		
-		private Part(long startInclusive, long endInclusive) {
-			if (startInclusive < 0 || endInclusive < startInclusive) {
-				throw new IllegalArgumentException("invalid range: " + startInclusive + "-" + endInclusive);
-			}
-			this.startInclusive = startInclusive;
-			this.endInclusive = endInclusive;
-		}
-		
-		private long length() {
-			return this.endInclusive - this.startInclusive + 1;
-		}
-	}
-	
-	private static final class PartWithFile {
-		private final Part part;
-		private final Path file;
-		
-		private PartWithFile(Part part, Path file) {
-			this.part = part;
-			this.file = file;
-		}
-	}
-	
-	private static final class PartDownloadTask implements Callable<Void> {
-		private final HttpClient httpClient;
-		private final URI uri;
-		private final String userAgent;
-		private final Duration timeout;
-		private final Part part;
-		private final Path partFile;
-		private final int maxRetries;
-		private final AtomicLong downloadedBytes;
-		private final AtomicInteger partsCompleted;
-		private final AtomicBoolean stopRequested;
-		private final Set<AutoCloseable> activeResources;
-		private final long expectedBytes;
-		private long existingBytesAtAttemptStart;
-		
-		private PartDownloadTask(
-				HttpClient httpClient,
-				URI uri,
-				String userAgent,
-				Duration timeout,
-				Part part,
-				Path partFile,
-				int maxRetries,
-				AtomicLong downloadedBytes,
-				AtomicInteger partsCompleted,
-				AtomicBoolean stopRequested,
-				Set<AutoCloseable> activeResources) {
-			this.httpClient = httpClient;
-			this.uri = uri;
-			this.userAgent = userAgent;
-			this.timeout = timeout;
-			this.part = part;
-			this.partFile = partFile;
-			this.maxRetries = maxRetries;
-			this.downloadedBytes = downloadedBytes;
-			this.partsCompleted = partsCompleted;
-			this.stopRequested = stopRequested;
-			this.activeResources = activeResources;
-			this.expectedBytes = part.length();
-		}
-		
-		@Override
-		public Void call() throws Exception {
-			ensureParentDirectory(this.partFile);
-			
-			long backoffMillis = 200;
-			int attempt = 0;
-			while (true) {
-				this.checkStop();
-				attempt++;
-				long bytesThisAttempt = 0;
-				try {
-					bytesThisAttempt = this.downloadOnce();
-					this.partsCompleted.incrementAndGet();
-					return null;
-				} catch (InterruptedException e) {
-					throw e;
-				} catch (IOException e) {
-					if (this.stopRequested.get() || Thread.currentThread().isInterrupted()) {
-						throw new InterruptedException("下载已暂停");
-					}
-					long rollbackBytes = bytesThisAttempt;
-					if (e instanceof PartDownloadException pde) {
-						rollbackBytes = pde.bytesWritten;
-					}
-					if (rollbackBytes > 0) {
-						this.downloadedBytes.addAndGet(-rollbackBytes);
-					}
-					if (this.existingBytesAtAttemptStart > 0) {
-						this.downloadedBytes.addAndGet(-this.existingBytesAtAttemptStart);
-					}
-					Files.deleteIfExists(this.partFile);
-					this.existingBytesAtAttemptStart = 0;
-					if (attempt > this.maxRetries) {
-						throw e;
-					}
-					Thread.sleep(backoffMillis);
-					backoffMillis = Math.min(backoffMillis * 2, 5_000);
-				}
-			}
-		}
-		
-		private long downloadOnce() throws IOException, InterruptedException {
-			this.checkStop();
-			
-			long existing = 0;
-			if (Files.exists(this.partFile)) {
-				existing = Files.size(this.partFile);
-				if (existing >= this.expectedBytes) {
-					return 0;
-				}
-			}
-			this.existingBytesAtAttemptStart = existing;
-			
-			long startInclusive = this.part.startInclusive + existing;
-			if (startInclusive > this.part.endInclusive) {
-				return 0;
-			}
-			
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(this.uri)
-					.timeout(this.timeout)
-					.header("User-Agent", this.userAgent)
-					.header("Range", "bytes=" + startInclusive + "-" + this.part.endInclusive)
-					.GET()
-					.build();
-			
-			HttpResponse<InputStream> response = this.httpClient.send(request, BodyHandlers.ofInputStream());
-			if (response.statusCode() != 206) {
-				throw new IOException("分片下载失败，HTTP状态码: " + response.statusCode());
-			}
-			
-			long bytesWritten = 0;
-			try (InputStream in = new BufferedInputStream(response.body());
-					OutputStream out = new BufferedOutputStream(new FileOutputStream(this.partFile.toString(), existing > 0))) {
-				this.activeResources.add(in);
-				this.activeResources.add(out);
-				byte[] buffer = new byte[1024 * 256];
-				int read;
-				try {
-					while ((read = in.read(buffer)) != -1) {
-						this.checkStop();
-						out.write(buffer, 0, read);
-						bytesWritten += read;
-						this.downloadedBytes.addAndGet(read);
-					}
-				} catch (IOException e) {
-					if (this.stopRequested.get() || Thread.currentThread().isInterrupted()) {
-						throw new InterruptedException("下载已暂停");
-					}
-					throw e;
-				} finally {
-					this.activeResources.remove(in);
-					this.activeResources.remove(out);
-				}
-			} catch (IOException e) {
-				throw new PartDownloadException(e, bytesWritten);
-			}
-			
-			long actual = Files.size(this.partFile);
-			if (actual != this.expectedBytes) {
-				throw new IOException("分片大小不匹配，期望: " + this.expectedBytes + " 实际: " + actual);
-			}
-			
-			long expectedWritten = this.expectedBytes - existing;
-			if (bytesWritten != expectedWritten) {
-				throw new IOException("分片下载字节数不匹配，期望: " + expectedWritten + " 实际: " + bytesWritten);
-			}
-			
-			return bytesWritten;
-		}
-		
-		private void checkStop() throws InterruptedException {
-			if (this.stopRequested.get() || Thread.currentThread().isInterrupted()) {
-				throw new InterruptedException("下载已暂停");
-			}
-		}
-	}
-	
-	private static final class PartDownloadException extends IOException {
-		private static final long serialVersionUID = 1L;
-		private final long bytesWritten;
-		
-		private PartDownloadException(IOException cause, long bytesWritten) {
-			super(cause.getMessage(), cause);
-			this.bytesWritten = bytesWritten;
-		}
 	}
 	
 	

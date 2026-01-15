@@ -1,5 +1,8 @@
 package org.mark.llamacpp.download;
 
+import org.mark.llamacpp.download.struct.DownloadProgress;
+import org.mark.llamacpp.download.struct.DownloadState;
+
 /**
  * 下载进度监听器接口
  */
@@ -11,14 +14,14 @@ public interface DownloadProgressListener {
      * @param oldState 旧状态
      * @param newState 新状态
      */
-    void onStateChanged(DownloadTask task, BasicDownloader.DownloadState oldState, BasicDownloader.DownloadState newState);
+    void onStateChanged(DownloadTask task, DownloadState oldState, DownloadState newState);
     
     /**
      * 当下载进度更新时调用
      * @param task 下载任务
      * @param progress 进度信息
      */
-    void onProgressUpdated(DownloadTask task, BasicDownloader.DownloadProgress progress);
+    void onProgressUpdated(DownloadTask task, DownloadProgress progress);
     
     /**
      * 当任务完成时调用

@@ -5,18 +5,24 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 
+import org.mark.llamacpp.crawler.HfModelCrawler;
+import org.mark.llamacpp.crawler.HfModelCrawler.ModelSearchResult;
 import org.mark.llamacpp.download.BasicDownloader;
 import org.mark.llamacpp.gguf.GGUFBundle;
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaServerManager;
-import org.mark.llamacpp.server.struct.VramEstimation;
 import org.mark.llamacpp.server.tools.VramEstimator;
 import org.mark.llamacpp.server.tools.VramEstimator.Estimate;
 import org.mark.llamacpp.server.tools.VramEstimator.KvCacheType;
+import org.mark.llamacpp.server.tools.struct.VramEstimation;
+
+import com.google.gson.Gson;
 
 public class LlamaServerTest {
+	
+	private static Gson gson = new Gson();
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 		/*
 		//VramEstimator.Result result = VramEstimator.estimate(list.get(1), 8192, 2048, true);
 		
@@ -51,6 +57,12 @@ public class LlamaServerTest {
 //		} catch (IOException | URISyntaxException | InterruptedException e) {
 //			e.printStackTrace();
 //		}
+		//HfModelCrawler.GGUFCrawlResult result = HfModelCrawler.crawlGGUFFiles("https://huggingface.co/unsloth/Qwen3-Next-80B-A3B-Instruct-GGUF/");
+		//System.err.println(gson.toJson(result));
+		
+		ModelSearchResult result = HfModelCrawler.searchModels("qwen3", 200, 20, 0, 1);
+		System.err.println(gson.toJson(result));
+		System.err.println(result.hits().size());
 	}
 
 }

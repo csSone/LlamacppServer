@@ -5,10 +5,17 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.mark.llamacpp.download.struct.DownloadState;
+
 /**
  * 下载任务数据结构
  */
 public class DownloadTask {
+	public enum DownloadTaskType {
+		GGUF_MODEL,
+		GENERAL_FILE
+	}
+
     private final String taskId;
     private final String url;
     private final Path targetPath;
@@ -16,7 +23,9 @@ public class DownloadTask {
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    private BasicDownloader.DownloadState state;
+    private DownloadTaskType type = DownloadTaskType.GENERAL_FILE;
+    
+    private DownloadState state;
     private long totalBytes;
     private long downloadedBytes;
     private int partsTotal;
@@ -36,7 +45,7 @@ public class DownloadTask {
         this.fileName = fileName != null ? fileName : extractFileNameFromUrl(url);
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        this.state = BasicDownloader.DownloadState.IDLE;
+        this.state = DownloadState.IDLE;
         this.totalBytes = 0;
         this.downloadedBytes = 0;
         this.partsTotal = 0;
@@ -50,6 +59,15 @@ public class DownloadTask {
     
     public String getTaskId() {
         return taskId;
+    }
+    
+    public DownloadTaskType getType() {
+    	return type == null ? DownloadTaskType.GENERAL_FILE : type;
+    }
+    
+    public void setType(DownloadTaskType type) {
+    	this.type = type == null ? DownloadTaskType.GENERAL_FILE : type;
+        this.updatedAt = LocalDateTime.now();
     }
     
     public String getUrl() {
@@ -72,11 +90,11 @@ public class DownloadTask {
         return updatedAt;
     }
     
-    public BasicDownloader.DownloadState getState() {
+    public DownloadState getState() {
         return state;
     }
     
-    public void setState(BasicDownloader.DownloadState state) {
+    public void setState(DownloadState state) {
         this.state = state;
         this.updatedAt = LocalDateTime.now();
     }

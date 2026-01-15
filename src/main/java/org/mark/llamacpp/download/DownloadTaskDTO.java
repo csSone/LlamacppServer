@@ -2,6 +2,8 @@ package org.mark.llamacpp.download;
 
 import java.time.LocalDateTime;
 
+import org.mark.llamacpp.download.struct.DownloadState;
+
 /**
  * 下载任务数据传输对象，用于JSON序列化
  * 不包含Path对象，避免Java 17+模块系统问题
@@ -14,7 +16,8 @@ public class DownloadTaskDTO {
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    private BasicDownloader.DownloadState state;
+    private DownloadTask.DownloadTaskType type;
+    private DownloadState state;
     private long totalBytes;
     private long downloadedBytes;
     private int partsTotal;
@@ -42,6 +45,7 @@ public class DownloadTaskDTO {
         this.fileName = task.getFileName();
         this.createdAt = task.getCreatedAt();
         this.updatedAt = task.getUpdatedAt();
+        this.type = task.getType();
         this.state = task.getState();
         this.totalBytes = task.getTotalBytes();
         this.downloadedBytes = task.getDownloadedBytes();
@@ -81,11 +85,11 @@ public class DownloadTaskDTO {
         this.updatedAt = updatedAt;
     }
     
-    public BasicDownloader.DownloadState getState() {
+    public DownloadState getState() {
         return state;
     }
     
-    public void setState(BasicDownloader.DownloadState state) {
+    public void setState(DownloadState state) {
         this.state = state;
     }
     
@@ -164,6 +168,7 @@ public class DownloadTaskDTO {
             updatedAtField.set(task, updatedAt);
             
             // 设置其他字段
+            task.setType(type);
             task.setState(state);
             task.setTotalBytes(totalBytes);
             task.setDownloadedBytes(downloadedBytes);

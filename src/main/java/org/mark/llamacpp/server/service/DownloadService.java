@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.mark.llamacpp.download.DownloadManager;
 import org.mark.llamacpp.download.DownloadTask;
+import org.mark.llamacpp.download.struct.DownloadState;
 
 /**
  * 下载服务类，处理下载相关的业务逻辑
@@ -43,6 +44,29 @@ public class DownloadService {
                 taskId = downloadManager.createTask(url, path, fileName);
             } else {
                 taskId = downloadManager.createTask(url, path);
+            }
+            
+            result.put("success", true);
+            result.put("taskId", taskId);
+            result.put("message", "下载任务创建成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("success", false);
+            result.put("error", "创建下载任务失败: " + e.getMessage());
+        }
+        
+        return result;
+    }
+
+    public Map<String, Object> createModelDownloadTask(String url, String path, String fileName) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            String taskId;
+            if (fileName != null && !fileName.trim().isEmpty()) {
+                taskId = downloadManager.createTask(url, path, fileName, org.mark.llamacpp.download.DownloadTask.DownloadTaskType.GGUF_MODEL);
+            } else {
+                taskId = downloadManager.createTask(url, path, null, org.mark.llamacpp.download.DownloadTask.DownloadTaskType.GGUF_MODEL);
             }
             
             result.put("success", true);
@@ -186,19 +210,19 @@ public class DownloadService {
             List<DownloadTask> tasks = downloadManager.getAllTasks();
             
             long activeCount = tasks.stream()
-                .filter(t -> t.getState() == org.mark.llamacpp.download.BasicDownloader.DownloadState.DOWNLOADING)
+                .filter(t -> t.getState() == DownloadState.DOWNLOADING)
                 .count();
                 
             long pendingCount = tasks.stream()
-                .filter(t -> t.getState() == org.mark.llamacpp.download.BasicDownloader.DownloadState.IDLE)
+                .filter(t -> t.getState() == DownloadState.IDLE)
                 .count();
                 
             long completedCount = tasks.stream()
-                .filter(t -> t.getState() == org.mark.llamacpp.download.BasicDownloader.DownloadState.COMPLETED)
+                .filter(t -> t.getState() == DownloadState.COMPLETED)
                 .count();
                 
             long failedCount = tasks.stream()
-                .filter(t -> t.getState() == org.mark.llamacpp.download.BasicDownloader.DownloadState.FAILED)
+                .filter(t -> t.getState() == DownloadState.FAILED)
                 .count();
                 
             Map<String, Object> stats = new HashMap<>();

@@ -17,6 +17,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.mark.llamacpp.download.struct.DownloadProgress;
+import org.mark.llamacpp.download.struct.DownloadState;
+
 /**
  * 下载管理器，用于管理下载任务，支持任务状态持久化和恢复
  * 限制同时运行的下载任务为4个，使用线程池执行任务
@@ -54,8 +57,6 @@ public class DownloadManager {
 		
 		// 添加WebSocket监听器
 		this.addProgressListener(new DownloadWebSocketListener());
-		// 添加下载监听器
-		this.addProgressListener(new DownloadModelListener());
 	}
     
     /**
@@ -76,11 +77,16 @@ public class DownloadManager {
      * @return 任务ID
      */
 	public String createTask(String url, String path, String fileName) {
+		return createTask(url, path, fileName, DownloadTask.DownloadTaskType.GENERAL_FILE);
+	}
+	
+	public String createTask(String url, String path, String fileName, DownloadTask.DownloadTaskType type) {
 		Objects.requireNonNull(url, "URL不能为空");
 		Objects.requireNonNull(path, "路径不能为空");
 
 		Path targetPath = Paths.get(path);
 		DownloadTask task = new DownloadTask(url, targetPath, fileName);
+		task.setType(type);
 
 		// 保存任务到仓库
 		this.repository.saveTask(task);
@@ -94,7 +100,7 @@ public class DownloadManager {
 		} else {
 			// 否则将任务加入等待队列
 			this.pendingTasks.put(task.getTaskId(), task);
-			task.setState(BasicDownloader.DownloadState.IDLE);
+			task.setState(DownloadState.IDLE);
 			this.repository.saveTask(task);
 			System.out.println("任务 " + task.getTaskId() + " 已加入等待队列，当前活跃下载数: " + activeDownloads.get());
 		}
@@ -113,13 +119,13 @@ public class DownloadManager {
             return false;
         }
         
-        if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING) {
+        if (task.getState() == DownloadState.DOWNLOADING) {
             task.setPaused(true);
             
             // 保存下载器的状态
             if (task.getDownloader() != null) {
                 BasicDownloader downloader = task.getDownloader();
-                BasicDownloader.DownloadProgress progress = downloader.getProgress();
+                DownloadProgress progress = downloader.getProgress();
                 
                 // 保存下载进度
                 task.setDownloadedBytes(progress.getDownloadedBytes());
@@ -142,7 +148,7 @@ public class DownloadManager {
                 downloadThread.interrupt();
             }
             
-            task.setState(BasicDownloader.DownloadState.IDLE);
+            task.setState(DownloadState.IDLE);
             this.repository.saveTask(task);
             
             // 通知监听器
@@ -166,8 +172,8 @@ public class DownloadManager {
 			return false;
 		}
 
-		if (task.getState() == BasicDownloader.DownloadState.IDLE
-				|| task.getState() == BasicDownloader.DownloadState.FAILED) {
+		if (task.getState() == DownloadState.IDLE
+				|| task.getState() == DownloadState.FAILED) {
 
 			task.setPaused(false);
 
@@ -201,7 +207,7 @@ public class DownloadManager {
 		}
 
 		// 如果任务正在下载，先暂停
-		if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING) {
+		if (task.getState() == DownloadState.DOWNLOADING) {
 			pause(taskId);
 		}
 
@@ -215,6 +221,10 @@ public class DownloadManager {
 		}
 		
 		deleteLocalFiles(task);
+		
+		if (task.getType() == DownloadTask.DownloadTaskType.GGUF_MODEL) {
+			deleteEmptyDirectory(task.getFullTargetPath().getParent());
+		}
 
 		// 从等待队列中移除
 		this.pendingTasks.remove(taskId);
@@ -226,6 +236,23 @@ public class DownloadManager {
 		this.notifyTaskDeleted(task);
 
 		return true;
+	}
+	
+	private void deleteEmptyDirectory(Path dir) {
+		if (dir == null || !Files.isDirectory(dir)) {
+			return;
+		}
+		try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
+			if (ds.iterator().hasNext()) {
+				return;
+			}
+		} catch (IOException ignored) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(dir);
+		} catch (IOException ignored) {
+		}
 	}
 	
 	private void deleteLocalFiles(DownloadTask task) {
@@ -303,8 +330,8 @@ public class DownloadManager {
 		this.downloadExecutor.submit(() -> {
 			task.setDownloadThread(Thread.currentThread());
 			try {
-				task.setState(BasicDownloader.DownloadState.PREPARING);
-				notifyStateChanged(task, BasicDownloader.DownloadState.IDLE, BasicDownloader.DownloadState.PREPARING);
+				task.setState(DownloadState.PREPARING);
+				notifyStateChanged(task, DownloadState.IDLE, DownloadState.PREPARING);
 
 				// 创建下载器
 				BasicDownloader downloader = new BasicDownloader(task.getUrl(), task.getFullTargetPath());
@@ -322,17 +349,17 @@ public class DownloadManager {
 					downloader.setEtag(task.getEtag());
 					downloader.rangeSupported = task.isRangeSupported();
 					
-					task.setState(BasicDownloader.DownloadState.DOWNLOADING);
+					task.setState(DownloadState.DOWNLOADING);
 					this.repository.saveTask(task);
-					notifyStateChanged(task, BasicDownloader.DownloadState.PREPARING,
-							BasicDownloader.DownloadState.DOWNLOADING);
+					notifyStateChanged(task, DownloadState.PREPARING,
+							DownloadState.DOWNLOADING);
 
 					// 断点续传下载
 					downloader.resume(task.getDownloadedBytes());
 				} else {
 					// 获取文件信息
 					downloader.requestHead();
-					BasicDownloader.DownloadProgress headProgress = downloader.getProgress();
+					DownloadProgress headProgress = downloader.getProgress();
 
 					// 保存下载器状态到任务
 					if (downloader.getFinalUri() != null) {
@@ -342,27 +369,27 @@ public class DownloadManager {
 					task.setEtag(downloader.getEtag());
 					task.setRangeSupported(downloader.isRangeSupported());
 					
-					task.setState(BasicDownloader.DownloadState.DOWNLOADING);
+					task.setState(DownloadState.DOWNLOADING);
 					this.repository.saveTask(task);
-					notifyStateChanged(task, BasicDownloader.DownloadState.PREPARING,
-							BasicDownloader.DownloadState.DOWNLOADING);
+					notifyStateChanged(task, DownloadState.PREPARING,
+							DownloadState.DOWNLOADING);
 
 					// 开始下载
 					downloader.download();
 				}
 
 				// 下载完成
-				task.setState(BasicDownloader.DownloadState.COMPLETED);
+				task.setState(DownloadState.COMPLETED);
 				this.repository.saveTask(task);
 				notifyTaskCompleted(task);
 
 			} catch (Exception e) {
 				// 检查是否是暂停导致的异常
 				if (task.isPaused()) {
-					task.setState(BasicDownloader.DownloadState.IDLE);
+					task.setState(DownloadState.IDLE);
 					this.repository.saveTask(task);
 				} else {
-					task.setState(BasicDownloader.DownloadState.FAILED);
+					task.setState(DownloadState.FAILED);
 					task.setErrorMessage(e.getMessage());
 					this.repository.saveTask(task);
 					notifyTaskFailed(task, e.getMessage());
@@ -428,7 +455,7 @@ public class DownloadManager {
 			String taskId = this.pendingTasks.keySet().iterator().next();
 			DownloadTask task = this.pendingTasks.remove(taskId);
 
-			if (task != null && task.getState() == BasicDownloader.DownloadState.IDLE) {
+			if (task != null && task.getState() == DownloadState.IDLE) {
 				startDownload(task);
 				System.out.println("从等待队列启动任务: " + task.getTaskId() + ", 当前活跃下载数: " + this.activeDownloads.get());
 			}
@@ -440,8 +467,8 @@ public class DownloadManager {
 	 */
 	private void updateAllTasksProgress() {
 		for (DownloadTask task : repository.getAllTasks()) {
-			if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING && task.getDownloader() != null) {
-				BasicDownloader.DownloadProgress progress = task.getDownloader().getProgress();
+			if (task.getState() == DownloadState.DOWNLOADING && task.getDownloader() != null) {
+				DownloadProgress progress = task.getDownloader().getProgress();
 
 				// 更新任务进度信息
 				task.setDownloadedBytes(progress.getDownloadedBytes());
@@ -460,8 +487,8 @@ public class DownloadManager {
 	private void resumePendingTasks() {
 		List<DownloadTask> unfinishedTasks = new ArrayList<>();
 		for (DownloadTask task : repository.getAllTasks()) {
-			if (task.getState() == BasicDownloader.DownloadState.IDLE
-					|| task.getState() == BasicDownloader.DownloadState.FAILED) {
+			if (task.getState() == DownloadState.IDLE
+					|| task.getState() == DownloadState.FAILED) {
 				unfinishedTasks.add(task);
 			}
 		}
@@ -495,7 +522,7 @@ public class DownloadManager {
         }
     }
     
-    private void notifyStateChanged(DownloadTask task, BasicDownloader.DownloadState oldState, BasicDownloader.DownloadState newState) {
+    private void notifyStateChanged(DownloadTask task, DownloadState oldState, DownloadState newState) {
         for (DownloadProgressListener listener : listeners.values()) {
             try {
                 listener.onStateChanged(task, oldState, newState);
@@ -505,7 +532,7 @@ public class DownloadManager {
         }
     }
     
-    private void notifyProgressUpdated(DownloadTask task, BasicDownloader.DownloadProgress progress) {
+    private void notifyProgressUpdated(DownloadTask task, DownloadProgress progress) {
         for (DownloadProgressListener listener : listeners.values()) {
             try {
                 listener.onProgressUpdated(task, progress);
@@ -592,7 +619,7 @@ public class DownloadManager {
     public void shutdown() {
         // 暂停所有正在下载的任务
         for (DownloadTask task : repository.getAllTasks()) {
-            if (task.getState() == BasicDownloader.DownloadState.DOWNLOADING) {
+            if (task.getState() == DownloadState.DOWNLOADING) {
                 pause(task.getTaskId());
             }
         }
