@@ -13,9 +13,17 @@ import org.mark.llamacpp.download.DownloadTask;
  */
 public class DownloadService {
     
+	
+	private static final DownloadService INSTANCE = new DownloadService();
+	
+	public static DownloadService getInstance() {
+		return INSTANCE;
+	}
+	
+	
     private final DownloadManager downloadManager;
     
-    public DownloadService() {
+    private DownloadService() {
         this.downloadManager = DownloadManager.getInstance();
     }
     
