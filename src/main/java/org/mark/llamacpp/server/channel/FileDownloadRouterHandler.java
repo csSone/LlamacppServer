@@ -135,6 +135,7 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			String author = trimToNull(req.getAuthor());
 			String modelId = trimToNull(req.getModelId());
 			String[] downloadUrl = req.getDownloadUrl();
+			String ggufPath = trimToNull(req.getPath());
 			if (author == null) {
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "author不能为空");
 				return;
@@ -159,29 +160,53 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			}
 
 			Path baseDir = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
-			Path targetDir = baseDir.resolve(safeAuthor).resolve(safeModelId).toAbsolutePath().normalize();
-			if (!targetDir.startsWith(baseDir)) {
+			Path modelRootDir = baseDir.resolve(safeAuthor).resolve(safeModelId).toAbsolutePath().normalize();
+			if (!modelRootDir.startsWith(baseDir)) {
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "保存路径不合法");
 				return;
 			}
-			// 检查目标目录能否被使用。
+			if (Files.exists(modelRootDir) && !Files.isDirectory(modelRootDir)) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标路径已存在且不是目录");
+				return;
+			}
+			if (!Files.exists(modelRootDir)) {
+				Files.createDirectories(modelRootDir);
+			}
+
+			String folderName = null;
+			if (ggufPath != null) {
+				folderName = normalizeVariantFolderName(ggufPath);
+			}
+			if (folderName == null) {
+				folderName = normalizeVariantFolderName(req.getName());
+			}
+			folderName = sanitizePathSegment(folderName);
+			if (folderName.isBlank()) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "path不合法");
+				return;
+			}
+
+			Path targetDir = modelRootDir.resolve(folderName).toAbsolutePath().normalize();
+			if (!targetDir.startsWith(modelRootDir)) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "保存路径不合法");
+				return;
+			}
+			if (Files.exists(targetDir) && !Files.isDirectory(targetDir)) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且不是目录");
+				return;
+			}
 			if (Files.exists(targetDir)) {
 				try (Stream<Path> entries = Files.list(targetDir)) {
-			        if (entries.findAny().isPresent()) {
-			            // 如果流中有元素（即目录不为空），则报错
-			            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且非空");
-			            return;
-			        }
-			    } catch (IOException e) {
-			        // 处理可能发生的IO异常，例如没有读取权限
-			        LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "无法检查目标目录状态: " + e.getMessage());
-			        return;
-			    }
-				//LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在");
-				//return;
-			}else {
-				// 创建目录
-				Files.createDirectories(targetDir);	
+					if (entries.findAny().isPresent()) {
+						LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且非空");
+						return;
+					}
+				} catch (IOException e) {
+					LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "无法检查目标目录状态: " + e.getMessage());
+					return;
+				}
+			} else {
+				Files.createDirectories(targetDir);
 			}
 
 			List<Map<String, Object>> taskResults = new ArrayList<>();
@@ -236,6 +261,21 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			return "";
 		}
 		return s.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+	}
+
+	private static String normalizeVariantFolderName(String s) {
+		String v = trimToNull(s);
+		if (v == null) {
+			return null;
+		}
+		try {
+			v = Paths.get(v).getFileName().toString();
+		} catch (Exception ignored) {
+		}
+		v = v.trim();
+		v = v.replaceFirst("(?i)\\.gguf$", "");
+		v = v.trim();
+		return v.isEmpty() ? null : v;
 	}
 
 	private static String sanitizeFileName(String fileName) {

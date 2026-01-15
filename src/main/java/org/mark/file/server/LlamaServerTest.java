@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 
-import org.mark.llamacpp.crawler.HfModelCrawler;
-import org.mark.llamacpp.crawler.HfModelCrawler.ModelSearchResult;
 import org.mark.llamacpp.download.BasicDownloader;
 import org.mark.llamacpp.gguf.GGUFBundle;
 import org.mark.llamacpp.gguf.GGUFModel;
@@ -59,10 +57,6 @@ public class LlamaServerTest {
 //		}
 		//HfModelCrawler.GGUFCrawlResult result = HfModelCrawler.crawlGGUFFiles("https://huggingface.co/unsloth/Qwen3-Next-80B-A3B-Instruct-GGUF/");
 		//System.err.println(gson.toJson(result));
-		
-		ModelSearchResult result = HfModelCrawler.searchModels("qwen3", 200, 20, 0, 1);
-		System.err.println(gson.toJson(result));
-		System.err.println(result.hits().size());
 	}
 
 }

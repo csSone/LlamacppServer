@@ -31,7 +31,7 @@
                 <i class="fas fa-bolt"></i>
                 <span>压力测试</span>
             </a>
-            <a href="download.html" class="nav-item">
+            <a href="#" class="nav-item" id="nav-download" onclick="showDownloadManager(); return false;">
                 <i class="fas fa-download"></i>
                 <span>下载管理</span>
             </a>
@@ -120,6 +120,79 @@
                     </div>
                 </div>
                 <div id="modelsList">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main class="main-area" id="main-download" style="display: none">
+        <div class="top-bar">
+            <h1 class="page-title">下载管理</h1>
+            <div class="top-actions">
+                <button class="btn btn-secondary" onclick="DownloadManager.openHfCrawlerModal()">
+                    <i class="fas fa-cloud"></i>
+                    HuggingFace 爬虫
+                </button>
+                <button class="btn btn-primary" onclick="DownloadManager.openCreateDownloadModal()">
+                    <i class="fas fa-plus"></i>
+                    创建下载任务
+                </button>
+            </div>
+        </div>
+
+        <div class="content-scrollable">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="activeDownloadsCount">0</h3>
+                        <p>活跃下载</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="pendingDownloadsCount">0</h3>
+                        <p>等待队列</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="completedDownloadsCount">0</h3>
+                        <p>已完成</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalDownloadsCount">0</h3>
+                        <p>总任务数</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="download-list-container">
+                <div class="download-list-header">
+                    <h2>下载任务</h2>
+                    <div style="margin-left: auto;">
+                        <button class="btn btn-secondary" onclick="DownloadManager.refreshDownloads()" title="刷新列表">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="downloadsList">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
                     </div>
@@ -415,7 +488,7 @@
     </div>
 
     <div class="modal" id="hfGgufModal">
-        <div class="modal-content" style="max-width: 1100px; height: 85vh;">
+        <div class="modal-content" style="max-width: 1100px; height: 85vh;background-color: #f9fafb;">
             <div class="modal-header">
                 <h3 class="modal-title"><i class="fas fa-file"></i> GGUF 文件</h3>
                 <button class="modal-close" onclick="closeModal('hfGgufModal')">&times;</button>
@@ -440,6 +513,134 @@
         </div>
     </div>
 
+    <div class="modal" id="createDownloadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-download"></i> 创建下载任务</h3>
+                <button class="modal-close" onclick="closeModal('createDownloadModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createDownloadForm">
+                    <div class="form-group">
+                        <label class="form-label" for="downloadUrl">下载URL</label>
+                        <input type="url" class="form-control" id="downloadUrl" name="downloadUrl" placeholder="https://example.com/file.zip" required>
+                        <small class="form-text">输入要下载的文件的完整URL地址</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="downloadPath">保存路径</label>
+                        <input type="text" class="form-control" id="downloadPath" name="downloadPath" placeholder="downloads" value="C:\Users\Mark\Downloads" required>
+                        <small class="form-text">文件保存的相对路径，默认为downloads目录</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="downloadFileName">文件名（可选）</label>
+                        <input type="text" class="form-control" id="downloadFileName" name="downloadFileName" placeholder="留空使用URL中的文件名">
+                        <small class="form-text">自定义保存的文件名，留空则使用URL中的原始文件名</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('createDownloadModal')">取消</button>
+                <button class="btn btn-primary" onclick="DownloadManager.submitCreateDownload()">创建任务</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-cog"></i> 系统设置</h3>
+                <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label class="form-label" for="defaultDownloadPath">默认下载目录</label>
+                        <input type="text" class="form-control" id="defaultDownloadPath" name="defaultDownloadPath" placeholder="download">
+                        <small class="form-text">设置默认的文件下载保存路径</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('settingsModal')">取消</button>
+                <button class="btn btn-primary" onclick="DownloadManager.saveSettings()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="hfCrawlerModal">
+        <div class="modal-content" style="max-width: 1100px; height: 85vh;">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-cloud"></i> HuggingFace 爬虫</h3>
+                <button class="modal-close" onclick="closeModal('hfCrawlerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1rem;">
+                    <div style="flex: 1; min-width: 260px;">
+                        <label class="form-label" for="hfQueryInput">搜索关键字</label>
+                        <input type="text" class="form-control" id="hfQueryInput" placeholder="例如：Qwen3 8B GGUF">
+                    </div>
+                    <div style="width: 120px;">
+                        <label class="form-label" for="hfLimitSelect">数量</label>
+                        <select id="hfLimitSelect" class="form-control">
+                            <option value="30">30</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div style="width: 180px;">
+                        <label class="form-label" for="hfBaseSelectModal">域名</label>
+                        <select id="hfBaseSelectModal" class="form-control">
+                            <option value="mirror" selected>hf-mirror.com</option>
+                            <option value="official">huggingface.co</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary" onclick="DownloadManager.hfSearchFromModal()">
+                            <i class="fas fa-search"></i>
+                            搜索
+                        </button>
+                        <button class="btn btn-secondary" onclick="DownloadManager.hfParseRepoFromModal()">
+                            <i class="fas fa-list"></i>
+                            解析GGUF
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="hfRepoInput">模型 RepoId / URL（可直接解析）</label>
+                    <input type="text" class="form-control mono" id="hfRepoInput" placeholder="例如：Qwen/Qwen3-8B-GGUF 或 https://huggingface.co/Qwen/Qwen3-8B-GGUF">
+                    <small class="form-text">选择搜索结果或直接粘贴链接，然后解析 GGUF 文件列表</small>
+                </div>
+
+                <div class="hf-split">
+                    <div class="hf-panel">
+                        <div class="hf-panel-header">
+                            <div class="hf-panel-title"><i class="fas fa-list"></i> 搜索结果</div>
+                            <div class="mono" id="hfHitsCountLabel" style="color: var(--text-secondary); font-size: 0.8125rem;">0</div>
+                        </div>
+                        <div class="hf-panel-body" id="hfSearchResults">
+                            <div class="empty-state">输入关键字并点击搜索</div>
+                        </div>
+                    </div>
+                    <div class="hf-panel">
+                        <div class="hf-panel-header">
+                            <div class="hf-panel-title"><i class="fas fa-file"></i> GGUF 文件</div>
+                            <div class="mono" id="hfSelectedLabel" style="color: var(--text-secondary); font-size: 0.8125rem;">-</div>
+                        </div>
+                        <div class="hf-panel-body" id="hfGgufResults">
+                            <div class="empty-state">选择一个模型或粘贴 RepoId 解析</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('hfCrawlerModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Container -->
     <div id="dynamicModalRoot"></div>
     <div class="toast-container" id="toastContainer"></div>
@@ -448,6 +649,7 @@
     <script src="js/console-modal.js"></script>
     <script src="js/model-llamacpp-setting.js"></script>
     <script src="js/hf.js"></script>
+    <script src="js/download.js"></script>
     
     <script>
         // --- Initialization ---
@@ -916,6 +1118,13 @@
                 if (btn) btn.disabled = false;
                 setModelActionMode('load');
             }
+            if (id === 'createDownloadModal') {
+                const form = document.getElementById('createDownloadForm');
+                if (form) form.reset();
+            } else if (id === 'settingsModal') {
+                const form = document.getElementById('settingsForm');
+                if (form) form.reset();
+            }
         }
         
         // Window clicks
@@ -1078,6 +1287,7 @@
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
             //refreshModels();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -1092,6 +1302,7 @@
             document.getElementById('main-llamacpp-setting').style.display = '';
             document.getElementById('main-model-path-setting').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
             loadLlamaCppList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -1106,6 +1317,7 @@
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = '';
             document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
             loadModelPathList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -1119,9 +1331,27 @@
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = 'none';
             document.getElementById('main-hf').style.display = '';
+            document.getElementById('main-download').style.display = 'none';
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-hf');
+            if (nav) nav.classList.add('active');
+        }
+
+        function showDownloadManager() {
+            document.getElementById('main-model-list').style.display = 'none';
+            document.getElementById('main-llamacpp-setting').style.display = 'none';
+            document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
+            const main = document.getElementById('main-download');
+            const hasEntered = main && main.dataset && main.dataset.entered === '1';
+            if (main) main.style.display = '';
+            if (window.DownloadManager && typeof window.DownloadManager.start === 'function') window.DownloadManager.start();
+            if (hasEntered && window.DownloadManager && typeof window.DownloadManager.refreshDownloads === 'function') window.DownloadManager.refreshDownloads();
+            if (main && main.dataset) main.dataset.entered = '1';
+            const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const nav = document.getElementById('nav-download');
             if (nav) nav.classList.add('active');
         }
 

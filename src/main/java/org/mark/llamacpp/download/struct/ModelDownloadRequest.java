@@ -10,6 +10,7 @@ public class ModelDownloadRequest {
 	private String modelId;
 	private String[] downloadUrl;
 	private String name;
+	private String path;
 	private Long size;
 	private String lfsOid;
 	private Long lfsSize;
@@ -48,6 +49,14 @@ public class ModelDownloadRequest {
 	
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public void setPath(String path) {
+		this.path = path;
 	}
 	
 	public Long getSize() {

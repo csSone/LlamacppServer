@@ -1,6 +1,7 @@
 let hfHits = [];
 let hfGguf = [];
 let hfGgufGroups = [];
+let hfMmprojGroups = [];
 let hfSelected = null;
 let hfTreeError = null;
 let hfSearchQuery = '';
@@ -91,7 +92,7 @@ function renderHits() {
                 <div style="flex-shrink: 0; display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn btn-secondary btn-sm" onclick="openModelPage('${escapeHtmlAttr(hit.modelUrl)}')">
                         <i class="fas fa-external-link-alt"></i>
-                        打开
+                        查看主页
                     </button>
                 </div>
             </div>
@@ -310,6 +311,47 @@ function getFileNameFromPath(path) {
     return name.trim();
 }
 
+function isMmprojFilePath(path) {
+    const name = getFileNameFromPath(path);
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    return lower.endsWith('.gguf') && lower.includes('mmproj');
+}
+
+function isMmprojGroup(group) {
+    if (!group) return false;
+    const p = (group.displayPath || group.key || '');
+    return isMmprojFilePath(p);
+}
+
+function getGroupTotalSize(group) {
+    if (!group) return 0;
+    const n = group.totalSize != null ? Number(group.totalSize) : NaN;
+    if (isFinite(n) && n > 0) return n;
+    let total = 0;
+    for (const f of (group.files || [])) {
+        if (!f) continue;
+        const s = f.size != null ? Number(f.size) : (f.lfsSize != null ? Number(f.lfsSize) : NaN);
+        if (isFinite(s) && s > 0) total += s;
+    }
+    return total;
+}
+
+function pickBestMmprojGroup(groups) {
+    const list = Array.isArray(groups) ? groups : [];
+    let best = null;
+    let bestSize = -1;
+    for (const g of list) {
+        if (!isMmprojGroup(g)) continue;
+        const size = getGroupTotalSize(g);
+        if (size > bestSize) {
+            best = g;
+            bestSize = size;
+        }
+    }
+    return best;
+}
+
 function parseRepoId(repoId) {
     const s = repoId == null ? '' : String(repoId).trim();
     const idx = s.indexOf('/');
@@ -332,9 +374,23 @@ async function downloadModel(groupIndex) {
         showToast('提示', '下载链接为空', 'info');
         return;
     }
-    const fileName = getFileNameFromPath(g.displayPath || g.key || (g.files && g.files[0] ? g.files[0].path : ''));
+    const bestMmproj = pickBestMmprojGroup(hfMmprojGroups);
+    if (bestMmproj && bestMmproj.files && bestMmproj.files.length) {
+        const mmprojUrls = (bestMmproj.files || [])
+            .map(f => f && f.downloadUrl ? String(f.downloadUrl).trim() : '')
+            .filter(Boolean);
+        if (mmprojUrls.length) {
+            const merged = new Set(downloadUrl);
+            for (const u of mmprojUrls) merged.add(u);
+            downloadUrl.length = 0;
+            downloadUrl.push(...merged);
+        }
+    }
+    const ggufPath = (g.displayPath || '') || ((g.files && g.files[0] && g.files[0].path != null) ? String(g.files[0].path) : '') || (g.key || '');
+    const fileName = getFileNameFromPath(ggufPath || (g.displayPath || g.key || ''));
     const payload = { author: repo.author, modelId: repo.modelId, downloadUrl };
     if (fileName) payload.name = fileName;
+    if (ggufPath) payload.path = ggufPath;
 
     try {
         const resp = await fetch('/api/downloads/model/create', {
@@ -351,7 +407,8 @@ async function downloadModel(groupIndex) {
             throw new Error((data && data.error) ? data.error : '创建下载任务失败');
         }
         const count = Array.isArray(data.tasks) ? data.tasks.length : downloadUrl.length;
-        showToast('成功', `已创建 ${count} 个下载任务`, 'success');
+        const withMmproj = bestMmproj && bestMmproj.files && bestMmproj.files.length;
+        showToast('成功', withMmproj ? `已创建 ${count} 个下载任务（已自动包含 mmproj）` : `已创建 ${count} 个下载任务`, 'success');
     } catch (e) {
         showToast('错误', e && e.message ? e.message : '网络请求失败', 'error');
     }
@@ -368,9 +425,13 @@ async function copyAllGgufLinks() {
         showToast('提示', '当前没有可复制的链接', 'info');
         return;
     }
-    const text = hfGguf.map(f => f && f.downloadUrl ? String(f.downloadUrl) : '').filter(Boolean).join('\n');
+    const text = hfGguf
+        .filter(f => f && !isMmprojFilePath(f.path))
+        .map(f => f && f.downloadUrl ? String(f.downloadUrl) : '')
+        .filter(Boolean)
+        .join('\n');
     const ok = await copyToClipboard(text);
-    if (ok) showToast('已复制', `已复制 ${hfGguf.length} 条链接`, 'success');
+    if (ok) showToast('已复制', `已复制 ${text ? text.split('\n').length : 0} 条链接`, 'success');
     else showToast('复制失败', '无法写入剪贴板', 'error');
 }
 
@@ -479,12 +540,15 @@ async function selectRepo(repoId) {
         const result = data.data || {};
         hfTreeError = result.treeError || null;
         hfGguf = result.ggufFiles || [];
-        hfGgufGroups = groupGgufFiles(hfGguf);
+        const allGroups = groupGgufFiles(hfGguf);
+        hfMmprojGroups = allGroups.filter(isMmprojGroup);
+        hfGgufGroups = allGroups.filter(g => !isMmprojGroup(g));
         renderGguf();
         if (hfTreeError) showToast('提示', hfTreeError, 'info');
     } catch (e) {
         hfGguf = [];
         hfGgufGroups = [];
+        hfMmprojGroups = [];
         document.getElementById('hfGgufList').innerHTML = `<div class="empty-state">解析失败</div>`;
         showToast('错误', e && e.message ? e.message : '网络请求失败', 'error');
     }
