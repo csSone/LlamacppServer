@@ -63,7 +63,7 @@ function getModelIcon(architecture) {
         'llama': 'icon/llama.png',
         'kimi': 'icon/kimi.png',
         'minimax': 'icon/minimax.png',
-        'gemma3': 'icon/gemma3.png',
+        'gemma': 'icon/gemma.png',
     };
     for (const [key, icon] of Object.entries(iconMap)) {
         if (archName.includes(key)) return icon;
