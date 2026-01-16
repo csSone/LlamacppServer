@@ -164,6 +164,15 @@ jobs:
           rm llama-cuda12.zip
           echo "Windows CUDA12 版本下载完成"
 
+      - name: 下载 llama.cpp 预编译版本 (Windows CUDA13)
+        run: |
+          echo "下载 llama.cpp Windows CUDA13 版本..."
+          curl -L -o llama-cuda13.zip https://github.com/ggml-org/llama.cpp/releases/download/${{ steps.get_llamacpp_version.outputs.llamacpp_version }}/llama-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-bin-win-cuda-13.1-x64.zip
+          mkdir win-cuda13
+          unzip -q llama-cuda13.zip -d win-cuda13
+          rm llama-cuda13.zip
+          echo "Windows CUDA13 版本下载完成"
+
       - name: 下载 llama.cpp 预编译版本 (Windows Vulkan)
         run: |
           echo "下载 llama.cpp Windows Vulkan 版本..."
@@ -217,6 +226,15 @@ jobs:
           cp -r win-cuda12 build-win-cuda12/llamacpp/
           mv build-win-cuda12 llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12
           zip -r llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12
+
+      - name: 打包 Windows CUDA13 版本
+        run: |
+          cp -r build build-win-cuda13
+          cp -r jre-win/jre build-win-cuda13/jre
+          mkdir -p build-win-cuda13/llamacpp
+          cp -r win-cuda13 build-win-cuda13/llamacpp/
+          mv build-win-cuda13 llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13
+          zip -r llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13
 
       - name: 打包 Windows Vulkan 版本
         run: |
@@ -278,6 +296,7 @@ jobs:
           
           **Windows:**
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip` - CUDA 12.4 版本（NVIDIA GPU）
+          - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip` - CUDA 13.1 版本（NVIDIA GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-vulkan.zip` - Vulkan 版本（通用 GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip` - HIP 版本（AMD GPU）
           
@@ -303,7 +322,7 @@ jobs:
           **注意：**
           - 本版本已内置精简版 JRE，无需额外安装 Java 环境。
           - 请根据你的 GPU 选择对应的版本：
-            - NVIDIA GPU: 使用 cuda12 版本
+            - NVIDIA GPU: 使用 cuda12 或 cuda13 版本
             - AMD GPU: 使用 hip 版本
             - 其他 GPU（如核显） 或不确定: 使用 vulkan 版本
           
@@ -342,6 +361,7 @@ jobs:
           files: |
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip
+            llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-vulkan.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip
             # llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64.zip
@@ -363,6 +383,13 @@ jobs:
         with:
           name: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12
           path: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip
+          retention-days: 30
+
+      - name: 上传构建产物 (Windows CUDA13)
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13
+          path: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip
           retention-days: 30
 
       - name: 上传构建产物 (Windows Vulkan)
