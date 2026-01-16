@@ -21,9 +21,21 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+
+/**
+ * 	针对huggingface的爬虫。
+ */
 public final class HuggingFaceModelCrawler {
+	
+	/**
+	 * 两个域名
+	 */
 	private static final String HF_BASE = "https://huggingface.co";
 	private static final String HF_MIRROR_BASE = "https://hf-mirror.com";
+	
+	/**
+	 * 	默认分页数量
+	 */
 	private static final int HF_SEARCH_PAGE_SIZE = 30;
 
 	public record GGUFFileInfo(String path, Long size, String lfsOid, Long lfsSize, String downloadUrl) {

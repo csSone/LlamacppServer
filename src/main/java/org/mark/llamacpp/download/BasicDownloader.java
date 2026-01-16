@@ -42,6 +42,10 @@ import org.mark.llamacpp.download.struct.PartWithFile;
  * 	基本下载器的实现。本来想自己改的，做了一半背疼。画了个工作流程让AI自己做了。
  */
 public class BasicDownloader {
+
+	/**
+	 * 	下载中文件的后缀名
+	 */
 	private static final String DOWNLOADING_SUFFIX = "downloading";
 	
 	/**

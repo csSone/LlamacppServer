@@ -63,6 +63,7 @@ import io.netty.util.CharsetUtil;
 public class LlamaServer {
 	
 	public static void main(String[] args) {
+		// 这里重定向输出流
 		try {
 			Files.createDirectories(CONSOLE_LOG_PATH.getParent());
 			ConsoleBroadcastOutputStream out = new ConsoleBroadcastOutputStream(
@@ -108,7 +109,7 @@ public class LlamaServer {
 		});
 		t2.start();
 
-		// 创建系统托盘
+		// 尝试创建系统托盘
 		createWindowsSystemTray();
 	}
 	
@@ -149,19 +150,24 @@ public class LlamaServer {
 	 * 	WebSocket地址
 	 */
 	private static final String WEBSOCKET_PATH = "/ws";
+	
+	//##############################################################################################################################
 
-	// 配置缓存
 	private static int webPort = DEFAULT_WEB_PORT;
+	
 	private static int anthropicPort = DEFAULT_ANTHROPIC_PORT;
+	
 	private static String downloadDirectory = DEFAULT_DOWNLOAD_DIRECTORY;
 
+	//##############################################################################################################################
+	
 	public static final String SLOTS_SAVE_KEYWORD = "~SLOTSAVE";
 
 	public static final String SLOTS_LOAD_KEYWORD = "~SLOTLOAD";
 
 	public static final String HELP_KEYWORD = "~HELP";
     
-    
+    //##############################################################################################################################
     
     
     private static final Gson GSON = new Gson();

@@ -338,7 +338,14 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 		ctx.fireChannelRead(request.retain());
 	}
-
+	
+	
+	/**
+	 * 	处理HF搜索请求。
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
 	private void handleHfSearchRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
@@ -363,7 +370,13 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("搜索失败: " + e.getMessage()));
 		}
 	}
-
+	
+	/**
+	 * 	处理HF模型信息请求
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
 	private void handleHfGgufRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
@@ -385,7 +398,13 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解析GGUF失败: " + e.getMessage()));
 		}
 	}
-
+	
+	/**
+	 * 	配合{@link #handleHfGgufRequest(ChannelHandlerContext, FullHttpRequest)}
+	 * @param value
+	 * @param fallback
+	 * @return
+	 */
 	private static int parseIntOrDefault(String value, int fallback) {
 		if (value == null)
 			return fallback;
@@ -398,7 +417,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return fallback;
 		}
 	}
-
+	
+	/**
+	 * 	配合{@link #handleHfGgufRequest(ChannelHandlerContext, FullHttpRequest)}
+	 * @param values
+	 * @return
+	 */
 	private static String firstNonBlank(String... values) {
 		if (values == null)
 			return null;
@@ -872,6 +896,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 	}
 	
+	/**
+	 * 	获取benchmark列表。
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
 	private void handleParamBenchmarkListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 
