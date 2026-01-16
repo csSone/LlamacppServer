@@ -257,8 +257,10 @@ public class DownloadManager {
 	
 	private void deleteLocalFiles(DownloadTask task) {
 		Path target = task.getFullTargetPath();
+		Path downloadingTarget = target.resolveSibling(target.getFileName().toString() + ".downloading");
 		try {
 			Files.deleteIfExists(target);
+			Files.deleteIfExists(downloadingTarget);
 		} catch (IOException ignored) {
 		}
 		
@@ -268,10 +270,11 @@ public class DownloadManager {
 		}
 		
 		String partPrefix = target.getFileName().toString() + ".part";
+		String downloadingPartPrefix = downloadingTarget.getFileName().toString() + ".part";
 		try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
 			for (Path p : ds) {
 				String name = p.getFileName() != null ? p.getFileName().toString() : null;
-				if (name != null && name.startsWith(partPrefix)) {
+				if (name != null && (name.startsWith(partPrefix) || name.startsWith(downloadingPartPrefix))) {
 					try {
 						Files.deleteIfExists(p);
 					} catch (IOException ignored) {
@@ -423,16 +426,19 @@ public class DownloadManager {
 		
 		// 检查目标文件是否存在
 		java.nio.file.Path targetPath = task.getFullTargetPath();
-		if (!java.nio.file.Files.exists(targetPath)) {
+		java.nio.file.Path downloadingTargetPath = targetPath.resolveSibling(targetPath.getFileName().toString() + ".downloading");
+		if (!java.nio.file.Files.exists(targetPath) && !java.nio.file.Files.exists(downloadingTargetPath)) {
 			// 对于多线程下载，检查是否有分片文件
 			if (task.isRangeSupported() && task.getPartsTotal() > 1) {
 				String fileName = targetPath.getFileName().toString();
+				String downloadingFileName = downloadingTargetPath.getFileName().toString();
 				java.nio.file.Path parentDir = targetPath.getParent();
 				if (parentDir != null) {
 					boolean hasAnyPart = false;
 					for (int i = 0; i < task.getPartsTotal(); i++) {
 						java.nio.file.Path partFile = parentDir.resolve(fileName + ".part" + i);
-						if (java.nio.file.Files.exists(partFile)) {
+						java.nio.file.Path downloadingPartFile = parentDir.resolve(downloadingFileName + ".part" + i);
+						if (java.nio.file.Files.exists(partFile) || java.nio.file.Files.exists(downloadingPartFile)) {
 							hasAnyPart = true;
 							break;
 						}

@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,6 +42,7 @@ import org.mark.llamacpp.download.struct.PartWithFile;
  * 	基本下载器的实现。本来想自己改的，做了一半背疼。画了个工作流程让AI自己做了。
  */
 public class BasicDownloader {
+	private static final String DOWNLOADING_SUFFIX = "downloading";
 	
 	/**
 	 * 	输入的原始地址
@@ -263,18 +265,24 @@ public class BasicDownloader {
 				throw new IOException("无法获取文件大小");
 			}
 			
-			ensureParentDirectory(this.targetFile);
+			Path downloadingTargetFile = toDownloadingTargetFile(this.targetFile);
+			ensureParentDirectory(downloadingTargetFile);
+			Files.deleteIfExists(this.targetFile);
+			Files.deleteIfExists(downloadingTargetFile);
+			deletePartFiles(downloadingTargetFile);
 			
 			this.state = DownloadState.DOWNLOADING;
 			if (this.rangeSupported && this.parallelism > 1) {
-				this.downloadMultipart();
+				this.downloadMultipart(downloadingTargetFile);
 			} else {
-				this.downloadSingle();
+				this.downloadSingle(downloadingTargetFile);
 			}
 			
 			this.state = DownloadState.VERIFYING;
 			this.verifyIntegrity();
 			
+			Path finalFile = removeLastExtension(downloadingTargetFile);
+			Files.move(downloadingTargetFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
 			this.state = DownloadState.COMPLETED;
 		} catch (InterruptedException e) {
 			this.state = DownloadState.IDLE;
@@ -320,18 +328,27 @@ public class BasicDownloader {
 				throw new IOException("无法获取文件大小");
 			}
 			
-			ensureParentDirectory(this.targetFile);
+			Path downloadingTargetFile = toDownloadingTargetFile(this.targetFile);
+			ensureParentDirectory(downloadingTargetFile);
+			if (!Files.exists(downloadingTargetFile) && Files.exists(this.targetFile)) {
+				long size = Files.size(this.targetFile);
+				if (size < this.contentLength) {
+					Files.move(this.targetFile, downloadingTargetFile, StandardCopyOption.REPLACE_EXISTING);
+				}
+			}
 			
 			this.state = DownloadState.DOWNLOADING;
 			if (this.rangeSupported && this.parallelism > 1) {
-				this.resumeMultipart();
+				this.resumeMultipart(downloadingTargetFile);
 			} else {
-				this.resumeSingle();
+				this.resumeSingle(downloadingTargetFile);
 			}
 			
 			this.state = DownloadState.VERIFYING;
 			this.verifyIntegrity();
 			
+			Path finalFile = removeLastExtension(downloadingTargetFile);
+			Files.move(downloadingTargetFile, finalFile, StandardCopyOption.REPLACE_EXISTING);
 			this.state = DownloadState.COMPLETED;
 		} catch (InterruptedException e) {
 			this.state = DownloadState.IDLE;
@@ -455,7 +472,7 @@ public class BasicDownloader {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void resumeSingle() throws IOException, InterruptedException {
+	private void resumeSingle(Path targetFile) throws IOException, InterruptedException {
 		this.partsTotal.set(1);
 		this.partsCompleted.set(0);
 
@@ -466,8 +483,8 @@ public class BasicDownloader {
 			attempt++;
 
 			long existingFileSize = 0;
-			if (Files.exists(this.targetFile)) {
-				existingFileSize = Files.size(this.targetFile);
+			if (Files.exists(targetFile)) {
+				existingFileSize = Files.size(targetFile);
 			}
 
 			if (existingFileSize >= this.contentLength) {
@@ -476,14 +493,14 @@ public class BasicDownloader {
 					this.partsCompleted.set(1);
 					return;
 				}
-				Files.deleteIfExists(this.targetFile);
+				Files.deleteIfExists(targetFile);
 				this.downloadedBytes.set(0);
-				downloadSingle();
+				downloadSingle(targetFile);
 				return;
 			}
 
 			if (existingFileSize == 0) {
-				downloadSingle();
+				downloadSingle(targetFile);
 				return;
 			}
 
@@ -499,14 +516,14 @@ public class BasicDownloader {
 
 			HttpResponse<InputStream> response = this.httpClient.send(get, BodyHandlers.ofInputStream());
 			if (response.statusCode() != 206) {
-				Files.deleteIfExists(this.targetFile);
+				Files.deleteIfExists(targetFile);
 				this.downloadedBytes.set(0);
-				downloadSingle();
+				downloadSingle(targetFile);
 				return;
 			}
 
 			try (InputStream in = new BufferedInputStream(response.body());
-					OutputStream out = new BufferedOutputStream(new FileOutputStream(this.targetFile.toString(), true))) {
+					OutputStream out = new BufferedOutputStream(new FileOutputStream(targetFile.toString(), true))) {
 				this.activeResources.add(in);
 				this.activeResources.add(out);
 				byte[] buffer = new byte[1024 * 256];
@@ -530,7 +547,7 @@ public class BasicDownloader {
 				if (this.stopRequested.get() || Thread.currentThread().isInterrupted()) {
 					throw new InterruptedException("下载已暂停");
 				}
-				long actual = Files.exists(this.targetFile) ? Files.size(this.targetFile) : 0;
+				long actual = Files.exists(targetFile) ? Files.size(targetFile) : 0;
 				this.downloadedBytes.set(actual);
 				if (attempt > this.maxRetries) {
 					throw e;
@@ -540,7 +557,7 @@ public class BasicDownloader {
 				continue;
 			}
 
-			long size = Files.size(this.targetFile);
+			long size = Files.size(targetFile);
 			if (this.contentLength > 0 && size != this.contentLength) {
 				this.downloadedBytes.set(size);
 				if (attempt > this.maxRetries) {
@@ -561,7 +578,7 @@ public class BasicDownloader {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void resumeMultipart() throws IOException, InterruptedException {
+	private void resumeMultipart(Path targetFile) throws IOException, InterruptedException {
 		this.downloadedBytes.set(0);
 		List<Part> parts = splitParts(this.contentLength, this.parallelism, this.minPartSizeBytes);
 		this.partsTotal.set(parts.size());
@@ -572,7 +589,7 @@ public class BasicDownloader {
 		int completedParts = 0;
 		
 		for (int i = 0; i < parts.size(); i++) {
-			Path partFile = this.targetFile.resolveSibling(this.targetFile.getFileName().toString() + ".part" + i);
+			Path partFile = targetFile.resolveSibling(targetFile.getFileName().toString() + ".part" + i);
 			partFiles.add(partFile);
 			Part part = parts.get(i);
 			if (Files.exists(partFile)) {
@@ -596,13 +613,13 @@ public class BasicDownloader {
 		// 如果所有分片都已完成，直接合并
 		if (completedParts == parts.size()) {
 			this.state = DownloadState.MERGING;
-			this.mergeParts(parts, partFiles, this.targetFile);
+			this.mergeParts(parts, partFiles, targetFile);
 			
 			for (Path p : partFiles) {
 				Files.deleteIfExists(p);
 			}
 			
-			long size = Files.size(this.targetFile);
+			long size = Files.size(targetFile);
 			if (size != this.contentLength) {
 				throw new IOException("下载文件大小不匹配，期望: " + this.contentLength + " 实际: " + size);
 			}
@@ -610,8 +627,8 @@ public class BasicDownloader {
 		}
 		
 		// 确保目标文件存在并预分配空间
-		if (!Files.exists(this.targetFile)) {
-			this.preAllocateTargetFile(this.targetFile, this.contentLength);
+		if (!Files.exists(targetFile)) {
+			this.preAllocateTargetFile(targetFile, this.contentLength);
 		}
 		
 		// 下载剩余的分片
@@ -654,13 +671,13 @@ public class BasicDownloader {
 		}
 		
 		this.state = DownloadState.MERGING;
-		this.mergeParts(parts, partFiles, this.targetFile);
+		this.mergeParts(parts, partFiles, targetFile);
 		
 		for (Path p : partFiles) {
 			Files.deleteIfExists(p);
 		}
 		
-		long size = Files.size(this.targetFile);
+		long size = Files.size(targetFile);
 		if (size != this.contentLength) {
 			throw new IOException("下载文件大小不匹配，期望: " + this.contentLength + " 实际: " + size);
 		}
@@ -789,7 +806,7 @@ public class BasicDownloader {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void downloadSingle() throws IOException, InterruptedException {
+	private void downloadSingle(Path targetFile) throws IOException, InterruptedException {
 		this.partsTotal.set(1);
 		this.partsCompleted.set(0);
 
@@ -800,7 +817,7 @@ public class BasicDownloader {
 			attempt++;
 
 			this.downloadedBytes.set(0);
-			Files.deleteIfExists(this.targetFile);
+			Files.deleteIfExists(targetFile);
 
 			HttpRequest get = HttpRequest.newBuilder()
 					.uri(this.finalUri)
@@ -816,7 +833,7 @@ public class BasicDownloader {
 				}
 
 				try (InputStream in = new BufferedInputStream(response.body());
-						OutputStream out = new BufferedOutputStream(new FileOutputStream(this.targetFile.toString(), false))) {
+						OutputStream out = new BufferedOutputStream(new FileOutputStream(targetFile.toString(), false))) {
 					this.activeResources.add(in);
 					this.activeResources.add(out);
 					byte[] buffer = new byte[1024 * 256];
@@ -838,7 +855,7 @@ public class BasicDownloader {
 					}
 				}
 
-				long size = Files.size(this.targetFile);
+				long size = Files.size(targetFile);
 				if (this.contentLength > 0 && size != this.contentLength) {
 					throw new IOException("下载文件大小不匹配，期望: " + this.contentLength + " 实际: " + size);
 				}
@@ -851,7 +868,7 @@ public class BasicDownloader {
 				if (this.stopRequested.get() || Thread.currentThread().isInterrupted()) {
 					throw new InterruptedException("下载已暂停");
 				}
-				long actual = Files.exists(this.targetFile) ? Files.size(this.targetFile) : 0;
+				long actual = Files.exists(targetFile) ? Files.size(targetFile) : 0;
 				this.downloadedBytes.set(actual);
 				if (attempt > this.maxRetries) {
 					throw e;
@@ -867,15 +884,15 @@ public class BasicDownloader {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void downloadMultipart() throws IOException, InterruptedException {
+	private void downloadMultipart(Path targetFile) throws IOException, InterruptedException {
 		List<Part> parts = splitParts(this.contentLength, this.parallelism, this.minPartSizeBytes);
 		this.partsTotal.set(parts.size());
 		this.partsCompleted.set(0);
-		this.preAllocateTargetFile(this.targetFile, this.contentLength);
+		this.preAllocateTargetFile(targetFile, this.contentLength);
 		
 		List<Path> partFiles = new ArrayList<>();
 		for (int i = 0; i < parts.size(); i++) {
-			partFiles.add(this.targetFile.resolveSibling(this.targetFile.getFileName().toString() + ".part" + i));
+			partFiles.add(targetFile.resolveSibling(targetFile.getFileName().toString() + ".part" + i));
 		}
 		
 		ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
@@ -911,13 +928,13 @@ public class BasicDownloader {
 		}
 		
 		this.state = DownloadState.MERGING;
-		this.mergeParts(parts, partFiles, this.targetFile);
+		this.mergeParts(parts, partFiles, targetFile);
 		
 		for (Path p : partFiles) {
 			Files.deleteIfExists(p);
 		}
 		
-		long size = Files.size(this.targetFile);
+		long size = Files.size(targetFile);
 		if (size != this.contentLength) {
 			throw new IOException("下载文件大小不匹配，期望: " + this.contentLength + " 实际: " + size);
 		}
@@ -1064,6 +1081,41 @@ public class BasicDownloader {
 		if (parent != null) {
 			Files.createDirectories(parent);
 		}
+	}
+
+	private static void deletePartFiles(Path targetFile) throws IOException {
+		Path dir = targetFile.getParent();
+		if (dir == null || !Files.isDirectory(dir)) {
+			return;
+		}
+		String partPrefix = targetFile.getFileName().toString() + ".part";
+		try (var ds = Files.newDirectoryStream(dir)) {
+			for (Path p : ds) {
+				String name = p.getFileName() != null ? p.getFileName().toString() : null;
+				if (name != null && name.startsWith(partPrefix)) {
+					Files.deleteIfExists(p);
+				}
+			}
+		}
+	}
+	
+	private static Path toDownloadingTargetFile(Path targetFile) {
+		String fileName = targetFile.getFileName() != null ? targetFile.getFileName().toString() : "";
+		return targetFile.resolveSibling(fileName + "." + DOWNLOADING_SUFFIX);
+	}
+	
+	private static Path removeLastExtension(Path file) {
+		Path fileNamePath = file.getFileName();
+		if (fileNamePath == null) {
+			return file;
+		}
+		String fileName = fileNamePath.toString();
+		int lastDot = fileName.lastIndexOf('.');
+		if (lastDot <= 0) {
+			return file;
+		}
+		String newName = fileName.substring(0, lastDot);
+		return file.resolveSibling(newName);
 	}
 	
 	private static String guessFileName(URI uri) {
