@@ -208,6 +208,8 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			} else {
 				Files.createDirectories(targetDir);
 			}
+			
+			System.err.println(content);
 
 			List<Map<String, Object>> taskResults = new ArrayList<>();
 			boolean allSuccess = true;
@@ -221,11 +223,11 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 					taskResults.add(r);
 					continue;
 				}
-				String fileName = null;
-				if (i == 0) {
-					fileName = sanitizeFileName(req.getName());
-				}
-				Map<String, Object> r = downloadService.createModelDownloadTask(url, targetDir.toString(), fileName);
+//				String fileName = null;
+//				if (i == 0) {
+//					fileName = sanitizeFileName(req.getName());
+//				}
+				Map<String, Object> r = downloadService.createModelDownloadTask(url, targetDir.toString(), null);
 				if (!Boolean.TRUE.equals(r.get("success"))) {
 					allSuccess = false;
 				}
