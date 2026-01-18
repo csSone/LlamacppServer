@@ -1900,7 +1900,8 @@
             temperature: params.temperature,
             top_p: params.top_p,
             enable_thinking: !!els.thinkingToggle.checked,
-            stream: useStream
+            stream: useStream, 
+            stop: ["<|endoftext|>"]
           }
           : {
             model,
