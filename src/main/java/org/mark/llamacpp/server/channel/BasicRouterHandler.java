@@ -1755,6 +1755,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					// 调用LlamaServerManager停止所有进程并退出
 					LlamaServerManager manager = LlamaServerManager.getInstance();
 					manager.shutdownAll();
+					//
+					System.exit(0);
 				} catch (Exception e) {
 					logger.error("停止服务时发生错误", e);
 				}

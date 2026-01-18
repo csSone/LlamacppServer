@@ -861,43 +861,6 @@ public class LlamaServerManager {
 		return "\"" + t.replace("\"", "\\\"") + "\"";
 	}
 	
-	/**
-		* 停止所有模型进程并退出Java进程
-		*/
-	public synchronized void shutdownAll() {
-		System.out.println("开始停止所有模型进程...");
-		
-		// 获取所有已加载的进程
-		Map<String, LlamaCppProcess> processes = new HashMap<>(this.loadedProcesses);
-		
-		// 停止所有模型进程
-		for (Map.Entry<String, LlamaCppProcess> entry : processes.entrySet()) {
-			String modelId = entry.getKey();
-			LlamaCppProcess process = entry.getValue();
-			
-			System.out.println("正在停止模型进程: " + modelId);
-			boolean stopped = process.stop();
-			if (stopped) {
-				System.out.println("成功停止模型进程: " + modelId);
-			} else {
-				System.err.println("停止模型进程失败: " + modelId);
-			}
-		}
-		
-		// 清空进程列表和端口映射
-		this.loadedProcesses.clear();
-		this.modelPorts.clear();
-		
-		// 关闭线程池
-		this.executorService.shutdown();
-		
-		System.out.println("所有模型进程已停止，即将退出Java进程");
-		
-		// 退出Java进程
-		System.exit(0);
-	}
-	
-	
 	//##########################################################################################
 	
 	
@@ -1041,11 +1004,10 @@ public class LlamaServerManager {
 	 */
 	public ApiResponse handleModelSlotsLoad(String modelId, int slot, String fileName) {
 		try {
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (!manager.getLoadedProcesses().containsKey(modelId)) {
+			if (!this.getLoadedProcesses().containsKey(modelId)) {
 				return ApiResponse.error("模型未加载: " + modelId);
 			}
-			Integer port = manager.getModelPort(modelId);
+			Integer port = this.getModelPort(modelId);
 			if (port == null) {
 				return ApiResponse.error("未找到模型端口: " + modelId);
 			}
@@ -1193,6 +1155,38 @@ public class LlamaServerManager {
 		    return value;
 		}
 		return null;
+	}
+	
+	
+	/**
+	 * 	停止所有模型进程并退出Java进程
+	 */
+	public synchronized void shutdownAll() {
+		System.out.println("开始停止所有模型进程...");
+		
+		// 获取所有已加载的进程
+		Map<String, LlamaCppProcess> processes = new HashMap<>(this.loadedProcesses);
+		
+		// 停止所有模型进程
+		for (Map.Entry<String, LlamaCppProcess> entry : processes.entrySet()) {
+			String modelId = entry.getKey();
+			LlamaCppProcess process = entry.getValue();
+			
+			System.out.println("正在停止模型进程: " + modelId);
+			boolean stopped = process.stop();
+			if (stopped) {
+				System.out.println("成功停止模型进程: " + modelId);
+			} else {
+				System.err.println("停止模型进程失败: " + modelId);
+			}
+		}
+		
+		// 清空进程列表和端口映射
+		this.loadedProcesses.clear();
+		this.modelPorts.clear();
+		
+		// 关闭线程池
+		this.executorService.shutdown();
 	}
 	
 }
