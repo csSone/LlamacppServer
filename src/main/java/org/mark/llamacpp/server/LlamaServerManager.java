@@ -1115,7 +1115,7 @@ public class LlamaServerManager {
 		Map<String, String> cmdMap = new HashMap<>();
 		for(int i = 0; i < cmd.size(); i++) {
 			String param = cmd.get(i);
-			if(param.startsWith("--")) {
+			if(param.startsWith("--") && i + 1 < cmd.size()) {
 				if(!cmd.get(i + 1).startsWith("--")) {
 					cmdMap.put(param, cmd.get(i + 1));
 					i += 1;
