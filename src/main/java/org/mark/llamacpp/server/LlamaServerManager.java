@@ -26,6 +26,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.mark.llamacpp.gguf.GGUFBundle;
@@ -1138,4 +1140,59 @@ public class LlamaServerManager {
 		
 		return;
 	}
+	
+	/**
+	 * 	用户估算显存。
+	 * @param llamaBinPath
+	 * @param modelId
+	 * @param cmd
+	 * @return
+	 */
+	public String handleFitParam(String llamaBinPath, String modelId, List<String> cmd) {
+		String[] keysParam = {"--ctx-size", "--flash-attn", "--batch-size", "--ubatch-size", "--parallel", "--kv-unified", "--cache-type-k", "--cache-type-v"};
+		Map<String, String> cmdMap = new HashMap<>();
+		for(int i = 0; i < cmd.size(); i++) {
+			String param = cmd.get(i);
+			if(param.startsWith("--")) {
+				if(!cmd.get(i + 1).startsWith("--")) {
+					cmdMap.put(param, cmd.get(i + 1));
+					i += 1;
+				}else {
+					cmdMap.put(param, param);
+				}
+			}
+		}
+		GGUFModel model = this.findModelById(modelId);
+		if(model == null) return null;
+		
+		String executableName = "llama-fit-params";
+		// 拼接完整命令路径
+		String command = llamaBinPath.trim() + File.separator + executableName;
+		command += " --model " + model.getPrimaryModel().getFilePath();
+		
+		for(String key : keysParam) {
+			// 如果有这个参数
+			if(cmdMap.containsKey(key)) {
+				String value = cmdMap.get(key);
+				if(key.equals(value)) {
+					command += key;
+				}else {
+					command += " " + key + " " + value;
+				}
+			}
+		}
+		
+		// 执行命令
+		CommandLineRunner.CommandResult result = CommandLineRunner.execute(command, 30);
+		String output = result.getError();
+		// 提取第一个数值
+		Pattern numberPattern = Pattern.compile("llama_params_fit_impl: projected to use (\\d+) MiB");
+		Matcher numberMatcher = numberPattern.matcher(output);
+		if (numberMatcher.find()) {
+		    String value = numberMatcher.group(1);
+		    return value;
+		}
+		return null;
+	}
+	
 }

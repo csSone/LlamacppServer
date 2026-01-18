@@ -20,6 +20,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
+@Deprecated
 public final class VramEstimator {
 
 	public enum KvCacheType {
@@ -283,7 +285,7 @@ public final class VramEstimator {
 			throws IOException {
 		try (RandomAccessFile raf = new RandomAccessFile(ggufFile, "r"); FileChannel ch = raf.getChannel()) {
 			long fileSize = ch.size();
-			LeReader r = new LeReader(ch, Math.min(32L * 1024 * 1024, fileSize));
+			LeReader r = new LeReader(ch, Math.min(512L * 1024, fileSize));
 
 			byte[] magic = r.readBytes(4);
 			String m = new String(magic, StandardCharsets.US_ASCII);
@@ -296,17 +298,9 @@ public final class VramEstimator {
 			long kvCount = r.readU64();
 
 			for (long i = 0; i < kvCount; i++) {
-				String key = r.readGgufString();
+				r.skipGgufString();
 				int type = r.readI32();
-				if ("tokenizer.ggml.tokens".equals(key) && type == 9) {
-					int elemType = r.readI32();
-					long len = r.readU64();
-					for (long j = 0; j < len; j++) {
-						r.skipGgufValue(elemType);
-					}
-				} else {
-					r.skipGgufValue(type);
-				}
+				r.skipGgufValue(type);
 			}
 
 			for (long i = 0; i < tensorCount; i++) {
@@ -542,7 +536,7 @@ public final class VramEstimator {
 
 	private static Map<String, Object> readGgufMetadata(File ggufFile) throws IOException {
 		try (RandomAccessFile raf = new RandomAccessFile(ggufFile, "r"); FileChannel ch = raf.getChannel()) {
-			LeReader r = new LeReader(ch, Math.min(8L * 1024 * 1024, ch.size()));
+			LeReader r = new LeReader(ch, Math.min(256L * 1024, ch.size()));
 			byte[] magic = r.readBytes(4);
 			String m = new String(magic, StandardCharsets.US_ASCII);
 			if (!"GGUF".equals(m)) {
@@ -552,23 +546,36 @@ public final class VramEstimator {
 			long tensorCount = r.readU64();
 			long kvCount = r.readU64();
 
-			Map<String, Object> out = new HashMap<>();
+			Map<String, Object> out = new HashMap<>(32);
 			out.put("__tensor_count", tensorCount);
 			out.put("__kv_count", kvCount);
 
 			for (long i = 0; i < kvCount; i++) {
 				String key = r.readGgufString();
 				int type = r.readI32();
-				if ("tokenizer.ggml.tokens".equals(key) && type == 9) {
+				boolean keep = isRequiredMetadataKey(key);
+				if (type == 9) {
 					int elemType = r.readI32();
 					long len = r.readU64();
-					for (long j = 0; j < len; j++) {
-						r.skipGgufValue(elemType);
+					if (keep && len <= 4096 && len <= Integer.MAX_VALUE) {
+						List<Object> arr = new ArrayList<>((int) len);
+						for (long j = 0; j < len; j++) {
+							arr.add(r.readGgufValue(elemType));
+						}
+						out.put(key, arr);
+					} else {
+						for (long j = 0; j < len; j++) {
+							r.skipGgufValue(elemType);
+						}
+						if (keep) {
+							out.put(key + ".size", len);
+						}
 					}
-					out.put(key + ".size", len);
-				} else {
+				} else if (keep) {
 					Object val = r.readGgufValue(type);
 					out.put(key, val);
+				} else {
+					r.skipGgufValue(type);
 				}
 			}
 
@@ -633,9 +640,21 @@ public final class VramEstimator {
 	}
 
 	private static long estimateTensorDataBytes(File ggufFile) throws IOException {
+		try {
+			Long monotonic = tryEstimateTensorDataBytesMonotonic(ggufFile);
+			if (monotonic != null) {
+				return monotonic.longValue();
+			}
+			return estimateTensorDataBytesWithSort(ggufFile);
+		} catch (EOFException eof) {
+			return ggufFile.length();
+		}
+	}
+
+	private static Long tryEstimateTensorDataBytesMonotonic(File ggufFile) throws IOException {
 		try (RandomAccessFile raf = new RandomAccessFile(ggufFile, "r"); FileChannel ch = raf.getChannel()) {
 			long fileSize = ch.size();
-			LeReader r = new LeReader(ch, Math.min(32L * 1024 * 1024, fileSize));
+			LeReader r = new LeReader(ch, Math.min(512L * 1024, fileSize));
 
 			byte[] magic = r.readBytes(4);
 			String m = new String(magic, StandardCharsets.US_ASCII);
@@ -660,11 +679,79 @@ public final class VramEstimator {
 							alignment = a;
 						}
 					}
-				} else if ("tokenizer.ggml.tokens".equals(key) && type == 9) {
-					int elemType = r.readI32();
-					long len = r.readU64();
-					for (long j = 0; j < len; j++) {
-						r.skipGgufValue(elemType);
+				} else {
+					r.skipGgufValue(type);
+				}
+			}
+
+			long prevOff = -1;
+			long sum = 0;
+			long count = 0;
+			for (long i = 0; i < tensorCount; i++) {
+				r.skipGgufString();
+				int nDims = r.readI32();
+				for (int d = 0; d < nDims; d++) {
+					r.readU64();
+				}
+				r.readI32();
+				long off = r.readU64();
+				if (count == 0) {
+					prevOff = off;
+				} else {
+					if (off < prevOff) {
+						return null;
+					}
+					long size = off - prevOff;
+					if (size > 0) {
+						sum = safeAdd(sum, size);
+					}
+					prevOff = off;
+				}
+				count++;
+			}
+
+			long pos = r.position();
+			long dataStart = alignUp(pos, alignment);
+			long dataLen = fileSize - dataStart;
+			if (dataLen <= 0 || count == 0) {
+				return ggufFile.length();
+			}
+
+			long tail = dataLen - prevOff;
+			if (tail > 0) {
+				sum = safeAdd(sum, tail);
+			}
+			return sum;
+		}
+	}
+
+	private static long estimateTensorDataBytesWithSort(File ggufFile) throws IOException {
+		try (RandomAccessFile raf = new RandomAccessFile(ggufFile, "r"); FileChannel ch = raf.getChannel()) {
+			long fileSize = ch.size();
+			LeReader r = new LeReader(ch, Math.min(512L * 1024, fileSize));
+
+			byte[] magic = r.readBytes(4);
+			String m = new String(magic, StandardCharsets.US_ASCII);
+			if (!"GGUF".equals(m)) {
+				return ggufFile.length();
+			}
+
+			r.readI32();
+			long tensorCount = r.readU64();
+			long kvCount = r.readU64();
+
+			long alignment = 32;
+
+			for (long i = 0; i < kvCount; i++) {
+				String key = r.readGgufString();
+				int type = r.readI32();
+				if ("general.alignment".equals(key)) {
+					Object val = r.readGgufValue(type);
+					if (val instanceof Number) {
+						long a = ((Number) val).longValue();
+						if (a > 0) {
+							alignment = a;
+						}
 					}
 				} else {
 					r.skipGgufValue(type);
@@ -674,7 +761,7 @@ public final class VramEstimator {
 			long[] offsets = new long[(int) Math.min(tensorCount, Integer.MAX_VALUE)];
 			int count = 0;
 			for (long i = 0; i < tensorCount && count < offsets.length; i++) {
-				r.readGgufString();
+				r.skipGgufString();
 				int nDims = r.readI32();
 				for (int d = 0; d < nDims; d++) {
 					r.readU64();
@@ -702,8 +789,6 @@ public final class VramEstimator {
 				}
 			}
 			return sum;
-		} catch (EOFException eof) {
-			return ggufFile.length();
 		}
 	}
 
@@ -811,6 +896,16 @@ public final class VramEstimator {
 		return null;
 	}
 
+	private static boolean isRequiredMetadataKey(String key) {
+		if (key == null || key.isBlank()) {
+			return false;
+		}
+		return key.equals("general.architecture") || key.endsWith(".architecture") || key.endsWith(".embedding_length")
+				|| key.endsWith(".block_count") || key.endsWith(".attention.head_count") || key.endsWith(".attention.head_count_kv")
+				|| key.endsWith(".attention.key_length") || key.endsWith(".attention.value_length")
+				|| key.endsWith(".attention.sliding_window");
+	}
+
 	private static final class LeReader {
 		private final FileChannel ch;
 		private ByteBuffer buf;
@@ -833,15 +928,14 @@ public final class VramEstimator {
 			if (n <= buf.remaining()) {
 				return;
 			}
-			if (buf.hasRemaining()) {
-				ByteBuffer nb = ByteBuffer.allocate(buf.capacity());
+			if (n > buf.capacity()) {
+				int cap = buf.capacity();
+				int newCap = (int) Math.min(Integer.MAX_VALUE, Math.max((long) n, (long) cap * 2));
+				ByteBuffer nb = ByteBuffer.allocate(newCap);
 				nb.order(ByteOrder.LITTLE_ENDIAN);
 				nb.put(buf);
 				nb.flip();
 				buf = nb;
-			} else {
-				buf.clear();
-				buf.limit(0);
 			}
 			while (buf.remaining() < n) {
 				buf.compact();
@@ -996,7 +1090,7 @@ public final class VramEstimator {
 			pos += n;
 		}
 
-		private void skipGgufString() throws IOException {
+		void skipGgufString() throws IOException {
 			long len = readU64();
 			if (len <= 0) {
 				return;

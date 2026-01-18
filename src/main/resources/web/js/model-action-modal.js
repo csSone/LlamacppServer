@@ -576,46 +576,33 @@ function submitLoadModel() { submitModelAction(); }
 
 function estimateVramAction() {
     const modal = getLoadModelModal();
-    const modelId = getFieldString(modal, ['modelId']);
+    const payload = buildLoadModelPayload(modal);
+    const modelId = payload && payload.modelId ? String(payload.modelId).trim() : '';
     if (!modelId) {
         showToast('错误', '请先选择模型', 'error');
         return;
     }
-    const ctxSizeRaw = getFieldString(modal, ['param_ctx-size', 'ctxSize', 'ctx-size']) || '2048';
-    const ctxSize = parseInt(ctxSizeRaw, 10);
 
-    const cacheTypeKRaw = String(getFieldString(modal, ['param_cache-type-k', 'cache-type-k']) || '').trim();
-    const cacheTypeVRaw = String(getFieldString(modal, ['param_cache-type-v', 'cache-type-v']) || '').trim();
-    const cacheTypeK = cacheTypeKRaw || 'f16';
-    const cacheTypeV = cacheTypeVRaw || cacheTypeK;
-
-    let flashAttnValue = '';
-    const flashEl = findById(modal, 'param_flash-attn') || findFieldByName(modal, 'flash-attn') || findField(modal, 'flashAttention');
-    if (flashEl) {
-        if ('checked' in flashEl && flashEl.type === 'checkbox') flashAttnValue = flashEl.checked ? 'on' : 'off';
-        else flashAttnValue = String(flashEl.value || '').trim();
+    const llamaBinPathSelect = payload && payload.llamaBinPathSelect ? String(payload.llamaBinPathSelect).trim() : '';
+    const cmd = payload && payload.cmd ? String(payload.cmd).trim() : '';
+    if (!llamaBinPathSelect) {
+        showToast('错误', '未提供llamaBinPath', 'error');
+        return;
     }
-    if (!flashAttnValue) flashAttnValue = 'on';
-    const payload = {
-        modelId,
-        'param_cache-type-k': cacheTypeK,
-        'param_cache-type-v': cacheTypeV,
-        'param_ctx-size': Number.isFinite(ctxSize) && ctxSize > 0 ? ctxSize : 2048,
-        'param_flash-attn': flashAttnValue
-    };
+    if (!cmd) {
+        showToast('错误', '缺少必需的cmd参数', 'error');
+        return;
+    }
+    payload.modelId = modelId;
+    payload.llamaBinPathSelect = llamaBinPathSelect;
+    payload.cmd = cmd;
     fetch('/api/models/vram/estimate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {
         if (res && res.success) {
-            const bytes = res.data && res.data.bytes ? res.data.bytes : null;
-            if (bytes) {
-                const toMiB = (val) => (val / (1024 * 1024)).toFixed(1);
-                const total = toMiB(bytes.totalVramRequired || 0);
-                const weights = toMiB(bytes.modelWeights || 0);
-                const kv = toMiB(bytes.kvCache || 0);
-                const overhead = toMiB(bytes.runtimeOverhead || 0);
-
-                const text = `预计显存：总计 ${total} MiB（权重 ${weights}，KV ${kv}，其他 ${overhead}）`;
+            const vram = res.data && res.data.vram !== undefined && res.data.vram !== null ? String(res.data.vram).trim() : '';
+            if (vram) {
+                const text = `预计显存：${vram} MiB`;
                 const hint = findById(modal, 'ctxSizeVramHint');
                 if (hint) hint.textContent = text;
             } else {

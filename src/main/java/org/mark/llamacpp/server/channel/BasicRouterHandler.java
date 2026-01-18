@@ -42,8 +42,6 @@ import org.mark.llamacpp.server.struct.StopModelRequest;
 import org.mark.llamacpp.server.tools.CommandLineRunner;
 import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
 import org.mark.llamacpp.server.tools.JsonUtil;
-import org.mark.llamacpp.server.tools.VramEstimator;
-import org.mark.llamacpp.server.tools.struct.VramEstimation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -963,97 +961,123 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		
 		try {
+			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
 				return;
 			}
 
-			JsonObject json = gson.fromJson(content, JsonObject.class);
-			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+			JsonElement root = gson.fromJson(content, JsonElement.class);
+			if (root == null || !root.isJsonObject()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
 				return;
 			}
 
-			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
-			Integer ctxSize = json.has("param_ctx-size") ? json.get("param_ctx-size").getAsInt()
-					: (json.has("ctxSize") ? json.get("ctxSize").getAsInt() : null);
-			String cacheTypeKStr = json.has("param_cache-type-k") ? json.get("param_cache-type-k").getAsString() : null;
-			String cacheTypeVStr = json.has("param_cache-type-v") ? json.get("param_cache-type-v").getAsString() : null;
-			Object flashAttnObj = json.has("param_flash-attn") ? json.get("param_flash-attn")
-					: (json.has("flashAttention") ? json.get("flashAttention") : null);
-
-			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+			JsonObject obj = root.getAsJsonObject();
+			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
+			if (cmd == null || cmd.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的cmd参数"));
 				return;
 			}
-			if (ctxSize == null || ctxSize == 0) {
-				ctxSize = 2048;
+			cmd = cmd.trim();
+			boolean enableVision = parseJsonBoolean(obj, "enableVision", true);
+			if (!enableVision) {
+				cmd = sanitizeCmdDisableVision(cmd);
 			}
-			if (cacheTypeKStr == null || cacheTypeKStr.trim().isEmpty()) {
-				cacheTypeKStr = "f16";
+			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+			String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
+			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
 			}
-			if (cacheTypeVStr == null || cacheTypeVStr.trim().isEmpty()) {
-				cacheTypeVStr = cacheTypeKStr;
-			}
-			boolean flashAttention = true;
-			if (flashAttnObj != null) {
-				String raw = null;
-				try {
-					if (flashAttnObj instanceof JsonElement) {
-						JsonElement el = (JsonElement) flashAttnObj;
-						if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) {
-							flashAttention = el.getAsBoolean();
-						} else {
-							raw = el.getAsString();
-						}
-					}
-				} catch (Exception ignore) {
-					raw = null;
-				}
-				if (raw != null) {
-					String v = raw.trim().toLowerCase(Locale.ROOT);
-					flashAttention = !(v.equals("off") || v.equals("0") || v.equals("false"));
-				}
-			}
-
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			// 确保模型列表已加载
-			manager.listModel();
-			GGUFModel model = manager.findModelById(modelId);
-			if (model == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
-				return;
-			}
-
-			if (model.getPrimaryModel() == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型元数据不完整，无法估算显存"));
-				return;
-			}
-
-			VramEstimator.KvCacheType kvK = VramEstimator.KvCacheType.from(cacheTypeKStr);
-			VramEstimator.KvCacheType kvV = VramEstimator.KvCacheType.from(cacheTypeVStr);
+			// 只保留部分参数：--ctx-size --flash-attn --batch-size --ubatch-size --parallel --kv-unified --cache-type-k --cache-type-v
+			List<String> cmdlist = splitCmdArgs(cmd);
+			// 计算出显存
+			String vram = LlamaServerManager.getInstance().handleFitParam(llamaBinPathSelect, modelId, cmdlist);
 			
-			VramEstimator.Estimate est = VramEstimator.estimate(
-					new File(model.getPrimaryModel().getFilePath()),
-					ctxSize.intValue(), 
-					kvK, 
-					kvV, 
-					flashAttention);
+
+//			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
+//			Integer ctxSize = json.has("param_ctx-size") ? json.get("param_ctx-size").getAsInt()
+//					: (json.has("ctxSize") ? json.get("ctxSize").getAsInt() : null);
+//			String cacheTypeKStr = json.has("param_cache-type-k") ? json.get("param_cache-type-k").getAsString() : null;
+//			String cacheTypeVStr = json.has("param_cache-type-v") ? json.get("param_cache-type-v").getAsString() : null;
+//			Object flashAttnObj = json.has("param_flash-attn") ? json.get("param_flash-attn")
+//					: (json.has("flashAttention") ? json.get("flashAttention") : null);
+//
+//			if (modelId == null || modelId.trim().isEmpty()) {
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+//				return;
+//			}
+//			if (ctxSize == null || ctxSize == 0) {
+//				ctxSize = 2048;
+//			}
+//			if (cacheTypeKStr == null || cacheTypeKStr.trim().isEmpty()) {
+//				cacheTypeKStr = "f16";
+//			}
+//			if (cacheTypeVStr == null || cacheTypeVStr.trim().isEmpty()) {
+//				cacheTypeVStr = cacheTypeKStr;
+//			}
+//			boolean flashAttention = true;
+//			if (flashAttnObj != null) {
+//				String raw = null;
+//				try {
+//					if (flashAttnObj instanceof JsonElement) {
+//						JsonElement el = (JsonElement) flashAttnObj;
+//						if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) {
+//							flashAttention = el.getAsBoolean();
+//						} else {
+//							raw = el.getAsString();
+//						}
+//					}
+//				} catch (Exception ignore) {
+//					raw = null;
+//				}
+//				if (raw != null) {
+//					String v = raw.trim().toLowerCase(Locale.ROOT);
+//					flashAttention = !(v.equals("off") || v.equals("0") || v.equals("false"));
+//				}
+//			}
+//
+//			LlamaServerManager manager = LlamaServerManager.getInstance();
+//			// 确保模型列表已加载
+//			manager.listModel();
+//			GGUFModel model = manager.findModelById(modelId);
+//			if (model == null) {
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+//				return;
+//			}
+//
+//			if (model.getPrimaryModel() == null) {
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型元数据不完整，无法估算显存"));
+//				return;
+//			}
+//
+//			VramEstimator.KvCacheType kvK = VramEstimator.KvCacheType.from(cacheTypeKStr);
+//			VramEstimator.KvCacheType kvV = VramEstimator.KvCacheType.from(cacheTypeVStr);
+//			
+//			VramEstimator.Estimate est = VramEstimator.estimate(
+//					new File(model.getPrimaryModel().getFilePath()),
+//					ctxSize.intValue(), 
+//					kvK, 
+//					kvV, 
+//					flashAttention);
+//			
+//			VramEstimation result = new VramEstimation(
+//					est.totalBytes(), 
+//					est.modelWeightsBytes(),
+//					est.kvCacheBytes(), 
+//					est.runtimeOverheadBytes());
+//			// 整合一下
+//			Map<String, Object> data = new HashMap<>();
+//			data.put("modelId", modelId);
+//			data.put("param_ctx-size", ctxSize);
+//			data.put("param_cache-type-k", kvK.id());
+//			data.put("param_cache-type-v", kvV.id());
+//			data.put("param_flash-attn", flashAttention);
+//			data.put("bytes", result);
 			
-			VramEstimation result = new VramEstimation(
-					est.totalBytes(), 
-					est.modelWeightsBytes(),
-					est.kvCacheBytes(), 
-					est.runtimeOverheadBytes());
-			// 整合一下
 			Map<String, Object> data = new HashMap<>();
-			data.put("modelId", modelId);
-			data.put("param_ctx-size", ctxSize);
-			data.put("param_cache-type-k", kvK.id());
-			data.put("param_cache-type-v", kvV.id());
-			data.put("param_flash-attn", flashAttention);
-			data.put("bytes", result);
+			data.put("vram", vram);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.error("估算显存时发生错误", e);
