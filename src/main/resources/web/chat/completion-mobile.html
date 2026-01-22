@@ -179,6 +179,29 @@
       flex: 0 0 auto;
       user-select: none;
     }
+    
+    .avatar.clickable {
+      cursor: pointer;
+    }
+    
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 12px;
+      display: block;
+    }
+    
+    .avatar-setting .avatar {
+      width: 42px;
+      height: 42px;
+    }
+    
+    .avatar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
     .bubble {
       width: 100%;
@@ -914,6 +937,13 @@
         </div>
         <div class="settings-body">
           <div class="section-title" id="modelSection">核心参数</div>
+          <div class="setting avatar-setting">
+            <label>头像</label>
+            <div class="avatar-row">
+              <div id="avatarSettingPreview" class="avatar clickable" title="点击查看头像">AI</div>
+              <button id="avatarSettingUpload" class="btn" type="button">更换</button>
+            </div>
+          </div>
           <div class="setting">
             <label for="apiModelSelect">API 端点</label>
             <select id="apiModelSelect">
@@ -1112,6 +1142,8 @@
       assistantPrefix: document.getElementById('assistantPrefix'),
       assistantSuffix: document.getElementById('assistantSuffix'),
       apiModelSelect: document.getElementById('apiModelSelect'),
+      avatarSettingPreview: document.getElementById('avatarSettingPreview'),
+      avatarSettingUpload: document.getElementById('avatarSettingUpload'),
 
       autoScroll: document.getElementById('autoScroll'),
       streamToggle: document.getElementById('streamToggle'),
@@ -1144,7 +1176,8 @@
       messageEls: new Map(),
       editingMessageId: null,
       apiModel: 1,
-      pendingAttachment: null
+      pendingAttachment: null,
+      avatarNonce: 0
     };
 
     function uid() {
@@ -1653,7 +1686,14 @@
 
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.textContent = msg.role === 'user' ? '你' : (msg.role === 'assistant' ? 'AI' : 'SYS');
+      avatar.dataset.role = msg.role;
+      if (msg.role === 'assistant') {
+        avatar.classList.add('clickable');
+        avatar.textContent = 'AI';
+        applyAssistantAvatar(avatar);
+      } else {
+        avatar.textContent = msg.role === 'user' ? '你' : 'SYS';
+      }
 
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
@@ -1734,6 +1774,191 @@
       state.messageEls.set(msg.id, { contentEl: content, reasoningEl: reasoningPre, attachmentsEl });
       els.chatList.appendChild(wrap);
       maybeScrollToBottom();
+    }
+    
+    function buildAvatarUrl(charactorId) {
+      const id = (charactorId == null ? '' : String(charactorId)).trim();
+      if (!id) return '';
+      const q = 'name=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(String(state.avatarNonce || 0));
+      return '/api/chat/completion/avatar/get?' + q;
+    }
+    
+    function viewAvatar(charactorId) {
+      const url = buildAvatarUrl(charactorId);
+      if (!url) return;
+      openAvatarViewer(url);
+    }
+    
+    let avatarViewerOverlay = null;
+    let avatarViewerKeydown = null;
+    let avatarViewerResize = null;
+    
+    function closeAvatarViewer() {
+      if (!avatarViewerOverlay) return;
+      try {
+        if (avatarViewerKeydown) document.removeEventListener('keydown', avatarViewerKeydown);
+      } catch (e) { }
+      try {
+        if (avatarViewerResize) window.removeEventListener('resize', avatarViewerResize);
+      } catch (e) { }
+      try { avatarViewerOverlay.remove(); } catch (e) { }
+      avatarViewerOverlay = null;
+      avatarViewerKeydown = null;
+      avatarViewerResize = null;
+    }
+    
+    function openAvatarViewer(url) {
+      if (!url) return;
+      closeAvatarViewer();
+      
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
+      overlay.style.zIndex = '9999';
+      overlay.style.background = 'rgba(0, 0, 0, 0.55)';
+      overlay.style.backdropFilter = 'blur(6px)';
+      overlay.style.cursor = 'zoom-out';
+      
+      const box = document.createElement('div');
+      box.style.position = 'fixed';
+      box.style.background = 'rgba(2, 6, 23, 0.65)';
+      box.style.border = '1px solid rgba(148, 163, 184, 0.18)';
+      box.style.borderRadius = '14px';
+      box.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.45)';
+      box.style.overflow = 'hidden';
+      box.style.cursor = 'default';
+      
+      const img = document.createElement('img');
+      img.alt = 'avatar';
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.display = 'block';
+      img.style.cursor = 'pointer';
+      img.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
+        closeAvatarViewer();
+      });
+      
+      function layout() {
+        const vw = window.innerWidth || 0;
+        const vh = window.innerHeight || 0;
+        const w = Math.max(1, Math.floor(vw * 0.92));
+        const h = Math.max(1, Math.floor(vh * 0.92));
+        const left = Math.floor((vw - w) / 2);
+        const top = Math.floor((vh - h) / 2);
+        box.style.left = left + 'px';
+        box.style.top = top + 'px';
+        box.style.width = w + 'px';
+        box.style.height = h + 'px';
+      }
+      
+      box.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      overlay.addEventListener('click', () => closeAvatarViewer());
+      
+      avatarViewerKeydown = (e) => {
+        if (e && e.key === 'Escape') closeAvatarViewer();
+      };
+      document.addEventListener('keydown', avatarViewerKeydown);
+      
+      avatarViewerResize = () => layout();
+      window.addEventListener('resize', avatarViewerResize);
+      
+      box.appendChild(img);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      avatarViewerOverlay = overlay;
+      
+      layout();
+      img.src = url;
+    }
+    
+    function applyAssistantAvatar(avatarEl) {
+      if (!avatarEl) return;
+      const charactorId = state.currentCompletionId;
+      if (!charactorId) return;
+      const url = buildAvatarUrl(charactorId);
+      if (!url) return;
+      
+      avatarEl.textContent = 'AI';
+      for (const n of Array.from(avatarEl.querySelectorAll('img'))) {
+        try { n.remove(); } catch (e) { }
+      }
+      
+      const img = document.createElement('img');
+      img.alt = 'avatar';
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.style.display = 'none';
+      img.addEventListener('load', () => {
+        avatarEl.textContent = '';
+        img.style.display = 'block';
+        avatarEl.appendChild(img);
+      });
+      img.addEventListener('error', () => {
+        try { img.remove(); } catch (e) { }
+        avatarEl.textContent = 'AI';
+      });
+      avatarEl.appendChild(img);
+      img.src = url;
+    }
+    
+    let avatarUploadInput = null;
+    
+    function getAvatarUploadInput() {
+      if (avatarUploadInput) return avatarUploadInput;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.style.position = 'fixed';
+      input.style.left = '-9999px';
+      input.style.top = '-9999px';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.addEventListener('change', async (e) => {
+        const file = e && e.target && e.target.files ? e.target.files[0] : null;
+        input.value = '';
+        if (!file) return;
+        try {
+          await uploadAvatarForCurrentRole(file);
+        } catch (err) {
+          alert('头像上传失败：' + (err && err.message ? err.message : String(err)));
+        }
+      });
+      document.body.appendChild(input);
+      avatarUploadInput = input;
+      return input;
+    }
+    
+    async function uploadAvatarForCurrentRole(file) {
+      if (!file) return;
+      const maxBytes = 1024 * 1024;
+      if (typeof file.size === 'number' && file.size > maxBytes) {
+        throw new Error('头像图片需小于1MB');
+      }
+      const allow = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+      const ext = getFileExt(file && file.name ? file.name : '');
+      const type = (file && file.type) ? String(file.type).toLowerCase() : '';
+      const typeOk = type === 'image/png' || type === 'image/jpeg' || type === 'image/gif' || type === 'image/webp';
+      const extOk = allow.includes(ext);
+      if (!typeOk && !extOk) throw new Error('仅支持图片格式: png/jpg/jpeg/gif/webp');
+      
+      const id = state.currentCompletionId;
+      if (!id) throw new Error('缺少角色ID');
+      
+      const fd = new FormData();
+      fd.append('file', file, file.name || 'avatar');
+      await fetchJson('/api/chat/completion/avatar/upload?name=' + encodeURIComponent(String(id)), {
+        method: 'POST',
+        body: fd
+      });
+      state.avatarNonce = Date.now();
+      if (els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+      rerenderAll();
     }
 
     function clearChatDom() {
@@ -2357,6 +2582,7 @@
 
       state.messages = normalizeHistory(ext?.history);
       rerenderAll();
+      if (els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
       setSaveHint('');
     }
 
@@ -2463,6 +2689,13 @@
         setAttachment(file);
       });
       els.attachClear.addEventListener('click', () => clearAttachment());
+      
+      els.chatList.addEventListener('click', (e) => {
+        const avatar = e && e.target ? e.target.closest('.avatar.clickable') : null;
+        if (!avatar) return;
+        if (!state.currentCompletionId) return;
+        viewAvatar(state.currentCompletionId);
+      });
 
       els.sendBtn.addEventListener('click', () => runCompletion());
       els.stopBtn.addEventListener('click', () => {
@@ -2481,6 +2714,7 @@
         els.sysPromptBox.classList.toggle('open', open);
         els.rolePromptBox.classList.toggle('open', open);
         document.documentElement.style.overflow = open ? 'hidden' : '';
+        if (open && els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
       });
       els.closeSettings.addEventListener('click', () => {
         els.settingsPanel.classList.remove('open');
@@ -2488,6 +2722,19 @@
         els.rolePromptBox.classList.remove('open');
         document.documentElement.style.overflow = '';
       });
+      
+      if (els.avatarSettingPreview) {
+        els.avatarSettingPreview.addEventListener('click', () => {
+          if (!state.currentCompletionId) return;
+          viewAvatar(state.currentCompletionId);
+        });
+      }
+      if (els.avatarSettingUpload) {
+        els.avatarSettingUpload.addEventListener('click', () => {
+          if (!state.currentCompletionId) return;
+          getAvatarUploadInput().click();
+        });
+      }
 
       els.newSessionBtn.addEventListener('click', () => createCompletion());
       els.reloadSessionsBtn.addEventListener('click', () => loadCompletions(false));

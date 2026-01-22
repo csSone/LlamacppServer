@@ -1122,7 +1122,7 @@
               <div class="settings-left">
                 <div class="setting avatar-setting">
                   <label>头像</label>
-                  <div id="avatarSettingPreview" class="avatar clickable" title="点击更换头像">AI</div>
+                  <div id="avatarSettingPreview" class="avatar clickable" title="点击查看头像">AI</div>
                   <button id="avatarSettingUpload" class="btn" type="button">更换</button>
                 </div>
                 <div class="setting">
@@ -1983,6 +1983,206 @@
       const q = 'name=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(String(state.avatarNonce || 0));
       return '/api/chat/completion/avatar/get?' + q;
     }
+    
+    function viewAvatar(charactorId) {
+      const url = buildAvatarUrl(charactorId);
+      if (!url) return;
+      openAvatarViewer(url);
+    }
+    
+    let avatarViewerOverlay = null;
+    let avatarViewerKeydown = null;
+    let avatarViewerResize = null;
+    let avatarViewerUrl = '';
+    let avatarViewerMode = '';
+    
+    function closeAvatarViewer() {
+      if (!avatarViewerOverlay) return;
+      try {
+        if (avatarViewerKeydown) document.removeEventListener('keydown', avatarViewerKeydown);
+      } catch (e) { }
+      try {
+        if (avatarViewerResize) window.removeEventListener('resize', avatarViewerResize);
+      } catch (e) { }
+      try { avatarViewerOverlay.remove(); } catch (e) { }
+      avatarViewerOverlay = null;
+      avatarViewerKeydown = null;
+      avatarViewerResize = null;
+      avatarViewerUrl = '';
+      avatarViewerMode = '';
+    }
+    
+    function computeAvatarViewerPlacement() {
+      const mainEl = document.querySelector('.main');
+      const shellEl = document.querySelector('.chat-shell');
+      if (!mainEl || !shellEl) return { mode: 'center' };
+      const mainRect = mainEl.getBoundingClientRect();
+      const shellRect = shellEl.getBoundingClientRect();
+      if (!mainRect || !shellRect) return { mode: 'center' };
+      
+      const leftSpace = shellRect.left - mainRect.left;
+      const rightSpace = mainRect.right - shellRect.right;
+      const shellW = shellRect.width;
+      const mainW = mainRect.width;
+      
+      const wideGap = (mainW > 0 && shellW > 0) ? (shellW <= mainW * 0.78) : false;
+      const leftEnough = leftSpace >= 180;
+      if (!wideGap || !leftEnough) return { mode: 'center' };
+      
+      const pad = 12;
+      let left = mainRect.left + pad;
+      let top = shellRect.top;
+      let width = Math.max(0, leftSpace - pad * 2);
+      let height = Math.max(0, shellRect.height);
+      
+      const vw = window.innerWidth || 0;
+      const vh = window.innerHeight || 0;
+      if (width < 160 || height < 160 || vw <= 0 || vh <= 0) return { mode: 'center' };
+      
+      left = Math.max(0, Math.min(left, vw - 1));
+      top = Math.max(0, Math.min(top, vh - 1));
+      width = Math.max(1, Math.min(width, vw - left));
+      height = Math.max(1, Math.min(height, vh - top));
+      if (width < 160 || height < 160) return { mode: 'center' };
+      
+      return { mode: 'left', left, top, width, height };
+    }
+    
+    function openAvatarViewer(url) {
+      if (!url) return;
+      closeAvatarViewer();
+      
+      const initialPlacement = computeAvatarViewerPlacement();
+      const initialMode = (initialPlacement && initialPlacement.mode === 'left') ? 'left' : 'center';
+      avatarViewerUrl = url;
+      avatarViewerMode = initialMode;
+      
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.zIndex = '9999';
+      if (initialMode === 'center') {
+        overlay.style.inset = '0';
+        overlay.style.background = 'rgba(0, 0, 0, 0.55)';
+        overlay.style.backdropFilter = 'blur(6px)';
+        overlay.style.cursor = 'zoom-out';
+      } else {
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '0';
+        overlay.style.height = '0';
+        overlay.style.pointerEvents = 'none';
+      }
+            
+      const box = document.createElement('div');
+      box.style.position = 'fixed';
+      if (initialMode === 'center') {
+        box.style.background = 'rgba(2, 6, 23, 0.65)';
+        box.style.border = '1px solid rgba(148, 163, 184, 0.18)';
+        box.style.borderRadius = '14px';
+        box.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.45)';
+      } else {
+        box.style.background = 'transparent';
+        box.style.border = 'none';
+        box.style.borderRadius = '0';
+        box.style.boxShadow = 'none';
+      }
+      box.style.overflow = 'hidden';
+      box.style.cursor = 'default';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.textContent = '×';
+      closeBtn.style.position = 'absolute';
+      closeBtn.style.right = '8px';
+      closeBtn.style.top = '8px';
+      closeBtn.style.width = '34px';
+      closeBtn.style.height = '34px';
+      closeBtn.style.borderRadius = '12px';
+      closeBtn.style.border = '1px solid rgba(148, 163, 184, 0.18)';
+      closeBtn.style.background = 'rgba(2, 6, 23, 0.55)';
+      closeBtn.style.color = 'rgba(226, 232, 240, 0.95)';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.style.lineHeight = '1';
+      closeBtn.style.fontSize = '20px';
+      closeBtn.style.display = initialMode === 'center' ? 'none' : 'inline-flex';
+      closeBtn.style.alignItems = 'center';
+      closeBtn.style.justifyContent = 'center';
+      closeBtn.style.pointerEvents = 'auto';
+      closeBtn.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
+        closeAvatarViewer();
+      });
+      
+      const img = document.createElement('img');
+      img.alt = 'avatar';
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.display = 'block';
+      img.style.cursor = 'pointer';
+      img.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
+        closeAvatarViewer();
+      });
+      
+      function layout() {
+        const p = computeAvatarViewerPlacement();
+        const nextMode = (p && p.mode === 'left') ? 'left' : 'center';
+        if (nextMode !== avatarViewerMode) {
+          const u = avatarViewerUrl;
+          closeAvatarViewer();
+          openAvatarViewer(u);
+          return;
+        }
+        if (nextMode === 'left' && p) {
+          box.style.left = p.left + 'px';
+          box.style.top = p.top + 'px';
+          box.style.width = p.width + 'px';
+          box.style.height = p.height + 'px';
+        } else {
+          const vw = window.innerWidth || 0;
+          const vh = window.innerHeight || 0;
+          const w = Math.max(1, Math.floor(vw * 0.92));
+          const h = Math.max(1, Math.floor(vh * 0.92));
+          const left = Math.floor((vw - w) / 2);
+          const top = Math.floor((vh - h) / 2);
+          box.style.left = left + 'px';
+          box.style.top = top + 'px';
+          box.style.width = w + 'px';
+          box.style.height = h + 'px';
+        }
+      }
+      
+      box.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      if (initialMode === 'center') {
+        overlay.addEventListener('click', () => closeAvatarViewer());
+      }
+      
+      avatarViewerKeydown = (e) => {
+        if (e && e.key === 'Escape') closeAvatarViewer();
+      };
+      document.addEventListener('keydown', avatarViewerKeydown);
+      
+      avatarViewerResize = () => layout();
+      window.addEventListener('resize', avatarViewerResize);
+      
+      if (initialMode === 'left') {
+        box.style.pointerEvents = 'auto';
+      }
+      
+      box.appendChild(img);
+      box.appendChild(closeBtn);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      avatarViewerOverlay = overlay;
+      
+      layout();
+      img.src = url;
+    }
 
     function applyAssistantAvatar(avatarEl) {
       if (!avatarEl) return;
@@ -2817,13 +3017,10 @@
       els.attachClear.addEventListener('click', () => clearAttachment());
       
       els.chatList.addEventListener('click', (e) => {
-        const avatar = e && e.target ? e.target.closest('.avatar') : null;
+        const avatar = e && e.target ? e.target.closest('.avatar.clickable') : null;
         if (!avatar) return;
-        const msgEl = avatar.closest('.msg');
-        if (!msgEl || !msgEl.classList.contains('assistant')) return;
         if (!state.currentCompletionId) return;
-        const input = getAvatarUploadInput();
-        input.click();
+        viewAvatar(state.currentCompletionId);
       });
 
       els.sendBtn.addEventListener('click', () => runCompletion());
@@ -2855,7 +3052,7 @@
       if (els.avatarSettingPreview) {
         els.avatarSettingPreview.addEventListener('click', () => {
           if (!state.currentCompletionId) return;
-          getAvatarUploadInput().click();
+          viewAvatar(state.currentCompletionId);
         });
       }
       if (els.avatarSettingUpload) {
