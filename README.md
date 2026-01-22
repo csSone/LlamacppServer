@@ -39,8 +39,7 @@
 - **下载管理**：管理下载任务，查看进度和状态
 - **控制台日志**：实时查看系统日志，支持自动刷新
 - **系统设置**：配置模型目录和 llama.cpp 可执行文件路径
-
-![屏幕截图_18-1-2026_174238_192 168 5 12](https://github.com/user-attachments/assets/ce2698fe-6ca9-400c-b189-0771181326ec)
+![屏幕截图_22-1-2026_194414_192 168 5 12](https://github.com/user-attachments/assets/642bf960-13ea-4ce5-aff9-a9be7a25f263)
 
 ![屏幕截图_18-1-2026_17395_192 168 5 12](https://github.com/user-attachments/assets/d8efe2a3-6439-4a11-9252-5ade3a48387b)
 ![屏幕截图_18-1-2026_173926_192 168 5 12](https://github.com/user-attachments/assets/25cfffe2-7637-4f51-8a50-26c90bf250ae)
