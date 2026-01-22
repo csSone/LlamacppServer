@@ -242,6 +242,15 @@ function saveModelChatTemplate() {
     const el = document.getElementById('modelDetailModalChatTemplateTextarea');
     if (!modelId || !el) return;
     const text = el.value == null ? '' : String(el.value);
+    if (!text.trim()) {
+        showToast('错误', '聊天模板不能为空；如需清空请使用“删除”按钮。', 'error');
+        el.focus();
+        return;
+    }
+
+    const previewLimit = 300;
+    const preview = text.length > previewLimit ? (text.slice(0, previewLimit) + '\n…(已截断)') : text;
+    if (!confirm('确认保存以下聊天模板吗？\n\n' + preview)) return;
     fetch('/api/model/template/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
