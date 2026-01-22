@@ -141,11 +141,28 @@
 
     .msg {
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+      gap: 8px;
       margin: 0;
       padding: 10px 0;
-      align-items: flex-start;
+      align-items: stretch;
       border-bottom: 1px solid var(--border);
+    }
+
+    .msg-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(2, 6, 23, 0.22);
+    }
+
+    .msg-head .meta {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .avatar {
@@ -164,7 +181,8 @@
     }
 
     .bubble {
-      flex: 1 1 auto;
+      width: 100%;
+      flex: 0 0 auto;
       min-width: 0;
       max-width: 100%;
       border: none;
@@ -198,7 +216,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      margin: 0 0 6px 0;
+      margin: 0;
       color: var(--muted);
       font-size: 12px;
     }
@@ -221,11 +239,97 @@
     }
 
     .content {
-      white-space: pre-wrap;
+      white-space: normal;
       word-break: break-word;
       line-height: 1.55;
       font-size: 14px;
       text-align: left;
+    }
+
+    .content.plain {
+      white-space: pre-wrap;
+    }
+
+    .content p {
+      margin: 0 0 10px 0;
+    }
+
+    .content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .content ul,
+    .content ol {
+      margin: 6px 0 10px 1.25em;
+      padding: 0;
+    }
+
+    .content li {
+      margin: 2px 0;
+    }
+
+    .content blockquote {
+      margin: 8px 0;
+      padding: 6px 12px;
+      border-left: 3px solid var(--border);
+      border-radius: 10px;
+      background: rgba(2, 6, 23, 0.18);
+      color: var(--muted);
+    }
+
+    .content pre {
+      margin: 8px 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(2, 6, 23, 0.28);
+      overflow-x: auto;
+    }
+
+    .content code {
+      font-family: var(--mono);
+      font-size: 0.95em;
+    }
+
+    .content :not(pre)>code {
+      padding: 1px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.22);
+    }
+
+    .content a {
+      color: rgba(96, 165, 250, 0.95);
+      text-decoration: underline;
+      word-break: break-word;
+    }
+
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+
+    .content th,
+    .content td {
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .content hr {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
     }
 
     .composer {
@@ -954,6 +1058,8 @@
   </div>
 
   <script src="/js/lz-string.js"></script>
+  <script src="/js/marked.min.js"></script>
+  <script src="/js/highlight.min.js"></script>
   <script>
     const els = {
       sessionsToggle: document.getElementById('sessionsToggle'),
@@ -1042,6 +1148,137 @@
     function uid() {
       if (window.crypto?.randomUUID) return crypto.randomUUID();
       return String(Date.now()) + '-' + String(Math.random()).slice(2);
+    }
+
+    function escapeHtml(text) {
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function isSafeUrl(value) {
+      const href = String(value == null ? '' : value).trim();
+      if (!href) return false;
+      if (href.startsWith('#')) return true;
+      try {
+        const u = new URL(href, window.location.href);
+        const p = u.protocol;
+        return p === 'http:' || p === 'https:' || p === 'mailto:' || p === 'tel:';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function sanitizeMarkdownHtml(html) {
+      const allowedTags = new Set([
+        'div',
+        'p', 'br', 'strong', 'em', 'del',
+        'code', 'pre',
+        'blockquote',
+        'ul', 'ol', 'li',
+        'a', 'hr',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'img', 'span'
+      ]);
+
+      const allowedAttrsByTag = {
+        a: new Set(['href', 'title', 'target', 'rel']),
+        img: new Set(['src', 'alt', 'title']),
+        th: new Set(['align']),
+        td: new Set(['align']),
+        code: new Set(['class']),
+        pre: new Set(['class']),
+        span: new Set(['class'])
+      };
+
+      const doc = new DOMParser().parseFromString('<div>' + String(html || '') + '</div>', 'text/html');
+      const root = doc.body && doc.body.firstChild ? doc.body.firstChild : null;
+      if (!root) return '';
+
+      const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+      const nodes = [];
+      let n = walker.currentNode;
+      while (n) {
+        nodes.push(n);
+        n = walker.nextNode();
+      }
+
+      for (const el of nodes) {
+        const tag = (el.tagName || '').toLowerCase();
+        if (!allowedTags.has(tag)) {
+          const parent = el.parentNode;
+          if (!parent) continue;
+          while (el.firstChild) parent.insertBefore(el.firstChild, el);
+          parent.removeChild(el);
+          continue;
+        }
+
+        const allowedAttrs = allowedAttrsByTag[tag] || null;
+        for (const attr of Array.from(el.attributes || [])) {
+          const name = (attr.name || '').toLowerCase();
+          if (!allowedAttrs || !allowedAttrs.has(name)) {
+            el.removeAttribute(attr.name);
+            continue;
+          }
+          if ((tag === 'a' && name === 'href') || (tag === 'img' && name === 'src')) {
+            const v = el.getAttribute(attr.name) || '';
+            if (!isSafeUrl(v)) el.removeAttribute(attr.name);
+          }
+        }
+
+        if (tag === 'a') {
+          el.setAttribute('rel', 'noopener noreferrer');
+          if (!el.getAttribute('target')) el.setAttribute('target', '_blank');
+        }
+      }
+
+      return root.innerHTML;
+    }
+
+    function markdownToSafeHtml(text) {
+      const input = escapeHtml(text);
+      if (!window.marked || typeof window.marked.parse !== 'function') return input;
+      let raw = '';
+      try {
+        raw = window.marked.parse(input, { gfm: true, breaks: true, mangle: false, headerIds: false });
+      } catch (e) {
+        return input;
+      }
+      return sanitizeMarkdownHtml(raw);
+    }
+
+    let markdownRaf = 0;
+    const pendingMarkdownRenders = new Map();
+
+    function renderMessageContentNow(el, text) {
+      if (!el) return;
+      const t = (text == null ? '' : String(text));
+      if (!window.marked || typeof window.marked.parse !== 'function') {
+        el.classList.add('plain');
+        el.textContent = t;
+        return;
+      }
+      el.classList.remove('plain');
+      el.innerHTML = markdownToSafeHtml(t);
+      if (window.hljs && typeof window.hljs.highlightElement === 'function' && (t.includes('```') || t.includes('`'))) {
+        const blocks = el.querySelectorAll('pre code');
+        for (const b of blocks) window.hljs.highlightElement(b);
+      }
+    }
+
+    function requestRenderMessageContent(el, text) {
+      if (!el) return;
+      pendingMarkdownRenders.set(el, text);
+      if (markdownRaf) return;
+      markdownRaf = requestAnimationFrame(() => {
+        markdownRaf = 0;
+        for (const [node, value] of pendingMarkdownRenders.entries()) {
+          renderMessageContentNow(node, value);
+        }
+        pendingMarkdownRenders.clear();
+      });
     }
 
     function setStatus(text) {
@@ -1460,11 +1697,14 @@
       meta.appendChild(left);
       meta.appendChild(right);
 
+      const head = document.createElement('div');
+      head.className = 'msg-head';
+      head.appendChild(avatar);
+      head.appendChild(meta);
+
       const content = document.createElement('div');
       content.className = 'content';
-      content.textContent = msg.content || '';
-
-      bubble.appendChild(meta);
+      renderMessageContentNow(content, msg.content || '');
 
       let reasoningPre = null;
       const reasoningText = (typeof msg.reasoning === 'string' ? msg.reasoning : '');
@@ -1486,7 +1726,7 @@
       bubble.appendChild(attachmentsEl);
       renderMessageAttachments(attachmentsEl, msg);
 
-      wrap.appendChild(avatar);
+      wrap.appendChild(head);
       wrap.appendChild(bubble);
 
       state.messageEls.set(msg.id, { contentEl: content, reasoningEl: reasoningPre, attachmentsEl });
@@ -1515,7 +1755,7 @@
     function updateMessage(id, content) {
       const entry = state.messageEls.get(id);
       const el = entry && entry.contentEl ? entry.contentEl : entry;
-      if (el) el.textContent = content || '';
+      if (el) requestRenderMessageContent(el, content || '');
       const m = state.messages.find(x => x.id === id);
       if (m) m.content = content || '';
       maybeScrollToBottom();
@@ -1557,8 +1797,7 @@
           newPre.textContent = reasoningText;
           details.appendChild(summary);
           details.appendChild(newPre);
-          const meta = bubble.querySelector('.meta');
-          if (meta) bubble.insertBefore(details, meta.nextSibling);
+          bubble.insertBefore(details, bubble.firstChild);
           state.messageEls.set(id, { contentEl: entry && entry.contentEl ? entry.contentEl : bubble.querySelector('.content'), reasoningEl: newPre, attachmentsEl: entry && entry.attachmentsEl ? entry.attachmentsEl : bubble.querySelector('.attachments') });
         }
       }
