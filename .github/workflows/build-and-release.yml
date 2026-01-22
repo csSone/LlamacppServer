@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -97,17 +100,6 @@ jobs:
           rm jre-win.zip
           echo "Windows JRE 下载完成"
 
-      # - name: 下载精简版 JRE (macOS)
-      #   run: |
-      #     mkdir -p jre-mac
-      #     curl -L -o jre-mac.zip https://github.com/IIIIIllllIIIIIlllll/Mini-JRE/releases/download/v1.0.0/mini-jre-21.06-mac-x64.zip
-      #     unzip -q jre-mac.zip -d jre-mac
-      #     JRE_NAME=$(ls jre-mac | head -1)
-      #     mv jre-mac/$JRE_NAME jre-mac/jre
-      #     chmod +x jre-mac/jre/bin/java
-      #     rm jre-mac.zip
-      #     echo "macOS JRE 下载完成"
-
       - name: 创建启动脚本 (Linux/Mac)
         run: |
           cat > build/run.sh << 'EOF'
@@ -147,9 +139,16 @@ jobs:
 
       - name: 获取 llama.cpp 最新版本号
         id: get_llamacpp_version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "正在获取 llama.cpp 最新版本号..."
-          LLAMACPP_VERSION=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          LLAMACPP_VERSION=$(curl -s \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/ggml-org/llama.cpp/releases/latest \
+            | grep '"tag_name":' \
+            | sed -E 's/.*"([^"]+)".*/\1/')
           echo "llama.cpp 最新版本: $LLAMACPP_VERSION"
           echo "llamacpp_version=$LLAMACPP_VERSION" >> $GITHUB_OUTPUT
           echo "LLAMACPP_VERSION=$LLAMACPP_VERSION" >> $GITHUB_ENV
@@ -200,15 +199,6 @@ jobs:
           rm llama-ubuntu-vulkan.tar.gz
           echo "Ubuntu Vulkan 版本下载完成"
 
-      # - name: 下载 llama.cpp 预编译版本 (macOS ARM64)
-      #   run: |
-      #     echo "下载 llama.cpp macOS ARM64 版本..."
-      #     curl -L -o llama-macos-arm64.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/${{ steps.get_llamacpp_version.outputs.llamacpp_version }}/llama-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-bin-macos-arm64.tar.gz
-      #     mkdir macos-arm64
-      #     tar -xzf llama-macos-arm64.tar.gz -C macos-arm64
-      #     rm llama-macos-arm64.tar.gz
-      #     echo "macOS ARM64 版本下载完成"
-
       - name: 打包 Linux Vulkan 版本
         run: |
           cp -r build build-linux-vulkan
@@ -217,6 +207,14 @@ jobs:
           cp -r ubuntu-vulkan build-linux-vulkan/llamacpp/
           mv build-linux-vulkan llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan
           zip -r llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan.zip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan
+      
+      - name: 打包 Linux 无llamacpp 版本
+        run: |
+          cp -r build build-linux-no-llamacpp
+          cp -r jre-linux/jre build-linux-no-llamacpp/jre
+          mkdir -p build-linux-no-llamacpp/llamacpp
+          mv build-linux-no-llamacpp llama-server-${{ steps.get_version.outputs.version }}-linux
+          zip -r llama-server-${{ steps.get_version.outputs.version }}-linux.zip llama-server-${{ steps.get_version.outputs.version }}-linux
 
       - name: 打包 Windows CUDA12 版本
         run: |
@@ -254,14 +252,14 @@ jobs:
           mv build-win-hip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip
           zip -r llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip
 
-      # - name: 打包 macOS ARM64 版本
-      #   run: |
-      #     cp -r build build-mac-arm64
-      #     cp -r jre-mac/jre build-mac-arm64/jre
-      #     mkdir -p build-mac-arm64/llamacpp
-      #     cp -r macos-arm64 build-mac-arm64/llamacpp/
-      #     mv build-mac-arm64 llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64
-      #     zip -r llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64.zip llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64
+      - name: 打包 Windows 无llamacpp 版本
+        run: |
+          cp -r build build-win-no-llamacpp
+          cp -r jre-win/jre build-win-no-llamacpp/jre
+          mkdir -p build-win-no-llamacpp/llamacpp
+          mv build-win-no-llamacpp llama-server-${{ steps.get_version.outputs.version }}-windows
+          zip -r llama-server-${{ steps.get_version.outputs.version }}-windows.zip llama-server-${{ steps.get_version.outputs.version }}-windows
+
 
       - name: 生成 Release Notes
         id: release_notes
@@ -293,12 +291,14 @@ jobs:
           
           **Linux:**
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan.zip` - Ubuntu Vulkan 版本
+          - `llama-server-${{ steps.get_version.outputs.version }}-linux.zip` - 无 llama.cpp 版本
           
           **Windows:**
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip` - CUDA 12.4 版本（NVIDIA GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip` - CUDA 13.1 版本（NVIDIA GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-vulkan.zip` - Vulkan 版本（通用 GPU）
           - `llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip` - HIP 版本（AMD GPU）
+          - `llama-server-${{ steps.get_version.outputs.version }}-windows.zip` - 无 llama.cpp 版本
           
           ### 📝 使用方法
           
@@ -360,10 +360,12 @@ jobs:
         with:
           files: |
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan.zip
+            llama-server-${{ steps.get_version.outputs.version }}-linux.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda12.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-cuda13.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-vulkan.zip
             llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip
+            llama-server-${{ steps.get_version.outputs.version }}-windows.zip
             # llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64.zip
           body: ${{ env.NOTES_CONTENT }}
           draft: false
@@ -376,6 +378,13 @@ jobs:
         with:
           name: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan
           path: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-linux-vulkan.zip
+          retention-days: 30
+
+      - name: 上传构建产物 (Linux 无llamacpp)
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-${{ steps.get_version.outputs.version }}-linux
+          path: llama-server-${{ steps.get_version.outputs.version }}-linux.zip
           retention-days: 30
 
       - name: 上传构建产物 (Windows CUDA12)
@@ -406,9 +415,10 @@ jobs:
           path: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-windows-hip.zip
           retention-days: 30
 
-      # - name: 上传构建产物 (macOS ARM64)
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64
-      #     path: llama-server-${{ steps.get_version.outputs.version }}-${{ steps.get_llamacpp_version.outputs.llamacpp_version }}-macos-arm64.zip
-      #     retention-days: 30
+      - name: 上传构建产物 (Windows 无llamacpp)
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-${{ steps.get_version.outputs.version }}-windows
+          path: llama-server-${{ steps.get_version.outputs.version }}-windows.zip
+          retention-days: 30
+
