@@ -615,7 +615,7 @@ textarea {
   border-left: 1px solid var(--border);
   transform: translateX(100%);
   transition: transform 0.22s ease;
-  z-index: 40;
+  z-index: 70;
   display: flex;
   flex-direction: column;
 }
