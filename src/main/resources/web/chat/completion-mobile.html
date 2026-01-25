@@ -7,21 +7,24 @@
   <title>Easy Chat Mobile</title>
   <style>
     :root {
-      --bg: #0b0f14;
-      --panel: rgba(17, 24, 39, 0.9);
-      --panel-2: rgba(15, 23, 42, 0.88);
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --border: rgba(148, 163, 184, 0.18);
+      --bg: #f9fafb;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-2: rgba(243, 244, 246, 0.92);
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
       --primary: #10a37f;
       --danger: #ef4444;
-      --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       --radius: 14px;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
-      --bubble-user: rgba(59, 130, 246, 0.18);
-      --bubble-ai: rgba(16, 163, 127, 0.14);
-      --bubble-sys: rgba(148, 163, 184, 0.12);
+      --bubble-user: #eff6ff;
+      --bubble-ai: #f0fdf4;
+      --bubble-sys: #f3f4f6;
+      --input-bg: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #f9fafb;
     }
 
     * {
@@ -39,9 +42,9 @@
       color: var(--text);
       font-family: var(--sans);
       background:
-        radial-gradient(1000px 700px at 15% 10%, rgba(16, 163, 127, 0.14), transparent 55%),
-        radial-gradient(900px 650px at 85% 5%, rgba(59, 130, 246, 0.14), transparent 55%),
-        radial-gradient(800px 600px at 55% 95%, rgba(168, 85, 247, 0.10), transparent 55%),
+        radial-gradient(1000px 700px at 15% 10%, rgba(16, 163, 127, 0.05), transparent 55%),
+        radial-gradient(900px 650px at 85% 5%, rgba(59, 130, 246, 0.05), transparent 55%),
+        radial-gradient(800px 600px at 55% 95%, rgba(168, 85, 247, 0.04), transparent 55%),
         var(--bg);
       overflow: hidden;
     }
@@ -76,7 +79,7 @@
     .title-input {
       flex: 1;
       min-width: 0;
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 8px 10px;
@@ -86,7 +89,7 @@
 
     .btn {
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--surface);
       border-radius: 12px;
       padding: 8px 12px;
       cursor: pointer;
@@ -136,11 +139,11 @@
       padding: 12px 12px 190px;
       background:
         radial-gradient(700px 450px at 40% 10%, rgba(148, 163, 184, 0.08), transparent 65%),
-        rgba(2, 6, 23, 0.16);
+        transparent;
     }
 
     #chatList {
-      scrollbar-color: rgba(148, 163, 184, 0.35) rgba(2, 6, 23, 0.25);
+      scrollbar-color: rgba(148, 163, 184, 0.35) rgba(0, 0, 0, 0.05);
       scrollbar-width: thin;
     }
 
@@ -149,14 +152,14 @@
     }
 
     #chatList::-webkit-scrollbar-track {
-      background: rgba(2, 6, 23, 0.25);
+      background: rgba(0, 0, 0, 0.05);
       border-radius: 999px;
     }
 
     #chatList::-webkit-scrollbar-thumb {
       background: linear-gradient(180deg, rgba(148, 163, 184, 0.45), rgba(16, 163, 127, 0.22));
       border-radius: 999px;
-      border: 2px solid rgba(2, 6, 23, 0.35);
+      border: 2px solid rgba(255, 255, 255, 0.55);
     }
 
     #chatList::-webkit-scrollbar-thumb:hover {
@@ -181,27 +184,27 @@
       padding: 6px 8px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.22);
+      background: linear-gradient(180deg, #ffffff, #f9fafb);
     }
 
     .msg.user .msg-head {
-      border-color: rgba(59, 130, 246, 0.45);
-      background: linear-gradient(180deg, rgba(59, 130, 246, 0.20), rgba(2, 6, 23, 0.26));
+      border-color: #bfdbfe;
+      background: linear-gradient(180deg, #eff6ff, #f9fafb);
     }
 
     .msg.assistant .msg-head {
-      border-color: rgba(16, 163, 127, 0.40);
-      background: linear-gradient(180deg, rgba(16, 163, 127, 0.18), rgba(2, 6, 23, 0.26));
+      border-color: #bbf7d0;
+      background: linear-gradient(180deg, #f0fdf4, #f9fafb);
     }
 
     .msg.system .msg-head {
-      border-color: rgba(148, 163, 184, 0.34);
-      background: linear-gradient(180deg, rgba(148, 163, 184, 0.16), rgba(2, 6, 23, 0.26));
+      border-color: #e2e8f0;
+      background: linear-gradient(180deg, #f1f5f9, #f9fafb);
     }
 
     .msg.tool .msg-head {
-      border-color: rgba(217, 119, 6, 0.40);
-      background: linear-gradient(180deg, rgba(217, 119, 6, 0.14), rgba(2, 6, 23, 0.26));
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, #fff7ed, #f9fafb);
     }
 
     .msg-head .meta {
@@ -214,7 +217,7 @@
       height: 32px;
       border-radius: 12px;
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--surface);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -267,25 +270,25 @@
     }
 
     .msg.user .bubble {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.32), rgba(59, 130, 246, 0.08) 70%);
-      border: 1px solid rgba(59, 130, 246, 0.38);
+      background: linear-gradient(135deg, #eff6ff, #f9fafb 70%);
+      border: 1px solid #bfdbfe;
     }
 
     .msg.assistant .bubble {
-      background: linear-gradient(135deg, rgba(16, 163, 127, 0.30), rgba(16, 163, 127, 0.08) 70%);
-      border: 1px solid rgba(16, 163, 127, 0.34);
+      background: linear-gradient(135deg, #f0fdf4, #f9fafb 70%);
+      border: 1px solid #bbf7d0;
     }
 
     .msg.system .bubble {
-      background: linear-gradient(135deg, rgba(148, 163, 184, 0.26), rgba(148, 163, 184, 0.06) 70%);
-      border: 1px solid rgba(148, 163, 184, 0.34);
+      background: linear-gradient(135deg, #f1f5f9, #f9fafb 70%);
+      border: 1px solid #e2e8f0;
     }
 
     .msg.tool .bubble {
       border-radius: 12px;
       padding: 10px 12px;
-      background: linear-gradient(135deg, rgba(217, 119, 6, 0.20), rgba(217, 119, 6, 0.06) 70%);
-      border: 1px solid rgba(217, 119, 6, 0.28);
+      background: linear-gradient(135deg, #fff7ed, #f9fafb 70%);
+      border: 1px solid #fed7aa;
     }
 
     .meta {
@@ -325,7 +328,7 @@
 
     .token-info {
       margin-top: 6px;
-      color: rgba(148, 163, 184, 0.85);
+      color: var(--muted);
       font-size: 12px;
       line-height: 1.25;
       text-align: left;
@@ -360,7 +363,7 @@
       padding: 6px 12px;
       border-left: 3px solid var(--border);
       border-radius: 10px;
-      background: rgba(2, 6, 23, 0.18);
+      background: var(--surface-2);
       color: var(--muted);
     }
 
@@ -369,7 +372,7 @@
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.28);
+      background: #f1f5f9;
       overflow-x: auto;
     }
 
@@ -382,11 +385,11 @@
       padding: 1px 6px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.22);
+      background: #f1f5f9;
     }
 
     .content a {
-      color: rgba(96, 165, 250, 0.95);
+      color: #2563eb;
       text-decoration: underline;
       word-break: break-word;
     }
@@ -450,7 +453,7 @@
       padding: 4px 8px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--surface);
       font-size: 11px;
       white-space: nowrap;
       min-height: 28px;
@@ -473,7 +476,7 @@
     }
 
     #modelSelect {
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
     }
 
     .toggle {
@@ -483,7 +486,7 @@
       padding: 4px 8px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: rgba(2, 6, 23, 0.28);
+      background: var(--surface-2);
       font-size: 11px;
     }
 
@@ -502,7 +505,7 @@
       min-height: 44px;
       max-height: 140px;
       resize: none;
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
@@ -536,7 +539,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 6px 8px;
-      background: rgba(2, 6, 23, 0.3);
+      background: var(--surface-2);
     }
 
     .attach-info .clear {
@@ -586,7 +589,7 @@
       top: 0;
       bottom: 0;
       width: min(86vw, 340px);
-      background: rgba(17, 24, 39, 0.96);
+      background: rgba(255, 255, 255, 0.96);
       border-left: 1px solid var(--border);
       transform: translateX(100%);
       transition: transform 0.22s ease;
@@ -636,7 +639,7 @@
       align-items: center;
       gap: 10px;
       cursor: pointer;
-      background: rgba(2, 6, 23, 0.3);
+      background: var(--surface);
     }
 
     .session-meta {
@@ -669,7 +672,7 @@
       transform: translateY(100%);
       transition: transform 0.22s ease;
       z-index: 60;
-      background: rgba(17, 24, 39, 0.98);
+      background: rgba(255, 255, 255, 0.98);
       border-top: 1px solid var(--border);
       border-radius: 18px 18px 0 0;
       max-height: min(88dvh, 780px);
@@ -687,7 +690,7 @@
       justify-content: space-between;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.9);
+      background: var(--surface-2);
     }
 
     .settings-title {
@@ -716,7 +719,7 @@
     .setting input,
     .setting select,
     .setting textarea {
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 8px 10px;
@@ -734,16 +737,172 @@
       min-height: 96px;
     }
 
+    .mcp-tools-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    
+    .mcp-tools-actions .hint {
+      flex: 1 1 auto;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mcp-tools {
+      max-height: 40vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      background: var(--surface-2);
+    }
+
+    .mcp-server {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .mcp-server + .mcp-server {
+      margin-top: 8px;
+    }
+
+    .mcp-server-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .mcp-server-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .mcp-server-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 800;
+      font-size: 13.5px;
+    }
+
+    .mcp-server-badge {
+      flex: 0 0 auto;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      color: var(--muted);
+    }
+
+    .mcp-server-body {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+
+    .mcp-server-url {
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .mcp-tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mcp-tool-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .mcp-tool-row:active {
+      transform: translateY(1px);
+    }
+
+    .mcp-tool-label {
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .mcp-tool-toggle {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid #94a3b8;
+      background: #cbd5e1;
+      position: relative;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+    
+    .mcp-tool-toggle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      transform: translateY(-50%);
+      transition: transform 0.16s ease;
+    }
+
+    .mcp-tool-toggle:checked {
+      background: #10a37f;
+      border-color: #0f8a6b;
+    }
+    
+    .mcp-tool-toggle:checked::before {
+      transform: translate(18px, -50%);
+    }
+
+    .mcp-tool-toggle:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.18);
+    }
+
     .sys-prompt {
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.25);
+      background: var(--surface-2);
       padding: 10px 12px;
     }
 
     .sys-prompt textarea {
       width: 100%;
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 8px 10px;
@@ -774,7 +933,7 @@
 
     .msg-btn {
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.28);
+      background: var(--surface);
       border-radius: 10px;
       padding: 4px 8px;
       cursor: pointer;
@@ -814,7 +973,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
-      background: rgba(2, 6, 23, 0.22);
+      background: var(--surface);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -829,7 +988,7 @@
 
     .attachment-name {
       font-size: 13px;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--text);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -846,7 +1005,7 @@
     .attachment-preview {
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(2, 6, 23, 0.18);
+      background: var(--surface-2);
       overflow: hidden;
     }
 
@@ -864,13 +1023,13 @@
       font-family: var(--mono);
       font-size: 12.5px;
       line-height: 1.5;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--text);
     }
 
     .reasoning {
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.28);
+      background: #f8fafc;
       padding: 6px 10px;
       margin: 8px 0;
       font-size: 12px;
@@ -892,7 +1051,7 @@
     .tool-result {
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.28);
+      background: #fff7ed;
       padding: 6px 10px;
       margin: 8px 0;
       font-size: 12px;
@@ -925,7 +1084,7 @@
       flex-direction: column;
       border: 1px solid var(--border);
       border-radius: 16px;
-      background: rgba(17, 24, 39, 0.92);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
       box-shadow: var(--shadow);
       overflow: hidden;
@@ -938,7 +1097,7 @@
       gap: 10px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.72);
+      background: var(--surface-2);
     }
 
     .modal-title {
@@ -955,7 +1114,7 @@
       resize: vertical;
       min-height: 180px;
       max-height: 52vh;
-      background: rgba(2, 6, 23, 0.35);
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 10px 12px;
@@ -970,7 +1129,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      background: rgba(15, 23, 42, 0.6);
+      background: var(--surface-2);
     }
   </style>
 </head>
@@ -1087,13 +1246,21 @@
             <label for="assistantSuffix">助手消息后缀</label>
             <textarea id="assistantSuffix" placeholder="可选"></textarea>
           </div>
+          <div class="setting long-setting">
+            <label>MCP 工具</label>
+            <div class="mcp-tools-actions">
+              <button id="refreshMcpTools" class="btn" type="button">刷新</button>
+              <span id="mcpToolsStatus" class="hint"></span>
+            </div>
+            <div id="mcpToolsList" class="mcp-tools"></div>
+          </div>
         </div>
       </div>
 
       <div class="prompt-row">
       	<div class="prompt-actions">
+      		<button id="attachBtn" class="btn" type="button">附件</button>
         	<button id="modelRowToggle" style="width: 100%; height: 100%" class="btn icon-btn ghost" type="button" title="显示模型栏" aria-label="显示模型栏" aria-expanded="false">☰</button>
-        	<button id="attachBtn" class="btn" type="button">附件</button>
         </div>
         <textarea id="promptInput" placeholder="输入消息…（Ctrl+Enter 发送）"></textarea>
         <div class="prompt-actions">
@@ -1211,6 +1378,9 @@
       systemPrompt: document.getElementById('systemPrompt'),
       rolePromptBox: document.getElementById('rolePromptBox'),
       rolePrompt: document.getElementById('rolePrompt'),
+      refreshMcpTools: document.getElementById('refreshMcpTools'),
+      mcpToolsStatus: document.getElementById('mcpToolsStatus'),
+      mcpToolsList: document.getElementById('mcpToolsList'),
 
       maxTokens: document.getElementById('maxTokens'),
       temperature: document.getElementById('temperature'),
@@ -1255,6 +1425,8 @@
       abortController: null,
       saveTimer: null,
       lastSavedAt: 0,
+      statusText: '',
+      saveHintText: '',
       messages: [],
       systemLogs: [],
       timingsLog: [],
@@ -1263,7 +1435,9 @@
       msgSeq: 0,
       apiModel: 1,
       pendingAttachment: null,
-      avatarNonce: 0
+      avatarNonce: 0,
+      mcpToolsData: null,
+      enabledMcpTools: []
     };
 
     function uid() {
@@ -1407,12 +1581,21 @@
       });
     }
 
+    function refreshHintUi() {
+      const statusText = state.statusText ? String(state.statusText) : '';
+      const saveText = state.saveHintText ? String(state.saveHintText) : '';
+      const merged = statusText ? (saveText ? (statusText + ' · ' + saveText) : statusText) : saveText;
+      if (els.saveHint) els.saveHint.textContent = merged;
+    }
+
     function setStatus(text) {
-      void text;
+      state.statusText = (text == null ? '' : String(text));
+      refreshHintUi();
     }
 
     function setSaveHint(text) {
-      els.saveHint.textContent = text || '';
+      state.saveHintText = (text == null ? '' : String(text));
+      refreshHintUi();
     }
 
     async function fetchJson(url, options) {
@@ -1425,6 +1608,170 @@
         throw new Error(message);
       }
       return json;
+    }
+
+    let mcpToolsLoading = false;
+    function normalizeToolName(name) {
+      return (name == null ? '' : String(name)).trim();
+    }
+
+    function isMcpToolEnabled(toolName) {
+      const tn = normalizeToolName(toolName);
+      if (!tn) return false;
+      const list = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : [];
+      return list.includes(tn);
+    }
+
+    function setMcpToolEnabled(toolName, enabled) {
+      const tn = normalizeToolName(toolName);
+      if (!tn) return;
+      const list = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools.slice() : [];
+      const has = list.includes(tn);
+      if (enabled && !has) list.push(tn);
+      if (!enabled && has) {
+        const idx = list.indexOf(tn);
+        if (idx >= 0) list.splice(idx, 1);
+      }
+      state.enabledMcpTools = list;
+    }
+
+    function updateMcpToolsStatus() {
+      const data = state.mcpToolsData || {};
+      const servers = data?.servers;
+      const serverCount = (servers && typeof servers === 'object') ? Object.keys(servers).length : 0;
+      const enabledCount = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools.length : 0;
+      if (els.mcpToolsStatus) {
+        if (!serverCount) els.mcpToolsStatus.textContent = '暂无服务';
+        else els.mcpToolsStatus.textContent = `服务数：${serverCount} · 已启用：${enabledCount}`;
+      }
+    }
+
+    function renderMcpTools(data) {
+      state.mcpToolsData = (data && typeof data === 'object') ? data : null;
+      const wrap = els.mcpToolsList;
+      if (!wrap) return;
+      wrap.textContent = '';
+      const servers = data?.servers;
+      const entries = (servers && typeof servers === 'object') ? Object.entries(servers) : [];
+      if (!entries.length) {
+        wrap.textContent = '暂无 MCP 工具';
+        updateMcpToolsStatus();
+        return;
+      }
+
+      for (const [url, server] of entries) {
+        const serverObj = (server && typeof server === 'object') ? server : {};
+        const serverName = (typeof serverObj.name === 'string' && serverObj.name.trim()) ? serverObj.name.trim() : '';
+        const tools = Array.isArray(serverObj.tools) ? serverObj.tools : [];
+
+        const serverEl = document.createElement('details');
+        serverEl.className = 'mcp-server';
+        serverEl.open = true;
+
+        const toolSeen = new Set();
+        let totalTools = 0;
+        let enabledTools = 0;
+        for (const t of tools) {
+          const toolObj = (t && typeof t === 'object') ? t : {};
+          const tn0 = (typeof toolObj.name === 'string' && toolObj.name.trim()) ? toolObj.name.trim() : '';
+          if (!tn0) continue;
+          if (toolSeen.has(tn0)) continue;
+          toolSeen.add(tn0);
+          totalTools++;
+          if (isMcpToolEnabled(tn0)) enabledTools++;
+        }
+
+        const summary = document.createElement('summary');
+        summary.className = 'mcp-server-summary';
+
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'mcp-server-title';
+        titleWrap.textContent = serverName ? `${serverName}` : `MCP`;
+
+        const badge = document.createElement('div');
+        badge.className = 'mcp-server-badge';
+        badge.textContent = `${enabledTools}/${totalTools}`;
+
+        summary.appendChild(titleWrap);
+        summary.appendChild(badge);
+        serverEl.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'mcp-server-body';
+
+        const urlEl = document.createElement('div');
+        urlEl.className = 'mcp-server-url';
+        urlEl.textContent = String(url || '');
+        body.appendChild(urlEl);
+
+        const list = document.createElement('div');
+        list.className = 'mcp-tool-list';
+        toolSeen.clear();
+        for (const t of tools) {
+          const toolObj = (t && typeof t === 'object') ? t : {};
+          const tn = (typeof toolObj.name === 'string' && toolObj.name.trim()) ? toolObj.name.trim() : '';
+          if (!tn) continue;
+          if (toolSeen.has(tn)) continue;
+          toolSeen.add(tn);
+          const row = document.createElement('div');
+          row.className = 'mcp-tool-row';
+
+          const cb = document.createElement('input');
+          cb.className = 'mcp-tool-toggle';
+          cb.type = 'checkbox';
+          cb.checked = isMcpToolEnabled(tn);
+          
+          const toolLabelEl = document.createElement('div');
+          toolLabelEl.className = 'mcp-tool-label';
+          toolLabelEl.textContent = tn;
+
+          const desc = (typeof toolObj.description === 'string' && toolObj.description.trim()) ? toolObj.description.trim() : '';
+          if (desc) {
+            row.title = desc;
+            toolLabelEl.title = desc;
+          }
+
+          cb.addEventListener('change', () => {
+            setMcpToolEnabled(tn, !!cb.checked);
+            updateMcpToolsStatus();
+            scheduleSave('MCP工具');
+          });
+
+          row.addEventListener('click', (e) => {
+            const target = e && e.target ? e.target : null;
+            if (target && target.closest && target.closest('input')) return;
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+
+          row.appendChild(cb);
+          row.appendChild(toolLabelEl);
+          list.appendChild(row);
+        }
+        if (list.childNodes.length) body.appendChild(list);
+        serverEl.appendChild(body);
+        wrap.appendChild(serverEl);
+      }
+      updateMcpToolsStatus();
+    }
+
+    async function refreshMcpTools() {
+      if (mcpToolsLoading) return;
+      mcpToolsLoading = true;
+      if (els.mcpToolsStatus) els.mcpToolsStatus.textContent = '加载中...';
+      try {
+        const resp = await fetchJson('/api/mcp/tools', { method: 'GET' });
+        if (resp && resp.success === false) {
+          throw new Error(String(resp.error || '获取失败'));
+        }
+        const data = resp?.data || {};
+        renderMcpTools(data);
+      } catch (e) {
+        if (els.mcpToolsStatus) els.mcpToolsStatus.textContent = String(e && e.message ? e.message : e);
+        if (els.mcpToolsList) els.mcpToolsList.textContent = '加载失败';
+      } finally {
+        mcpToolsLoading = false;
+      }
     }
 
     function getFileExt(fileName) {
@@ -1446,31 +1793,6 @@
       if (type.startsWith('image/')) return true;
       const ext = getFileExt(file && file.name ? file.name : '');
       return ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext);
-    }
-
-    function isLikelyTextFile(file) {
-      const type = (file && file.type) ? String(file.type).toLowerCase() : '';
-      if (type.startsWith('text/')) return true;
-      if (type === 'application/json') return true;
-      const ext = getFileExt(file && file.name ? file.name : '');
-      return ['txt', 'md', 'markdown', 'sql', 'ini', 'cfg', 'conf', 'json', 'yaml', 'yml', 'csv', 'log'].includes(ext);
-    }
-
-    async function readTextAttachment(file) {
-      if (!file) return '';
-      const maxBytes = 1024 * 512;
-      if (typeof file.size === 'number' && file.size > maxBytes) {
-        return '[附件内容过大，已省略。请使用下载链接查看完整内容。]';
-      }
-      try {
-        const t = await file.text();
-        const s = (t == null ? '' : String(t));
-        if (!s.trim()) return '[附件为空]';
-        if (s.length > 200000) return s.slice(0, 200000) + '\n[...已截断...]';
-        return s;
-      } catch (e) {
-        return '[附件读取失败]';
-      }
     }
 
     function renderMessageAttachments(attachmentsEl, msg) {
@@ -1702,7 +2024,8 @@
       els.streamToggle.disabled = isBusy;
       els.thinkingToggle.disabled = isBusy;
       els.webSearchToggle.disabled = isBusy;
-      els.promptInput.disabled = isBusy ? false : false;
+      if (els.refreshMcpTools) els.refreshMcpTools.disabled = isBusy;
+      els.promptInput.disabled = false;
     }
 
     function setCompletionsLoading(isLoading) {
@@ -1734,6 +2057,33 @@
     function getMessageById(id) {
       const entry = findMessageEntryById(id);
       return entry ? entry.msg : null;
+    }
+
+    function upsertMessageDomEntry(id) {
+      const key = String(id || '');
+      if (!key) return null;
+      const cached = state.messageEls.get(key) || {};
+      let contentEl = cached.contentEl || null;
+      let reasoningEl = cached.reasoningEl || null;
+      let attachmentsEl = cached.attachmentsEl || null;
+      let tokenEl = cached.tokenEl || null;
+
+      if (!contentEl || !reasoningEl || !attachmentsEl || !tokenEl) {
+        const wrap = els.chatList ? els.chatList.querySelector('.msg[data-id="' + key + '"]') : null;
+        if (wrap) {
+          if (!contentEl) contentEl = wrap.querySelector('.content');
+          if (!reasoningEl) reasoningEl = wrap.querySelector('.reasoning pre');
+          if (!attachmentsEl) attachmentsEl = wrap.querySelector('.attachments');
+          if (!tokenEl) tokenEl = wrap.querySelector('.token-info');
+        }
+      }
+
+      if (contentEl || reasoningEl || attachmentsEl || tokenEl) {
+        const out = { contentEl, reasoningEl, attachmentsEl, tokenEl };
+        state.messageEls.set(key, out);
+        return out;
+      }
+      return null;
     }
 
     function openEditModal(messageId) {
@@ -1955,10 +2305,10 @@
       
       const box = document.createElement('div');
       box.style.position = 'fixed';
-      box.style.background = 'rgba(2, 6, 23, 0.65)';
-      box.style.border = '1px solid rgba(148, 163, 184, 0.18)';
+      box.style.background = 'rgba(255, 255, 255, 0.95)';
+      box.style.border = '1px solid var(--border)';
       box.style.borderRadius = '14px';
-      box.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.45)';
+      box.style.boxShadow = 'var(--shadow)';
       box.style.overflow = 'hidden';
       box.style.cursor = 'default';
       
@@ -2133,8 +2483,8 @@
     }
 
     function updateMessage(id, content) {
-      const entry = state.messageEls.get(id);
-      const el = entry && entry.contentEl ? entry.contentEl : entry;
+      const entry = upsertMessageDomEntry(id);
+      const el = entry && entry.contentEl ? entry.contentEl : null;
       const m = getMessageById(id);
       if (m) m.content = content || '';
       const displayText = (m && typeof m.uiContent === 'string') ? m.uiContent : (content || '');
@@ -2144,8 +2494,8 @@
     }
 
     function setMessageUiContent(id, uiText) {
-      const entry = state.messageEls.get(id);
-      const el = entry && entry.contentEl ? entry.contentEl : entry;
+      const entry = upsertMessageDomEntry(id);
+      const el = entry && entry.contentEl ? entry.contentEl : null;
       const m = getMessageById(id);
       if (m) m.uiContent = (uiText == null ? '' : String(uiText));
       if (el) requestRenderMessageContent(el, (uiText == null ? '' : String(uiText)));
@@ -2172,23 +2522,15 @@
     function updateAttachments(id) {
       const m = getMessageById(id);
       if (!m) return;
-      const entry = state.messageEls.get(id);
-      let attachmentsEl = entry && entry.attachmentsEl ? entry.attachmentsEl : null;
-      if (!attachmentsEl) {
-        const wrap = els.chatList.querySelector('.msg[data-id="' + id + '"]');
-        const bubble = wrap ? wrap.querySelector('.bubble') : null;
-        attachmentsEl = bubble ? bubble.querySelector('.attachments') : null;
-      }
+      const entry = upsertMessageDomEntry(id);
+      const attachmentsEl = entry && entry.attachmentsEl ? entry.attachmentsEl : null;
       if (!attachmentsEl) return;
       renderMessageAttachments(attachmentsEl, m);
-      if (entry) {
-        state.messageEls.set(id, { contentEl: entry.contentEl, reasoningEl: entry.reasoningEl, attachmentsEl });
-      }
       maybeScrollToBottom();
     }
 
     function updateReasoning(id, reasoning) {
-      const entry = state.messageEls.get(id);
+      const entry = upsertMessageDomEntry(id);
       const pre = entry && entry.reasoningEl ? entry.reasoningEl : null;
       const reasoningText = (reasoning == null ? '' : String(reasoning));
       if (pre) {
@@ -2206,7 +2548,14 @@
           details.appendChild(summary);
           details.appendChild(newPre);
           bubble.insertBefore(details, bubble.firstChild);
-          state.messageEls.set(id, { contentEl: entry && entry.contentEl ? entry.contentEl : bubble.querySelector('.content'), reasoningEl: newPre, attachmentsEl: entry && entry.attachmentsEl ? entry.attachmentsEl : bubble.querySelector('.attachments') });
+          upsertMessageDomEntry(id);
+          const next = state.messageEls.get(String(id || '')) || {};
+          state.messageEls.set(String(id || ''), {
+            contentEl: next.contentEl || bubble.querySelector('.content'),
+            reasoningEl: newPre,
+            attachmentsEl: next.attachmentsEl || bubble.querySelector('.attachments'),
+            tokenEl: next.tokenEl || bubble.querySelector('.token-info')
+          });
         }
       }
       const m = getMessageById(id);
@@ -2381,15 +2730,8 @@
       const m = getMessageById(id);
       const timings = (m && m.timings) ? m.timings : getLatestTimingsFromLog(id);
 
-      const entry = state.messageEls.get(id);
-      let tokenEl = entry && entry.tokenEl ? entry.tokenEl : null;
-      if (!tokenEl) {
-        const wrap = els.chatList.querySelector('.msg[data-id="' + id + '"]');
-        tokenEl = wrap ? wrap.querySelector('.token-info') : null;
-        if (entry && tokenEl) {
-          state.messageEls.set(id, { contentEl: entry.contentEl, reasoningEl: entry.reasoningEl, attachmentsEl: entry.attachmentsEl, tokenEl });
-        }
-      }
+      const entry = upsertMessageDomEntry(id);
+      const tokenEl = entry && entry.tokenEl ? entry.tokenEl : null;
       if (!tokenEl) return;
 
       const text = formatTimingsText(timings);
@@ -2449,6 +2791,26 @@
       let reasoning = '';
       let toolCallsAgg = [];
       let latestTimings = null;
+      let revealed = false;
+      let gotDone = false;
+      let sawAnyUsefulDelta = false;
+      let rawErrorCandidate = '';
+
+      function revealIfNeeded() {
+        if (revealed) return;
+        const m = getMessageById(assistantMsgId);
+        if (m && m.hidden === true) {
+          m.hidden = false;
+          rerenderAll();
+        }
+        revealed = true;
+      }
+
+      function shouldRevealNow(parts, tcs) {
+        const hasText = !!(parts && ((parts.content && String(parts.content).length) || (parts.reasoning && String(parts.reasoning).length)));
+        const hasTools = Array.isArray(tcs) && tcs.length > 0;
+        return hasText || hasTools;
+      }
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -2459,6 +2821,10 @@
           if (!line.startsWith('data: ')) continue;
           const data = line.slice(6).trim();
           if (data === '[DONE]') {
+            gotDone = true;
+            if (!revealed && (String(text).trim() || String(reasoning).trim() || (Array.isArray(toolCallsAgg) && toolCallsAgg.length))) {
+              revealIfNeeded();
+            }
             if (latestTimings) {
               setMessageTimings(assistantMsgId, latestTimings);
             }
@@ -2468,10 +2834,21 @@
           }
           try {
             const json = JSON.parse(data);
+            if (json?.error) {
+              const errMsg = (json?.error?.message != null ? String(json.error.message) : String(json.error));
+              const err = new Error(errMsg || '请求失败');
+              err.name = 'SseError';
+              throw err;
+            }
             const parts = extractDeltaParts(json);
             const tcs = getToolCallsFromResponse(json);
             const timings = getTimingsFromResponse(json);
             if (timings) latestTimings = timings;
+            const useful = shouldRevealNow(parts, tcs);
+            if (!revealed && useful) {
+              revealIfNeeded();
+            }
+            if (useful) sawAnyUsefulDelta = true;
             if (Array.isArray(tcs) && tcs.length) {
               toolCallsAgg = mergeToolCallsDelta(toolCallsAgg, tcs);
               setMessageToolCalls(assistantMsgId, toolCallsAgg);
@@ -2484,8 +2861,19 @@
               text += parts.content;
               updateMessage(assistantMsgId, text);
             }
-          } catch (e) { }
+          } catch (e) {
+            if (e && e.name === 'SseError') throw e;
+            if (!sawAnyUsefulDelta && !rawErrorCandidate && data) rawErrorCandidate = String(data).slice(0, 800);
+          }
         }
+      }
+      if (!gotDone && !sawAnyUsefulDelta) {
+        const err = new Error(rawErrorCandidate || '请求失败');
+        err.name = 'SseError';
+        throw err;
+      }
+      if (!revealed && (String(text).trim() || String(reasoning).trim() || (Array.isArray(toolCallsAgg) && toolCallsAgg.length))) {
+        revealIfNeeded();
       }
       if (latestTimings) {
         setMessageTimings(assistantMsgId, latestTimings);
@@ -2528,6 +2916,68 @@
           }
         }
       }];
+    }
+
+    function getEnabledMcpToolsForRequest() {
+      const enabled = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : [];
+      if (!enabled.length) return [];
+      const data = state?.mcpToolsData || {};
+      let tools = Array.isArray(data?.tools) ? data.tools : [];
+      if (!tools.length) {
+        const servers = data?.servers;
+        if (servers && typeof servers === 'object') {
+          const merged = [];
+          for (const server of Object.values(servers)) {
+            const toolArr = Array.isArray(server?.tools) ? server.tools : [];
+            for (const t of toolArr) merged.push(t);
+          }
+          tools = merged;
+        }
+      }
+      if (!tools.length) return [];
+
+      const toolByName = new Map();
+      for (const t of tools) {
+        const tn = normalizeToolName(t?.name);
+        if (!tn) continue;
+        if (!toolByName.has(tn)) toolByName.set(tn, t);
+      }
+
+      const out = [];
+      const seen = new Set();
+      for (const n of enabled) {
+        const tn = normalizeToolName(n);
+        if (!tn || seen.has(tn)) continue;
+        const toolObj = toolByName.get(tn);
+        if (!toolObj) continue;
+        const def = buildOpenAiToolFromMcpTool(toolObj);
+        if (!def?.function?.name) continue;
+        out.push(def);
+        seen.add(tn);
+      }
+      return out;
+    }
+
+    function buildOpenAiToolFromMcpTool(toolObj) {
+      const toolName = normalizeToolName(toolObj?.name);
+      const desc = (typeof toolObj?.description === 'string' ? toolObj.description : '').trim();
+      const inputSchema = toolObj?.inputSchema;
+      const parameters = (inputSchema && typeof inputSchema === 'object')
+        ? inputSchema
+        : {
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: {},
+          additionalProperties: true
+        };
+      return {
+        type: 'function',
+        function: {
+          name: toolName,
+          description: desc || ('MCP tool: ' + toolName),
+          parameters
+        }
+      };
     }
 
     async function executeToolCalls(toolCalls, preparedQuery) {
@@ -2612,11 +3062,16 @@
         await maybeUploadPendingAttachment();
         const isChat = state.apiModel === 1;
         const useStream = !!els.streamToggle.checked;
-        let allowTools = !!els.webSearchToggle.checked;
+        let allowTools = true;
         let currentAssistantId = assistantMsgId;
         let toolRounds = 0;
         let includeNoContextInRequest = false;
         let stopAfterThisRequest = false;
+        let pendingAssistantExtra = null;
+
+        if (isChat && Array.isArray(state.enabledMcpTools) && state.enabledMcpTools.length && !state.mcpToolsData) {
+          await refreshMcpTools();
+        }
 
         while (true) {
           const url = isChat ? '/v1/chat/completions' : '/v1/completions';
@@ -2638,9 +3093,18 @@
                 stop
               };
               if (allowTools) {
-                b.tools = getWebSearchMcpTools(getPreparedQueryFromMessages(state.messages));
-                b.tool_choice = 'auto';
-                b.parse_tool_calls = true;
+                const preparedQuery = getPreparedQueryFromMessages(state.messages);
+                const allTools = [];
+                if (!!els.webSearchToggle.checked) {
+                  allTools.push(...getWebSearchMcpTools(preparedQuery));
+                }
+                allTools.push(...getEnabledMcpToolsForRequest());
+                allowTools = allTools.length > 0;
+                if (allowTools) {
+                  b.tools = allTools;
+                  b.tool_choice = 'auto';
+                  b.parse_tool_calls = true;
+                }
               }
               return b;
             })()
@@ -2670,6 +3134,7 @@
             try {
               const j = t ? JSON.parse(t) : null;
               msg = j?.message || j?.error?.message || t;
+              setStatus(msg);
             } catch (e) { }
             throw new Error(msg || ('HTTP ' + res.status));
           }
@@ -2677,9 +3142,21 @@
           const ct = (res.headers.get('content-type') || '').toLowerCase();
           let toolCalls = [];
           if (ct.includes('text/event-stream')) {
+            if (!currentAssistantId) {
+              const extra = (pendingAssistantExtra && typeof pendingAssistantExtra === 'object') ? pendingAssistantExtra : null;
+              pendingAssistantExtra = null;
+              const placeholder = addHiddenMessage('assistant', '', extra || undefined);
+              currentAssistantId = placeholder.id;
+            }
             const r = await consumeSseStream(res, currentAssistantId);
             toolCalls = r?.tool_calls || [];
           } else {
+            if (!currentAssistantId) {
+              const extra = (pendingAssistantExtra && typeof pendingAssistantExtra === 'object') ? pendingAssistantExtra : null;
+              pendingAssistantExtra = null;
+              const placeholder = addMessage('assistant', '', extra || undefined);
+              currentAssistantId = placeholder.id;
+            }
             const data = await res.json();
             const parts = extractDeltaParts(data);
             toolCalls = getToolCallsFromResponse(data);
@@ -2727,8 +3204,8 @@
               const errText = errTexts.length ? errTexts.join('\n') : '工具调用失败';
               addSystemLog('工具调用失败：' + errText, { noContext: true });
               setMessageUiAndContent(currentAssistantId, '工具调用失败', '');
-              const nextAssistant = addMessage('assistant', '', { noContext: true });
-              currentAssistantId = nextAssistant.id;
+              currentAssistantId = null;
+              pendingAssistantExtra = { noContext: true };
               toolRounds++;
               allowTools = false;
               includeNoContextInRequest = true;
@@ -2736,8 +3213,8 @@
               setStatus('工具调用失败，继续生成说明…');
               continue;
             }
-            const nextAssistant = addMessage('assistant', '');
-            currentAssistantId = nextAssistant.id;
+            currentAssistantId = null;
+            pendingAssistantExtra = null;
             toolRounds++;
             setStatus('工具调用完成，继续生成…');
             continue;
@@ -2746,8 +3223,23 @@
           break;
         }
 
+        setStatus('完成');
         scheduleSave('完成');
       } catch (e) {
+        if (currentAssistantId) {
+          const m = getMessageById(currentAssistantId);
+          const canDrop = m && m.role === 'assistant'
+            && m.hidden === true
+            && !String(m.content || '').trim()
+            && !String(m.uiContent || '').trim()
+            && !String(m.reasoning || '').trim()
+            && !(Array.isArray(m.tool_calls) && m.tool_calls.length)
+            && !(Array.isArray(m.attachments) && m.attachments.length);
+          if (canDrop) {
+            const entry = findMessageEntryById(currentAssistantId);
+            if (entry) entry.list.splice(entry.idx, 1);
+          }
+        }
         if (e.name === 'AbortError') {
           setStatus('已停止');
           scheduleSave('停止');
@@ -2778,17 +3270,23 @@
         state.messages = state.messages.slice(0, idx + 1);
         rerenderAll();
         updateMessage(msg.id, '');
-        scheduleSave('重生成');
+        
         await generateIntoMessage(state.messages.slice(0, idx), msg.id);
+        scheduleSave('重生成');
         return;
       }
 
       if (msg.role === 'user') {
         state.messages = state.messages.slice(0, idx + 1);
         rerenderAll();
-        const assistantMsg = addMessage('assistant', '');
+        
+        if (!!els.streamToggle.checked) {
+          await generateIntoMessage(state.messages, null);
+        } else {
+          const assistantMsg = addMessage('assistant', '');
+          await generateIntoMessage(state.messages, assistantMsg.id);
+        }
         scheduleSave('重生成');
-        await generateIntoMessage(state.messages, assistantMsg.id);
       }
     }
 
@@ -2809,6 +3307,7 @@
         assistantSuffix: (els.assistantSuffix.value == null ? '' : String(els.assistantSuffix.value)),
         enableThinking: !!els.thinkingToggle.checked,
         enableWebSearch: !!els.webSearchToggle.checked,
+        enabledMcpTools: (Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : []),
         params: currentParams(),
         history: state.messages,
         systemLogs: state.systemLogs
@@ -3121,6 +3620,17 @@
       if (ext?.enableWebSearch != null) els.webSearchToggle.checked = !!ext.enableWebSearch;
       else els.webSearchToggle.checked = false;
 
+      if (Array.isArray(ext?.enabledMcpTools)) {
+        state.enabledMcpTools = ext.enabledMcpTools.map(normalizeToolName).filter(Boolean);
+      } else if (!Array.isArray(state.enabledMcpTools)) {
+        state.enabledMcpTools = [];
+      }
+      if (state.mcpToolsData && els.mcpToolsList && els.mcpToolsList.childNodes && els.mcpToolsList.childNodes.length) {
+        renderMcpTools(state.mcpToolsData);
+      } else {
+        updateMcpToolsStatus();
+      }
+
       const loadedApiModel = (ext?.apiModel != null ? ext.apiModel : s.apiModel);
       if (loadedApiModel != null) {
         state.apiModel = Number(loadedApiModel) === 0 ? 0 : 1;
@@ -3153,12 +3663,18 @@
       if (state.pendingAttachment && state.pendingAttachment.file) {
         state.pendingAttachment.messageId = userMsg.id;
       }
-      const assistantMsg = addMessage('assistant', '');
       scheduleSave('发送');
-      await generateIntoMessage(state.messages, assistantMsg.id);
+      if (!!els.streamToggle.checked) {
+        await generateIntoMessage(state.messages, null);
+      } else {
+        const assistantMsg = addMessage('assistant', '');
+        await generateIntoMessage(state.messages, assistantMsg.id);
+      }
     }
 
-    async function saveKVCache() {
+    async function kvCacheAction(action) {
+      const a = String(action || '').toLowerCase();
+      const verb = a === 'load' ? '加载' : '保存';
       try {
         const modelId = els.modelSelect.value;
         if (!modelId) {
@@ -3166,8 +3682,8 @@
           return;
         }
         const slotId = 0;
-        setStatus('保存KV缓存中...');
-        const response = await fetchJson('/api/models/slots/save', {
+        setStatus(verb + 'KV缓存中...');
+        const response = await fetchJson('/api/models/slots/' + (a === 'load' ? 'load' : 'save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3177,41 +3693,30 @@
         });
 
         if (response.success) {
-          setStatus('KV缓存保存成功');
+          setStatus('KV缓存' + verb + '成功');
         } else {
-          setStatus('KV缓存保存失败: ' + (response.message || '未知错误'));
+          setStatus('KV缓存' + verb + '失败: ' + (response.message || '未知错误'));
         }
       } catch (e) {
-        setStatus('KV缓存保存失败: ' + e.message);
+        setStatus('KV缓存' + verb + '失败: ' + e.message);
       }
     }
 
-    async function loadKVCache() {
-      try {
-        const modelId = els.modelSelect.value;
-        if (!modelId) {
-          setStatus('请先选择一个模型');
-          return;
-        }
-        const slotId = 0;
-        setStatus('加载KV缓存中...');
-        const response = await fetchJson('/api/models/slots/load', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modelId: modelId,
-            slotId: slotId
-          })
-        });
+    function closeSettingsPanel() {
+      els.settingsPanel.classList.remove('open');
+      els.sysPromptBox.classList.remove('open');
+      els.rolePromptBox.classList.remove('open');
+      document.documentElement.style.overflow = '';
+    }
 
-        if (response.success) {
-          setStatus('KV缓存加载成功');
-        } else {
-          setStatus('KV缓存加载失败: ' + (response.message || '未知错误'));
-        }
-      } catch (e) {
-        setStatus('KV缓存加载失败: ' + e.message);
-      }
+    function toggleSettingsPanel() {
+      const open = !els.settingsPanel.classList.contains('open');
+      els.settingsPanel.classList.toggle('open', open);
+      els.sysPromptBox.classList.toggle('open', open);
+      els.rolePromptBox.classList.toggle('open', open);
+      document.documentElement.style.overflow = open ? 'hidden' : '';
+      if (open && els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+      if (open) refreshMcpTools();
     }
 
     function bindEvents() {
@@ -3261,18 +3766,15 @@
       });
 
       els.toggleSettings.addEventListener('click', () => {
-        const open = els.settingsPanel.classList.toggle('open');
-        els.sysPromptBox.classList.toggle('open', open);
-        els.rolePromptBox.classList.toggle('open', open);
-        document.documentElement.style.overflow = open ? 'hidden' : '';
-        if (open && els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+        toggleSettingsPanel();
       });
       els.closeSettings.addEventListener('click', () => {
-        els.settingsPanel.classList.remove('open');
-        els.sysPromptBox.classList.remove('open');
-        els.rolePromptBox.classList.remove('open');
-        document.documentElement.style.overflow = '';
+        closeSettingsPanel();
       });
+
+      if (els.refreshMcpTools) {
+        els.refreshMcpTools.addEventListener('click', () => refreshMcpTools());
+      }
       
       if (els.avatarSettingPreview) {
         els.avatarSettingPreview.addEventListener('click', () => {
@@ -3333,8 +3835,8 @@
       els.kvCacheModal.addEventListener('click', (e) => {
         if (e.target === els.kvCacheModal) closeKVCacheModal();
       });
-      els.saveKV.addEventListener('click', saveKVCache);
-      els.loadKV.addEventListener('click', loadKVCache);
+      els.saveKV.addEventListener('click', () => kvCacheAction('save'));
+      els.loadKV.addEventListener('click', () => kvCacheAction('load'));
 
       els.editModal.addEventListener('click', (e) => {
         if (e.target === els.editModal) closeEditModal();
@@ -3354,10 +3856,7 @@
             return;
           }
           if (els.settingsPanel.classList.contains('open')) {
-            els.settingsPanel.classList.remove('open');
-            els.sysPromptBox.classList.remove('open');
-            els.rolePromptBox.classList.remove('open');
-            document.documentElement.style.overflow = '';
+            closeSettingsPanel();
             return;
           }
           if (els.drawer.classList.contains('open')) {

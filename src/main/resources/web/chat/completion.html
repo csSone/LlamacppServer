@@ -7,21 +7,24 @@
   <title>Easy Chat</title>
   <style>
     :root {
-      --bg: #0b0f14;
-      --panel: rgba(17, 24, 39, 0.72);
-      --panel-2: rgba(15, 23, 42, 0.72);
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --border: rgba(148, 163, 184, 0.18);
+      --bg: #f9fafb;
+      --panel: rgba(255, 255, 255, 0.85);
+      --panel-2: rgba(243, 244, 246, 0.85);
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
       --primary: #10a37f;
       --danger: #ef4444;
-      --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       --radius: 14px;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
-      --bubble-user: rgba(59, 130, 246, 0.18);
-      --bubble-ai: rgba(16, 163, 127, 0.14);
-      --bubble-sys: rgba(148, 163, 184, 0.12);
+      --bubble-user: #eff6ff;
+      --bubble-ai: #f0fdf4;
+      --bubble-sys: #f3f4f6;
+      --input-bg: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #f9fafb;
     }
 
     * {
@@ -38,9 +41,9 @@
       color: var(--text);
       font-family: var(--sans);
       background:
-        radial-gradient(1200px 900px at 10% 15%, rgba(16, 163, 127, 0.14), transparent 55%),
-        radial-gradient(1000px 800px at 85% 12%, rgba(59, 130, 246, 0.14), transparent 55%),
-        radial-gradient(900px 700px at 60% 90%, rgba(168, 85, 247, 0.10), transparent 55%),
+        radial-gradient(1200px 900px at 10% 15%, rgba(16, 163, 127, 0.05), transparent 55%),
+        radial-gradient(1000px 800px at 85% 12%, rgba(59, 130, 246, 0.05), transparent 55%),
+        radial-gradient(900px 700px at 60% 90%, rgba(168, 85, 247, 0.04), transparent 55%),
         var(--bg);
       overflow: hidden;
     }
@@ -65,7 +68,7 @@
       justify-content: space-between;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(17, 24, 39, 0.72);
+      background: rgba(255, 255, 255, 0.8);
       backdrop-filter: blur(12px);
     }
 
@@ -92,7 +95,7 @@
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 999px;
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
     }
 
     .pill label {
@@ -112,7 +115,7 @@
 
     .btn {
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       border-radius: 12px;
       padding: 8px 12px;
       cursor: pointer;
@@ -184,7 +187,7 @@
     .title-input {
       width: 100%;
       min-width: 200px;
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 8px 10px;
@@ -213,11 +216,11 @@
       padding: 14px 12px;
       background:
         radial-gradient(700px 450px at 40% 10%, rgba(148, 163, 184, 0.08), transparent 65%),
-        rgba(2, 6, 23, 0.16);
+        transparent;
     }
 
     #chatList {
-      scrollbar-color: rgba(148, 163, 184, 0.35) rgba(2, 6, 23, 0.25);
+      scrollbar-color: rgba(148, 163, 184, 0.35) rgba(0, 0, 0, 0.05);
       scrollbar-width: thin;
     }
 
@@ -226,14 +229,14 @@
     }
 
     #chatList::-webkit-scrollbar-track {
-      background: rgba(2, 6, 23, 0.25);
+      background: rgba(0, 0, 0, 0.05);
       border-radius: 999px;
     }
 
     #chatList::-webkit-scrollbar-thumb {
       background: linear-gradient(180deg, rgba(148, 163, 184, 0.45), rgba(59, 130, 246, 0.25));
       border-radius: 999px;
-      border: 2px solid rgba(2, 6, 23, 0.35);
+      border: 2px solid rgba(255, 255, 255, 0.5);
     }
 
     #chatList::-webkit-scrollbar-thumb:hover {
@@ -258,32 +261,32 @@
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(2, 6, 23, 0.58));
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(148, 163, 184, 0.10);
+      background: linear-gradient(180deg, #ffffff, #f9fafb);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .msg.user .msg-head {
-      border-color: rgba(59, 130, 246, 0.45);
-      background: linear-gradient(180deg, rgba(59, 130, 246, 0.24), rgba(15, 23, 42, 0.65));
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(59, 130, 246, 0.22);
+      border-color: #bfdbfe;
+      background: linear-gradient(180deg, #eff6ff, #f9fafb);
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.05);
     }
 
     .msg.assistant .msg-head {
-      border-color: rgba(16, 163, 127, 0.42);
-      background: linear-gradient(180deg, rgba(16, 163, 127, 0.22), rgba(15, 23, 42, 0.65));
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(16, 163, 127, 0.22);
+      border-color: #bbf7d0;
+      background: linear-gradient(180deg, #f0fdf4, #f9fafb);
+      box-shadow: 0 2px 4px rgba(16, 163, 127, 0.05);
     }
 
     .msg.system .msg-head {
-      border-color: rgba(148, 163, 184, 0.38);
-      background: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(15, 23, 42, 0.65));
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(148, 163, 184, 0.18);
+      border-color: #e2e8f0;
+      background: linear-gradient(180deg, #f1f5f9, #f9fafb);
+      box-shadow: 0 2px 4px rgba(148, 163, 184, 0.05);
     }
 
     .msg.tool .msg-head {
-      border-color: rgba(217, 119, 6, 0.40);
-      background: linear-gradient(180deg, rgba(217, 119, 6, 0.16), rgba(15, 23, 42, 0.65));
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(217, 119, 6, 0.16);
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, #fff7ed, #f9fafb);
+      box-shadow: 0 2px 4px rgba(217, 119, 6, 0.05);
     }
 
     .msg-head .meta {
@@ -296,7 +299,7 @@
       height: 64px;
       border-radius: 12px;
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -338,25 +341,25 @@
     }
 
     .msg.user .bubble {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.32), rgba(59, 130, 246, 0.08) 70%);
-      border: 1px solid rgba(59, 130, 246, 0.38);
+      background: linear-gradient(135deg, #eff6ff, #f9fafb 70%);
+      border: 1px solid #bfdbfe;
     }
 
     .msg.assistant .bubble {
-      background: linear-gradient(135deg, rgba(16, 163, 127, 0.30), rgba(16, 163, 127, 0.08) 70%);
-      border: 1px solid rgba(16, 163, 127, 0.34);
+      background: linear-gradient(135deg, #f0fdf4, #f9fafb 70%);
+      border: 1px solid #bbf7d0;
     }
 
     .msg.system .bubble {
-      background: linear-gradient(135deg, rgba(148, 163, 184, 0.26), rgba(148, 163, 184, 0.06) 70%);
-      border: 1px solid rgba(148, 163, 184, 0.34);
+      background: linear-gradient(135deg, #f1f5f9, #f9fafb 70%);
+      border: 1px solid #e2e8f0;
     }
 
     .msg.tool .bubble {
       border-radius: 12px;
       padding: 10px 12px;
-      background: linear-gradient(135deg, rgba(217, 119, 6, 0.20), rgba(217, 119, 6, 0.06) 70%);
-      border: 1px solid rgba(217, 119, 6, 0.28);
+      background: linear-gradient(135deg, #fff7ed, #f9fafb 70%);
+      border: 1px solid #fed7aa;
     }
 
     .tool-result {
@@ -364,7 +367,7 @@
       border: 1px dashed rgba(217, 119, 6, 0.35);
       border-radius: 10px;
       padding: 6px 8px;
-      background: rgba(2, 6, 23, 0.18);
+      background: #fff7ed;
     }
 
     .tool-result>summary {
@@ -414,7 +417,7 @@
 
     .msg-btn {
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.28);
+      background: #ffffff;
       border-radius: 10px;
       padding: 4px 8px;
       cursor: pointer;
@@ -453,7 +456,7 @@
 
     .token-info {
       margin-top: 6px;
-      color: rgba(148, 163, 184, 0.85);
+      color: var(--muted);
       font-size: 12px;
       line-height: 1.25;
       text-align: left;
@@ -488,7 +491,7 @@
       padding: 6px 12px;
       border-left: 3px solid var(--border);
       border-radius: 10px;
-      background: rgba(2, 6, 23, 0.18);
+      background: #f9fafb;
       color: var(--muted);
     }
 
@@ -497,7 +500,7 @@
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.28);
+      background: #f1f5f9;
       overflow-x: auto;
     }
 
@@ -510,11 +513,11 @@
       padding: 1px 6px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.22);
+      background: #f1f5f9;
     }
 
     .content a {
-      color: rgba(96, 165, 250, 0.95);
+      color: #2563eb;
       text-decoration: underline;
       word-break: break-word;
     }
@@ -552,7 +555,7 @@
       border: 1px dashed rgba(148, 163, 184, 0.35);
       border-radius: 10px;
       padding: 6px 8px;
-      background: rgba(2, 6, 23, 0.18);
+      background: #f8fafc;
     }
 
     .reasoning>summary {
@@ -569,7 +572,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 12.5px;
       line-height: 1.5;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--muted);
     }
 
     .composer {
@@ -594,7 +597,7 @@
 
     .composer select,
     .composer input[type="number"] {
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 8px 10px;
@@ -607,7 +610,7 @@
       resize: vertical;
       min-height: 64px;
       max-height: 240px;
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 10px 12px;
@@ -652,7 +655,7 @@
       padding: 6px 10px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
       max-width: 55%;
     }
 
@@ -661,7 +664,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--text);
       font-size: 13px;
     }
 
@@ -687,7 +690,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
-      background: rgba(2, 6, 23, 0.22);
+      background: #ffffff;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -702,7 +705,7 @@
 
     .attachment-name {
       font-size: 13px;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--text);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -723,7 +726,7 @@
     .attachment-preview {
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(2, 6, 23, 0.18);
+      background: #f9fafb;
       overflow: hidden;
     }
 
@@ -741,7 +744,7 @@
       font-family: var(--mono);
       font-size: 12.5px;
       line-height: 1.5;
-      color: rgba(226, 232, 240, 0.92);
+      color: var(--text);
     }
 
     .toggle {
@@ -751,7 +754,7 @@
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
       user-select: none;
       cursor: pointer;
       min-height: 36px;
@@ -771,7 +774,7 @@
       inset: 0;
       z-index: 60;
       padding: 14px;
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
       overflow: auto;
       flex-direction: column;
@@ -785,7 +788,7 @@
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
     }
 
     .settings-head .settings-title {
@@ -828,7 +831,7 @@
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
     }
 
     .setting label {
@@ -865,7 +868,7 @@
       padding: 10px;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
     }
 
     .sys-prompt.open {
@@ -889,7 +892,7 @@
       padding: 10px;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: rgba(2, 6, 23, 0.30);
+      background: #f9fafb;
     }
 
     .long-setting label {
@@ -914,6 +917,161 @@
       color: rgba(148, 163, 184, 0.75);
     }
 
+    .mcp-tools-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    
+    .mcp-tools-actions .hint {
+      flex: 1 1 auto;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mcp-tools {
+      max-height: 40vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      background: #f9fafb;
+    }
+
+    .mcp-server {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .mcp-server + .mcp-server {
+      margin-top: 8px;
+    }
+
+    .mcp-server-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .mcp-server-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .mcp-server-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 800;
+      font-size: 13.5px;
+    }
+    
+    .mcp-server-badge {
+      flex: 0 0 auto;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      color: var(--muted);
+    }
+    
+    .mcp-server-body {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+
+    .mcp-server-url {
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .mcp-tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    
+    .mcp-tool-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f9fafb;
+      user-select: none;
+      cursor: pointer;
+    }
+    
+    .mcp-tool-row:active {
+      transform: translateY(1px);
+    }
+
+    .mcp-tool-toggle {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid #94a3b8;
+      background: #cbd5e1;
+      position: relative;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+    
+    .mcp-tool-toggle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      transform: translateY(-50%);
+      transition: transform 0.16s ease;
+    }
+
+    .mcp-tool-toggle:checked {
+      background: #10a37f;
+      border-color: #0f8a6b;
+    }
+    
+    .mcp-tool-toggle:checked::before {
+      transform: translate(18px, -50%);
+    }
+
+    .mcp-tool-toggle:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.18);
+    }
+    
+    .mcp-tool-label {
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .drawer {
       position: fixed;
       top: 0;
@@ -924,7 +1082,7 @@
       transform: translateX(105%);
       transition: transform 0.22s ease;
       border-left: 1px solid var(--border);
-      background: rgba(17, 24, 39, 0.86);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
       box-shadow: var(--shadow);
       display: flex;
@@ -957,7 +1115,7 @@
       justify-content: space-between;
       padding: 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.72);
+      background: #f9fafb;
     }
 
     .drawer-title {
@@ -990,17 +1148,17 @@
       align-items: center;
       gap: 10px;
       cursor: pointer;
-      background: rgba(2, 6, 23, 0.30);
+      background: #ffffff;
       transition: border-color 0.16s ease, background 0.16s ease;
     }
 
     .session-item:hover {
-      background: rgba(2, 6, 23, 0.42);
+      background: #f1f5f9;
     }
 
     .session-item.active {
-      border-color: rgba(16, 163, 127, 0.65);
-      background: rgba(16, 163, 127, 0.12);
+      border-color: #bbf7d0;
+      background: #f0fdf4;
     }
 
     .session-meta {
@@ -1061,7 +1219,7 @@
       flex-direction: column;
       border: 1px solid var(--border);
       border-radius: 16px;
-      background: rgba(17, 24, 39, 0.92);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
       box-shadow: var(--shadow);
       overflow: hidden;
@@ -1074,7 +1232,7 @@
       gap: 10px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.72);
+      background: #f9fafb;
     }
 
     .modal-title {
@@ -1091,7 +1249,7 @@
       resize: vertical;
       min-height: 180px;
       max-height: 52vh;
-      background: rgba(2, 6, 23, 0.35);
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 10px 12px;
@@ -1111,7 +1269,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      background: rgba(15, 23, 42, 0.60);
+      background: #f9fafb;
     }
 
     @media (max-width: 680px) {
@@ -1259,6 +1417,15 @@
                   <div class="sys-title">角色设定（将加入到对话开头）</div>
                   <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
                 </div>
+
+                <div class="long-setting">
+                  <label>MCP 工具</label>
+                  <div class="mcp-tools-actions">
+                    <button id="refreshMcpTools" class="btn" type="button">刷新</button>
+                    <span id="mcpToolsStatus" class="hint"></span>
+                  </div>
+                  <div id="mcpToolsList" class="mcp-tools"></div>
+                </div>
               </div>
 
               <div class="settings-right">
@@ -1400,6 +1567,9 @@
       systemPrompt: document.getElementById('systemPrompt'),
       rolePromptBox: document.getElementById('rolePromptBox'),
       rolePrompt: document.getElementById('rolePrompt'),
+      refreshMcpTools: document.getElementById('refreshMcpTools'),
+      mcpToolsStatus: document.getElementById('mcpToolsStatus'),
+      mcpToolsList: document.getElementById('mcpToolsList'),
 
       maxTokens: document.getElementById('maxTokens'),
       temperature: document.getElementById('temperature'),
@@ -1444,6 +1614,8 @@
       abortController: null,
       saveTimer: null,
       lastSavedAt: 0,
+      saveHintText: '',
+      statusText: '',
       messages: [],
       systemLogs: [],
       timingsLog: [],
@@ -1455,7 +1627,9 @@
       // 值为0时，用/v1/completions
       apiModel: 1,
       pendingAttachment: null,
-      avatarNonce: 0
+      avatarNonce: 0,
+      mcpToolsData: null,
+      enabledMcpTools: []
     };
 
     function uid() {
@@ -1599,12 +1773,21 @@
       });
     }
 
+    function refreshHintUi() {
+      const statusText = state.statusText ? String(state.statusText) : '';
+      const saveText = state.saveHintText ? String(state.saveHintText) : '';
+      const merged = statusText ? (saveText ? (statusText + ' · ' + saveText) : statusText) : saveText;
+      if (els.saveHint) els.saveHint.textContent = merged;
+    }
+
     function setStatus(text) {
-      void text;
+      state.statusText = (text == null ? '' : String(text));
+      refreshHintUi();
     }
 
     function setSaveHint(text) {
-      els.saveHint.textContent = text || '';
+      state.saveHintText = (text == null ? '' : String(text));
+      refreshHintUi();
     }
 
     async function fetchJson(url, options) {
@@ -1619,6 +1802,171 @@
       return json;
     }
 
+    let mcpToolsLoading = false;
+    function normalizeToolName(name) {
+      return (name == null ? '' : String(name)).trim();
+    }
+    
+    function isMcpToolEnabled(toolName) {
+      const tn = normalizeToolName(toolName);
+      if (!tn) return false;
+      const list = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : [];
+      return list.includes(tn);
+    }
+    
+    function setMcpToolEnabled(toolName, enabled) {
+      const tn = normalizeToolName(toolName);
+      if (!tn) return;
+      const list = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools.slice() : [];
+      const has = list.includes(tn);
+      if (enabled && !has) list.push(tn);
+      if (!enabled && has) {
+        const idx = list.indexOf(tn);
+        if (idx >= 0) list.splice(idx, 1);
+      }
+      state.enabledMcpTools = list;
+    }
+    
+    function updateMcpToolsStatus() {
+      const data = state.mcpToolsData || {};
+      const servers = data?.servers;
+      const serverCount = (servers && typeof servers === 'object') ? Object.keys(servers).length : 0;
+      const enabledCount = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools.length : 0;
+      if (els.mcpToolsStatus) {
+        if (!serverCount) els.mcpToolsStatus.textContent = '暂无服务';
+        else els.mcpToolsStatus.textContent = `服务数：${serverCount} · 已启用：${enabledCount}`;
+      }
+    }
+    
+    function renderMcpTools(data) {
+      state.mcpToolsData = (data && typeof data === 'object') ? data : null;
+      const wrap = els.mcpToolsList;
+      if (!wrap) return;
+      wrap.textContent = '';
+      const servers = data?.servers;
+      const entries = (servers && typeof servers === 'object') ? Object.entries(servers) : [];
+      if (!entries.length) {
+        wrap.textContent = '暂无 MCP 工具';
+        updateMcpToolsStatus();
+        return;
+      }
+
+      for (const [url, server] of entries) {
+        const serverObj = (server && typeof server === 'object') ? server : {};
+        const serverName = (typeof serverObj.name === 'string' && serverObj.name.trim()) ? serverObj.name.trim() : '';
+        const tools = Array.isArray(serverObj.tools) ? serverObj.tools : [];
+
+        const serverEl = document.createElement('details');
+        serverEl.className = 'mcp-server';
+        serverEl.open = true;
+
+        const toolSeen = new Set();
+        let totalTools = 0;
+        let enabledTools = 0;
+        for (const t of tools) {
+          const toolObj = (t && typeof t === 'object') ? t : {};
+          const tn0 = (typeof toolObj.name === 'string' && toolObj.name.trim()) ? toolObj.name.trim() : '';
+          if (!tn0) continue;
+          if (toolSeen.has(tn0)) continue;
+          toolSeen.add(tn0);
+          totalTools++;
+          if (isMcpToolEnabled(tn0)) enabledTools++;
+        }
+
+        const summary = document.createElement('summary');
+        summary.className = 'mcp-server-summary';
+
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'mcp-server-title';
+        titleWrap.textContent = serverName ? `${serverName}` : `MCP`;
+
+        const badge = document.createElement('div');
+        badge.className = 'mcp-server-badge';
+        badge.textContent = `${enabledTools}/${totalTools}`;
+
+        summary.appendChild(titleWrap);
+        summary.appendChild(badge);
+        serverEl.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'mcp-server-body';
+
+        const urlEl = document.createElement('div');
+        urlEl.className = 'mcp-server-url';
+        urlEl.textContent = String(url || '');
+        body.appendChild(urlEl);
+
+        const list = document.createElement('div');
+        list.className = 'mcp-tool-list';
+        toolSeen.clear();
+        for (const t of tools) {
+          const toolObj = (t && typeof t === 'object') ? t : {};
+          const tn = (typeof toolObj.name === 'string' && toolObj.name.trim()) ? toolObj.name.trim() : '';
+          if (!tn) continue;
+          if (toolSeen.has(tn)) continue;
+          toolSeen.add(tn);
+          
+          const cb = document.createElement('input');
+          cb.className = 'mcp-tool-toggle';
+          cb.type = 'checkbox';
+          cb.checked = isMcpToolEnabled(tn);
+          
+          const row = document.createElement('div');
+          row.className = 'mcp-tool-row';
+
+          const labelEl = document.createElement('div');
+          labelEl.className = 'mcp-tool-label';
+          labelEl.textContent = tn;
+
+          const desc = (typeof toolObj.description === 'string' && toolObj.description.trim()) ? toolObj.description.trim() : '';
+          if (desc) {
+            row.title = desc;
+            labelEl.title = desc;
+          }
+          
+          cb.addEventListener('change', () => {
+            setMcpToolEnabled(tn, !!cb.checked);
+            updateMcpToolsStatus();
+            scheduleSave('MCP工具');
+          });
+
+          row.addEventListener('click', (e) => {
+            const target = e && e.target ? e.target : null;
+            if (target && target.closest && target.closest('input')) return;
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+
+          row.appendChild(cb);
+          row.appendChild(labelEl);
+          list.appendChild(row);
+        }
+        if (list.childNodes.length) body.appendChild(list);
+        serverEl.appendChild(body);
+        wrap.appendChild(serverEl);
+      }
+      updateMcpToolsStatus();
+    }
+
+    async function refreshMcpTools() {
+      if (mcpToolsLoading) return;
+      mcpToolsLoading = true;
+      if (els.mcpToolsStatus) els.mcpToolsStatus.textContent = '加载中...';
+      try {
+        const resp = await fetchJson('/api/mcp/tools', { method: 'GET' });
+        if (resp && resp.success === false) {
+          throw new Error(String(resp.error || '获取失败'));
+        }
+        const data = resp?.data || {};
+        renderMcpTools(data);
+      } catch (e) {
+        if (els.mcpToolsStatus) els.mcpToolsStatus.textContent = String(e && e.message ? e.message : e);
+        if (els.mcpToolsList) els.mcpToolsList.textContent = '加载失败';
+      } finally {
+        mcpToolsLoading = false;
+      }
+    }
+
     function getFileExt(fileName) {
       const n = (fileName == null ? '' : String(fileName)).trim();
       const idx = n.lastIndexOf('.');
@@ -1626,43 +1974,20 @@
       return n.slice(idx + 1).toLowerCase();
     }
 
+    const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'];
+
     function isLikelyImageUrl(url) {
       const u = (url == null ? '' : String(url)).toLowerCase();
       const q = u.indexOf('?');
       const clean = q >= 0 ? u.slice(0, q) : u;
-      return clean.endsWith('.png') || clean.endsWith('.jpg') || clean.endsWith('.jpeg') || clean.endsWith('.webp') || clean.endsWith('.gif') || clean.endsWith('.bmp') || clean.endsWith('.svg');
+      return IMAGE_EXTS.some(ext => clean.endsWith('.' + ext));
     }
 
     function isLikelyImageFile(file) {
       const type = (file && file.type) ? String(file.type).toLowerCase() : '';
       if (type.startsWith('image/')) return true;
       const ext = getFileExt(file && file.name ? file.name : '');
-      return ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext);
-    }
-
-    function isLikelyTextFile(file) {
-      const type = (file && file.type) ? String(file.type).toLowerCase() : '';
-      if (type.startsWith('text/')) return true;
-      if (type === 'application/json') return true;
-      const ext = getFileExt(file && file.name ? file.name : '');
-      return ['txt', 'md', 'markdown', 'sql', 'ini', 'cfg', 'conf', 'json', 'yaml', 'yml', 'csv', 'log'].includes(ext);
-    }
-
-    async function readTextAttachment(file) {
-      if (!file) return '';
-      const maxBytes = 1024 * 512;
-      if (typeof file.size === 'number' && file.size > maxBytes) {
-        return '[附件内容过大，已省略。请使用下载链接查看完整内容。]';
-      }
-      try {
-        const t = await file.text();
-        const s = (t == null ? '' : String(t));
-        if (!s.trim()) return '[附件为空]';
-        if (s.length > 200000) return s.slice(0, 200000) + '\n[...已截断...]';
-        return s;
-      } catch (e) {
-        return '[附件读取失败]';
-      }
+      return IMAGE_EXTS.includes(ext);
     }
 
     function renderMessageAttachments(attachmentsEl, msg) {
@@ -1700,7 +2025,7 @@
         head.appendChild(link);
         item.appendChild(head);
 
-        const isImage = a.isImage === true || isLikelyImageUrl(a.url) || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(getFileExt(a.name || ''));
+        const isImage = a.isImage === true || isLikelyImageUrl(a.url) || IMAGE_EXTS.includes(getFileExt(a.name || ''));
         if (isImage) {
           const preview = document.createElement('div');
           preview.className = 'attachment-preview';
@@ -1720,14 +2045,14 @@
     }
 
     function removeDomainFromUrl(url) {
+      const raw = (url == null ? '' : String(url)).trim();
+      if (!raw) return '';
       try {
-        const urlObj = new URL(url);
-        // 返回路径、查询参数和哈希部分
-        return urlObj.pathname + urlObj.search + urlObj.hash;
-      } catch (error) {
-        // 如果URL无效，返回原始字符串或处理错误
-        console.error('无效的URL:', error);
-        return url;
+        const u = new URL(raw, window.location.href);
+        if (u.origin === window.location.origin) return u.pathname + u.search + u.hash;
+        return u.href;
+      } catch (e) {
+        return raw;
       }
     }
 
@@ -1897,6 +2222,14 @@
       els.backdrop.classList.remove('show');
     }
 
+    function setSettingsOpen(open) {
+      const isOpen = !!open;
+      els.settingsPanel.classList.toggle('open', isOpen);
+      els.sysPromptBox.classList.toggle('open', isOpen);
+      els.rolePromptBox.classList.toggle('open', isOpen);
+      document.documentElement.style.overflow = isOpen ? 'hidden' : '';
+    }
+
     function setBusyGenerating(isBusy) {
       els.sendBtn.disabled = isBusy;
       els.stopBtn.disabled = !isBusy;
@@ -1905,7 +2238,7 @@
       els.streamToggle.disabled = isBusy;
       els.thinkingToggle.disabled = isBusy;
       els.webSearchToggle.disabled = isBusy;
-      els.promptInput.disabled = isBusy ? false : false;
+      els.promptInput.disabled = false;
     }
 
     function setCompletionsLoading(isLoading) {
@@ -1937,6 +2270,40 @@
     function getMessageById(id) {
       const entry = findMessageEntryById(id);
       return entry ? entry.msg : null;
+    }
+
+    function upsertMessageDomEntry(id) {
+      const key = String(id || '');
+      if (!key) return null;
+      const cached = state.messageEls.get(key) || {};
+      let contentEl = cached.contentEl || null;
+      let reasoningEl = cached.reasoningEl || null;
+      let attachmentsEl = cached.attachmentsEl || null;
+      let tokenEl = cached.tokenEl || null;
+
+      if (!contentEl || !reasoningEl || !attachmentsEl || !tokenEl) {
+        const wrap = els.chatList ? els.chatList.querySelector('.msg[data-id="' + key + '"]') : null;
+        if (wrap) {
+          if (!contentEl) contentEl = wrap.querySelector('.content');
+          if (!reasoningEl) reasoningEl = wrap.querySelector('.reasoning pre');
+          if (!attachmentsEl) attachmentsEl = wrap.querySelector('.attachments');
+          if (!tokenEl) tokenEl = wrap.querySelector('.token-info');
+        }
+      }
+
+      if (contentEl || reasoningEl || attachmentsEl || tokenEl) {
+        const out = { contentEl, reasoningEl, attachmentsEl, tokenEl };
+        state.messageEls.set(key, out);
+        return out;
+      }
+      return null;
+    }
+
+    function removeMessageByIdSilently(messageId) {
+      const entry = findMessageEntryById(messageId);
+      if (!entry) return false;
+      entry.list.splice(entry.idx, 1);
+      return true;
     }
 
     function openEditModal(messageId) {
@@ -2215,10 +2582,10 @@
       const box = document.createElement('div');
       box.style.position = 'fixed';
       if (initialMode === 'center') {
-        box.style.background = 'rgba(2, 6, 23, 0.65)';
-        box.style.border = '1px solid rgba(148, 163, 184, 0.18)';
+        box.style.background = 'rgba(255, 255, 255, 0.95)';
+        box.style.border = '1px solid var(--border)';
         box.style.borderRadius = '14px';
-        box.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.45)';
+        box.style.boxShadow = 'var(--shadow)';
       } else {
         box.style.background = 'transparent';
         box.style.border = 'none';
@@ -2237,9 +2604,9 @@
       closeBtn.style.width = '34px';
       closeBtn.style.height = '34px';
       closeBtn.style.borderRadius = '12px';
-      closeBtn.style.border = '1px solid rgba(148, 163, 184, 0.18)';
-      closeBtn.style.background = 'rgba(2, 6, 23, 0.55)';
-      closeBtn.style.color = 'rgba(226, 232, 240, 0.95)';
+      closeBtn.style.border = '1px solid var(--border)';
+      closeBtn.style.background = '#ffffff';
+      closeBtn.style.color = 'var(--text)';
       closeBtn.style.cursor = 'pointer';
       closeBtn.style.lineHeight = '1';
       closeBtn.style.fontSize = '20px';
@@ -2445,8 +2812,8 @@
     }
 
     function updateMessage(id, content) {
-      const entry = state.messageEls.get(id);
-      const el = entry && entry.contentEl ? entry.contentEl : entry;
+      const entry = upsertMessageDomEntry(id);
+      const el = entry && entry.contentEl ? entry.contentEl : null;
       const m = getMessageById(id);
       if (m) m.content = content || '';
       const displayText = (m && typeof m.uiContent === 'string') ? m.uiContent : (content || '');
@@ -2456,8 +2823,8 @@
     }
 
     function setMessageUiContent(id, uiText) {
-      const entry = state.messageEls.get(id);
-      const el = entry && entry.contentEl ? entry.contentEl : entry;
+      const entry = upsertMessageDomEntry(id);
+      const el = entry && entry.contentEl ? entry.contentEl : null;
       const m = getMessageById(id);
       if (m) m.uiContent = (uiText == null ? '' : String(uiText));
       if (el) requestRenderMessageContent(el, (uiText == null ? '' : String(uiText)));
@@ -2484,23 +2851,15 @@
     function updateAttachments(id) {
       const m = getMessageById(id);
       if (!m) return;
-      const entry = state.messageEls.get(id);
-      let attachmentsEl = entry && entry.attachmentsEl ? entry.attachmentsEl : null;
-      if (!attachmentsEl) {
-        const wrap = els.chatList.querySelector('.msg[data-id="' + id + '"]');
-        const bubble = wrap ? wrap.querySelector('.bubble') : null;
-        attachmentsEl = bubble ? bubble.querySelector('.attachments') : null;
-      }
+      const entry = upsertMessageDomEntry(id);
+      const attachmentsEl = entry && entry.attachmentsEl ? entry.attachmentsEl : null;
       if (!attachmentsEl) return;
       renderMessageAttachments(attachmentsEl, m);
-      if (entry) {
-        state.messageEls.set(id, { contentEl: entry.contentEl, reasoningEl: entry.reasoningEl, attachmentsEl });
-      }
       maybeScrollToBottom();
     }
 
     function updateReasoning(id, reasoning) {
-      const entry = state.messageEls.get(id);
+      const entry = upsertMessageDomEntry(id);
       const pre = entry && entry.reasoningEl ? entry.reasoningEl : null;
       const reasoningText = (reasoning == null ? '' : String(reasoning));
       if (pre) {
@@ -2518,7 +2877,14 @@
           details.appendChild(summary);
           details.appendChild(newPre);
           bubble.insertBefore(details, bubble.firstChild);
-          state.messageEls.set(id, { contentEl: entry && entry.contentEl ? entry.contentEl : bubble.querySelector('.content'), reasoningEl: newPre, attachmentsEl: entry && entry.attachmentsEl ? entry.attachmentsEl : bubble.querySelector('.attachments') });
+          upsertMessageDomEntry(id);
+          const next = state.messageEls.get(String(id || '')) || {};
+          state.messageEls.set(String(id || ''), {
+            contentEl: next.contentEl || bubble.querySelector('.content'),
+            reasoningEl: newPre,
+            attachmentsEl: next.attachmentsEl || bubble.querySelector('.attachments'),
+            tokenEl: next.tokenEl || bubble.querySelector('.token-info')
+          });
         }
       }
       const m = getMessageById(id);
@@ -2532,8 +2898,6 @@
       const lines = [];
       const sys = (els.systemPrompt.value || '').trim();
       if (sys) lines.push('System: ' + sys);
-      //const role = (els.rolePrompt.value || '').trim();
-      //if (role) lines.push('System: 角色设定：' + role);
       // 插入换行符，不得删除
       lines.push('***');
       const userName = getUserSpeakerName();
@@ -2570,6 +2934,10 @@
       const history = Array.isArray(messages) ? messages : state.messages;
       const includeNoContext = !!(options && options.includeNoContext);
       const out = [];
+      function pushText(role, text) {
+        const v = (text == null ? '' : String(text));
+        if (v) out.push({ role, content: v });
+      }
       const sys = (els.systemPrompt.value || '').trim();
       const rolePrompt = (els.rolePrompt.value || '').trim();
 
@@ -2592,8 +2960,7 @@
         if (role === 'system') {
           out.push({ role: 'system', content: raw });
         } else if (role === 'user') {
-          if (userPrefix != null && userPrefix.length != 0)
-            out.push({ role: 'user', content: userPrefix });
+          pushText('user', userPrefix);
           const atts = Array.isArray(m?.attachments) ? m.attachments : [];
           if (atts.length > 0) {
             const parts = [];
@@ -2606,18 +2973,15 @@
           } else {
             out.push({ role: 'user', content: raw });
           }
-          if (userSuffix != null && userSuffix.length != 0)
-            out.push({ role: 'user', content: userSuffix });
+          pushText('user', userSuffix);
         } else if (role === 'assistant') {
           const toolCalls = (Array.isArray(m?.tool_calls) ? m.tool_calls : null);
           if (toolCalls && toolCalls.length) {
             out.push({ role: 'assistant', content: raw, tool_calls: toolCalls });
           } else if (raw && raw.trim().length > 0) {
-            if(assistantPrefix != null && assistantPrefix.length != 0)
-              out.push({ role: 'assistant', content: assistantPrefix });
+            pushText('assistant', assistantPrefix);
             out.push({ role: 'assistant', content: raw });
-            if(assistantSuffix != null && assistantSuffix.length != 0)
-              out.push({ role: 'assistant', content: assistantSuffix });
+            pushText('assistant', assistantSuffix);
           }
         } else if (role === 'tool') {
           const toolCallId = (m?.tool_call_id == null ? '' : String(m.tool_call_id));
@@ -2703,15 +3067,8 @@
       const m = getMessageById(id);
       const timings = (m && m.timings) ? m.timings : getLatestTimingsFromLog(id);
 
-      const entry = state.messageEls.get(id);
-      let tokenEl = entry && entry.tokenEl ? entry.tokenEl : null;
-      if (!tokenEl) {
-        const wrap = els.chatList.querySelector('.msg[data-id="' + id + '"]');
-        tokenEl = wrap ? wrap.querySelector('.token-info') : null;
-        if (entry && tokenEl) {
-          state.messageEls.set(id, { contentEl: entry.contentEl, reasoningEl: entry.reasoningEl, attachmentsEl: entry.attachmentsEl, tokenEl });
-        }
-      }
+      const entry = upsertMessageDomEntry(id);
+      const tokenEl = entry && entry.tokenEl ? entry.tokenEl : null;
       if (!tokenEl) return;
 
       const text = formatTimingsText(timings);
@@ -2736,6 +3093,26 @@
       let reasoning = '';
       let toolCallsAgg = [];
       let latestTimings = null;
+      let revealed = false;
+      let gotDone = false;
+      let sawAnyUsefulDelta = false;
+      let rawErrorCandidate = '';
+      
+      function revealIfNeeded() {
+        if (revealed) return;
+        const m = getMessageById(assistantMsgId);
+        if (m && m.hidden === true) {
+          m.hidden = false;
+          rerenderAll();
+        }
+        revealed = true;
+      }
+      
+      function shouldRevealNow(parts, tcs) {
+        const hasText = !!(parts && ((parts.content && String(parts.content).length) || (parts.reasoning && String(parts.reasoning).length)));
+        const hasTools = Array.isArray(tcs) && tcs.length > 0;
+        return hasText || hasTools;
+      }
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -2746,6 +3123,10 @@
           if (!line.startsWith('data: ')) continue;
           const data = line.slice(6).trim();
           if (data === '[DONE]') {
+            gotDone = true;
+            if (!revealed && (String(text).trim() || String(reasoning).trim() || (Array.isArray(toolCallsAgg) && toolCallsAgg.length))) {
+              revealIfNeeded();
+            }
             if (latestTimings) {
               setMessageTimings(assistantMsgId, latestTimings);
             }
@@ -2755,10 +3136,21 @@
           }
           try {
             const json = JSON.parse(data);
+            if (json?.error) {
+              const errMsg = (json?.error?.message != null ? String(json.error.message) : String(json.error));
+              const err = new Error(errMsg || '请求失败');
+              err.name = 'SseError';
+              throw err;
+            }
             const parts = extractDeltaParts(json);
             const tcs = getToolCallsFromResponse(json);
             const timings = getTimingsFromResponse(json);
             if (timings) latestTimings = timings;
+            const useful = shouldRevealNow(parts, tcs);
+            if (!revealed && useful) {
+              revealIfNeeded();
+            }
+            if (useful) sawAnyUsefulDelta = true;
             if (Array.isArray(tcs) && tcs.length) {
               toolCallsAgg = mergeToolCallsDelta(toolCallsAgg, tcs);
               setMessageToolCalls(assistantMsgId, toolCallsAgg);
@@ -2771,8 +3163,19 @@
               text += parts.content;
               updateMessage(assistantMsgId, text);
             }
-          } catch (e) { }
+          } catch (e) {
+            if (e && e.name === 'SseError') throw e;
+            if (!sawAnyUsefulDelta && !rawErrorCandidate && data) rawErrorCandidate = String(data).slice(0, 800);
+          }
         }
+      }
+      if (!gotDone && !sawAnyUsefulDelta) {
+        const err = new Error(rawErrorCandidate || '请求失败');
+        err.name = 'SseError';
+        throw err;
+      }
+      if (!revealed && (String(text).trim() || String(reasoning).trim() || (Array.isArray(toolCallsAgg) && toolCallsAgg.length))) {
+        revealIfNeeded();
       }
       if (latestTimings) {
         setMessageTimings(assistantMsgId, latestTimings);
@@ -2827,6 +3230,68 @@
         }
       }];
     }
+    
+    function getEnabledMcpToolsForRequest() {
+      const enabled = Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : [];
+      if (!enabled.length) return [];
+      const data = state?.mcpToolsData || {};
+      let tools = Array.isArray(data?.tools) ? data.tools : [];
+      if (!tools.length) {
+        const servers = data?.servers;
+        if (servers && typeof servers === 'object') {
+          const merged = [];
+          for (const server of Object.values(servers)) {
+            const toolArr = Array.isArray(server?.tools) ? server.tools : [];
+            for (const t of toolArr) merged.push(t);
+          }
+          tools = merged;
+        }
+      }
+      if (!tools.length) return [];
+
+      const toolByName = new Map();
+      for (const t of tools) {
+        const tn = normalizeToolName(t?.name);
+        if (!tn) continue;
+        if (!toolByName.has(tn)) toolByName.set(tn, t);
+      }
+
+      const out = [];
+      const seen = new Set();
+      for (const n of enabled) {
+        const tn = normalizeToolName(n);
+        if (!tn || seen.has(tn)) continue;
+        const toolObj = toolByName.get(tn);
+        if (!toolObj) continue;
+        const def = buildOpenAiToolFromMcpTool(toolObj);
+        if (!def?.function?.name) continue;
+        out.push(def);
+        seen.add(tn);
+      }
+      return out;
+    }
+    
+    function buildOpenAiToolFromMcpTool(toolObj) {
+      const toolName = normalizeToolName(toolObj?.name);
+      const desc = (typeof toolObj?.description === 'string' ? toolObj.description : '').trim();
+      const inputSchema = toolObj?.inputSchema;
+      const parameters = (inputSchema && typeof inputSchema === 'object')
+        ? inputSchema
+        : {
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: {},
+          additionalProperties: true
+        };
+      return {
+        type: 'function',
+        function: {
+          name: toolName,
+          description: desc || ('MCP tool: ' + toolName),
+          parameters
+        }
+      };
+    }
 
     function getPreparedQueryFromMessages(messages) {
       const history = Array.isArray(messages) ? messages : state.messages;
@@ -2837,16 +3302,6 @@
         if (raw) return raw;
       }
       return '';
-    }
-
-    function isToolCallResultText(text) {
-      const s = (text == null ? '' : String(text)).trim();
-      if (!s) return false;
-      if (s.startsWith('联网搜索（智谱）')) return true;
-      if (s.startsWith('联网搜索失败')) return true;
-      if (s.startsWith('联网搜索参数缺失')) return true;
-      if (s.startsWith('检测到 tool_calls')) return true;
-      return false;
     }
 
     function getToolCallsFromResponse(json) {
@@ -2944,11 +3399,16 @@
         await maybeUploadPendingAttachment();
         const isChat = state.apiModel === 1;
         const useStream = !!els.streamToggle.checked;
-        let allowTools = !!els.webSearchToggle.checked;
+        let allowTools = true;
         let currentAssistantId = assistantMsgId;
         let toolRounds = 0;
         let includeNoContextInRequest = false;
         let stopAfterThisRequest = false;
+        let pendingAssistantExtra = null;
+        
+        if (isChat && Array.isArray(state.enabledMcpTools) && state.enabledMcpTools.length && !state.mcpToolsData) {
+          await refreshMcpTools();
+        }
 
         while (true) {
           const url = isChat ? '/v1/chat/completions' : '/v1/completions';
@@ -2957,6 +3417,13 @@
             : (isChat ? ["<|endoftext|>"] : ['\n' + getUserSpeakerName(), '\n***']));
           const body = isChat
             ? (() => {
+              const preparedQuery = getPreparedQueryFromMessages(state.messages);
+              const allTools = [];
+              if (!!els.webSearchToggle.checked) {
+                allTools.push(...getWebSearchMcpTools(preparedQuery));
+              }
+              allTools.push(...getEnabledMcpToolsForRequest());
+              allowTools = allTools.length > 0;
               const b = {
                 model,
                 messages: buildContent(state.messages, { includeNoContext: includeNoContextInRequest }),
@@ -2970,7 +3437,7 @@
                 stop
               };
               if (allowTools) {
-                b.tools = getWebSearchMcpTools(getPreparedQueryFromMessages(state.messages));
+                b.tools = allTools;
                 b.tool_choice = 'auto';
                 b.parse_tool_calls = true;
               }
@@ -2997,11 +3464,13 @@
           });
 
           if (!res.ok) {
+            // 这里需要一些提示
             const t = await res.text();
             let msg = t;
             try {
               const j = t ? JSON.parse(t) : null;
               msg = j?.message || j?.error?.message || t;
+              setStatus(msg);
             } catch (e) { }
             throw new Error(msg || ('HTTP ' + res.status));
           }
@@ -3009,9 +3478,21 @@
           const ct = (res.headers.get('content-type') || '').toLowerCase();
           let toolCalls = [];
           if (ct.includes('text/event-stream')) {
+            if (!currentAssistantId) {
+              const extra = (pendingAssistantExtra && typeof pendingAssistantExtra === 'object') ? pendingAssistantExtra : null;
+              pendingAssistantExtra = null;
+              const placeholder = addHiddenMessage('assistant', '', extra || undefined);
+              currentAssistantId = placeholder.id;
+            }
             const r = await consumeSseStream(res, currentAssistantId);
             toolCalls = r?.tool_calls || [];
           } else {
+            if (!currentAssistantId) {
+              const extra = (pendingAssistantExtra && typeof pendingAssistantExtra === 'object') ? pendingAssistantExtra : null;
+              pendingAssistantExtra = null;
+              const placeholder = addMessage('assistant', '', extra || undefined);
+              currentAssistantId = placeholder.id;
+            }
             const data = await res.json();
             const parts = extractDeltaParts(data);
             toolCalls = getToolCallsFromResponse(data);
@@ -3059,8 +3540,8 @@
               const errText = errTexts.length ? errTexts.join('\n') : '工具调用失败';
               addSystemLog('工具调用失败：' + errText, { noContext: true });
               setMessageUiAndContent(currentAssistantId, '工具调用失败', '');
-              const nextAssistant = addMessage('assistant', '', { noContext: true });
-              currentAssistantId = nextAssistant.id;
+              currentAssistantId = null;
+              pendingAssistantExtra = { noContext: true };
               toolRounds++;
               allowTools = false;
               includeNoContextInRequest = true;
@@ -3068,8 +3549,8 @@
               setStatus('工具调用失败，继续生成说明…');
               continue;
             }
-            const nextAssistant = addMessage('assistant', '');
-            currentAssistantId = nextAssistant.id;
+            currentAssistantId = null;
+            pendingAssistantExtra = null;
             toolRounds++;
             setStatus('工具调用完成，继续生成…');
             continue;
@@ -3078,8 +3559,20 @@
           break;
         }
 
+        setStatus('完成');
         scheduleSave('完成');
       } catch (e) {
+        if (currentAssistantId) {
+          const m = getMessageById(currentAssistantId);
+          const canDrop = m && m.role === 'assistant'
+            && m.hidden === true
+            && !String(m.content || '').trim()
+            && !String(m.uiContent || '').trim()
+            && !String(m.reasoning || '').trim()
+            && !(Array.isArray(m.tool_calls) && m.tool_calls.length)
+            && !(Array.isArray(m.attachments) && m.attachments.length);
+          if (canDrop) removeMessageByIdSilently(currentAssistantId);
+        }
         if (e.name === 'AbortError') {
           setStatus('已停止');
           scheduleSave('停止');
@@ -3110,17 +3603,21 @@
         state.messages = state.messages.slice(0, idx + 1);
         rerenderAll();
         updateMessage(msg.id, '');
-        scheduleSave('重生成');
         await generateIntoMessage(state.messages.slice(0, idx), msg.id);
+        scheduleSave('重生成');
         return;
       }
 
       if (msg.role === 'user') {
         state.messages = state.messages.slice(0, idx + 1);
         rerenderAll();
-        const assistantMsg = addMessage('assistant', '');
+        if (!!els.streamToggle.checked) {
+          await generateIntoMessage(state.messages, null);
+        } else {
+          const assistantMsg = addMessage('assistant', '');
+          await generateIntoMessage(state.messages, assistantMsg.id);
+        }
         scheduleSave('重生成');
-        await generateIntoMessage(state.messages, assistantMsg.id);
       }
     }
 
@@ -3142,6 +3639,7 @@
         assistantSuffix: (els.assistantSuffix.value == null ? '' : String(els.assistantSuffix.value)),
         enableThinking: !!els.thinkingToggle.checked,
         enableWebSearch: !!els.webSearchToggle.checked,
+        enabledMcpTools: (Array.isArray(state.enabledMcpTools) ? state.enabledMcpTools : []),
         params: currentParams(),
         history: state.messages,
         systemLogs: state.systemLogs
@@ -3276,7 +3774,6 @@
     async function createCompletion() {
       setCompletionsLoading(true);
       try {
-        //const seedTitle = (els.titleInput.value || '').trim().slice(0, 60);
         // 改用默认的名字
         const seedTitle = '默认角色-' + Date.now();
         const data = await fetchJson('/api/chat/completion/create', {
@@ -3456,6 +3953,17 @@
       else els.thinkingToggle.checked = true;
       if (ext?.enableWebSearch != null) els.webSearchToggle.checked = !!ext.enableWebSearch;
       else els.webSearchToggle.checked = false;
+      
+      if (Array.isArray(ext?.enabledMcpTools)) {
+        state.enabledMcpTools = ext.enabledMcpTools.map(normalizeToolName).filter(Boolean);
+      } else if (!Array.isArray(state.enabledMcpTools)) {
+        state.enabledMcpTools = [];
+      }
+      if (state.mcpToolsData && els.mcpToolsList && els.mcpToolsList.childNodes && els.mcpToolsList.childNodes.length) {
+        renderMcpTools(state.mcpToolsData);
+      } else {
+        updateMcpToolsStatus();
+      }
 
       const loadedApiModel = (ext?.apiModel != null ? ext.apiModel : s.apiModel);
       if (loadedApiModel != null) {
@@ -3489,55 +3997,27 @@
       if (state.pendingAttachment && state.pendingAttachment.file) {
         state.pendingAttachment.messageId = userMsg.id;
       }
-      const assistantMsg = addMessage('assistant', '');
       scheduleSave('发送');
-      await generateIntoMessage(state.messages, assistantMsg.id);
-    }
-
-    async function saveKVCache() {
-      try {
-        const modelId = els.modelSelect.value;
-        if (!modelId) {
-          setStatus('请先选择一个模型');
-          return;
-        }
-
-        // 默认使用slot 0
-        const slotId = 0;
-
-        setStatus('保存KV缓存中...');
-        const response = await fetchJson('/api/models/slots/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modelId: modelId,
-            slotId: slotId
-          })
-        });
-
-        if (response.success) {
-          setStatus('KV缓存保存成功');
-        } else {
-          setStatus('KV缓存保存失败: ' + (response.message || '未知错误'));
-        }
-      } catch (e) {
-        setStatus('KV缓存保存失败: ' + e.message);
+      if (!!els.streamToggle.checked) {
+        await generateIntoMessage(state.messages, null);
+      } else {
+        const assistantMsg = addMessage('assistant', '');
+        await generateIntoMessage(state.messages, assistantMsg.id);
       }
     }
 
-    async function loadKVCache() {
+    async function kvCacheAction(action) {
+      const a = String(action || '').toLowerCase();
+      const verb = a === 'load' ? '加载' : '保存';
       try {
         const modelId = els.modelSelect.value;
         if (!modelId) {
           setStatus('请先选择一个模型');
           return;
         }
-
-        // 默认使用slot 0
         const slotId = 0;
-
-        setStatus('加载KV缓存中...');
-        const response = await fetchJson('/api/models/slots/load', {
+        setStatus(verb + 'KV缓存中...');
+        const response = await fetchJson('/api/models/slots/' + (a === 'load' ? 'load' : 'save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3547,12 +4027,12 @@
         });
 
         if (response.success) {
-          setStatus('KV缓存加载成功');
+          setStatus('KV缓存' + verb + '成功');
         } else {
-          setStatus('KV缓存加载失败: ' + (response.message || '未知错误'));
+          setStatus('KV缓存' + verb + '失败: ' + (response.message || '未知错误'));
         }
       } catch (e) {
-        setStatus('KV缓存加载失败: ' + e.message);
+        setStatus('KV缓存' + verb + '失败: ' + e.message);
       }
     }
 
@@ -3604,18 +4084,20 @@
       });
 
       els.toggleSettings.addEventListener('click', () => {
-        const open = els.settingsPanel.classList.toggle('open');
-        els.sysPromptBox.classList.toggle('open', open);
-        els.rolePromptBox.classList.toggle('open', open);
-        document.documentElement.style.overflow = open ? 'hidden' : '';
-        if (open && els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+        const open = !els.settingsPanel.classList.contains('open');
+        setSettingsOpen(open);
+        if (open) {
+          if (els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+          refreshMcpTools();
+        }
       });
       els.closeSettings.addEventListener('click', () => {
-        els.settingsPanel.classList.remove('open');
-        els.sysPromptBox.classList.remove('open');
-        els.rolePromptBox.classList.remove('open');
-        document.documentElement.style.overflow = '';
+        setSettingsOpen(false);
       });
+
+      if (els.refreshMcpTools) {
+        els.refreshMcpTools.addEventListener('click', () => refreshMcpTools());
+      }
       
       if (els.avatarSettingPreview) {
         els.avatarSettingPreview.addEventListener('click', () => {
@@ -3677,11 +4159,11 @@
       els.kvCacheModal.addEventListener('click', (e) => {
         if (e.target === els.kvCacheModal) closeKVCacheModal();
       });
-      els.saveKV.addEventListener('click', saveKVCache);
-      els.loadKV.addEventListener('click', loadKVCache);
+      els.saveKV.addEventListener('click', () => kvCacheAction('save'));
+      els.loadKV.addEventListener('click', () => kvCacheAction('load'));
 
       els.editModal.addEventListener('click', (e) => {
-        if (e.target === els.editModal) return;
+        if (e.target === els.editModal) closeEditModal();
       });
       els.editClose.addEventListener('click', closeEditModal);
       els.editCancel.addEventListener('click', closeEditModal);
@@ -3698,10 +4180,7 @@
             return;
           }
           if (els.settingsPanel.classList.contains('open')) {
-            els.settingsPanel.classList.remove('open');
-            els.sysPromptBox.classList.remove('open');
-            els.rolePromptBox.classList.remove('open');
-            document.documentElement.style.overflow = '';
+            setSettingsOpen(false);
             return;
           }
           if (els.drawer.classList.contains('open')) {

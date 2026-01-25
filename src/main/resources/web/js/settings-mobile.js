@@ -28,12 +28,16 @@
         const llamaBtn = byId('mobileSettingsLlamaCppBtn');
         const pathBtn = byId('mobileSettingsModelPathBtn');
         const consoleBtn = byId('mobileSettingsConsoleBtn');
+        const mcpBtn = byId('mobileSettingsMcpBtn');
         const shutdownBtn = byId('mobileSettingsShutdownBtn');
 
         if (llamaBtn) llamaBtn.addEventListener('click', function () { go('llamacpp'); });
         if (pathBtn) pathBtn.addEventListener('click', function () { go('modelpaths'); });
         if (consoleBtn) consoleBtn.addEventListener('click', function () {
             if (typeof window.openConsoleModal === 'function') window.openConsoleModal();
+        });
+        if (mcpBtn) mcpBtn.addEventListener('click', function () {
+            window.open('tools/mcp-manager.html', '_blank');
         });
         if (shutdownBtn) shutdownBtn.addEventListener('click', shutdownService);
     }

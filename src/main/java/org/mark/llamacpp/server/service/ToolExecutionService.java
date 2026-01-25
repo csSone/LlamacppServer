@@ -2,6 +2,7 @@ package org.mark.llamacpp.server.service;
 
 import java.io.IOException;
 
+import org.mark.llamacpp.server.mcp.McpClientService;
 import org.mark.llamacpp.server.tools.JsonUtil;
 
 import com.google.gson.JsonArray;
@@ -41,7 +42,12 @@ public class ToolExecutionService {
 		}
 		String name = toolName.trim();
 		if (!"builtin_web_search".equals(name)) {
-			return "检测到 tool_calls，但暂不支持该工具：" + name;
+			try {
+				JsonObject resp = McpClientService.getInstance().callTool(name, toolArguments);
+				return formatMcpToolResult(resp);
+			} catch (Exception e) {
+				return "MCP工具调用失败：" + e.getMessage();
+			}
 		}
 
 		JsonObject args = null;
@@ -71,6 +77,49 @@ public class ToolExecutionService {
 		} catch (Exception e) {
 			return "联网搜索失败：" + e.getMessage();
 		}
+	}
+	
+	private String formatMcpToolResult(JsonObject resp) {
+		if (resp == null) {
+			return "";
+		}
+		if (resp.has("error") && resp.get("error") != null && resp.get("error").isJsonObject()) {
+			JsonObject err = resp.getAsJsonObject("error");
+			String msg = safeString(err, "message");
+			return msg == null ? "MCP工具调用失败" : ("MCP工具调用失败：" + msg);
+		}
+		if (!resp.has("result") || resp.get("result") == null || !resp.get("result").isJsonObject()) {
+			return resp.toString();
+		}
+		JsonObject result = resp.getAsJsonObject("result");
+		if (!result.has("content") || result.get("content") == null || !result.get("content").isJsonArray()) {
+			return result.toString();
+		}
+		JsonArray contentArr = result.getAsJsonArray("content");
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < contentArr.size(); i++) {
+			JsonElement el = contentArr.get(i);
+			if (el == null || !el.isJsonObject()) {
+				continue;
+			}
+			JsonObject item = el.getAsJsonObject();
+			String type = safeString(item, "type");
+			if (type != null && type.equals("text")) {
+				String text = safeString(item, "text");
+				if (text != null && !text.isBlank()) {
+					if (sb.length() > 0) {
+						sb.append("\n");
+					}
+					sb.append(text.trim());
+				}
+			} else {
+				if (sb.length() > 0) {
+					sb.append("\n");
+				}
+				sb.append(item.toString());
+			}
+		}
+		return sb.toString().trim();
 	}
 	
 	/**
