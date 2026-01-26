@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -6,6 +6,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Easy Chat</title>
   <link rel="stylesheet" href="/css/completion.css" />
+  <style>
+    /* Drawer Tabs Styles */
+    .drawer-tabs {
+      display: flex;
+      padding: 8px 14px;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .drawer-tab-item {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .drawer-tab-item:hover {
+      background: rgba(0, 0, 0, 0.04);
+      color: var(--text);
+    }
+    .drawer-tab-item.active {
+      background: #ffffff;
+      color: var(--primary);
+      border-color: var(--border);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .drawer-content {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .drawer-content.active {
+      display: flex;
+    }
+    .drawer-actions {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #topicList {
+      flex: 1;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 
 <body>
@@ -29,13 +86,6 @@
 
         <div class="composer">
           <div class="model-row">
-            <div class="topic-panel">
-              <div class="topic-head">
-                <div class="topic-title">话题</div>
-                <button id="newTopicBtn" class="btn" type="button">新建话题</button>
-              </div>
-              <div id="topicList" class="topic-list"></div>
-            </div>
             <div id="easy-setting">
               <div class="toggle">
                 <input id="autoScroll" type="checkbox" checked />
@@ -60,84 +110,115 @@
             </div>
           </div>
 
-          <div id="settingsPanel" class="settings">
-            <div class="settings-head">
-              <div class="settings-title">设置</div>
-              <button id="closeSettings" class="btn" type="button">关闭</button>
-            </div>
-
-            <div class="settings-body">
-              <div class="settings-left">
-                <div class="setting avatar-setting">
-                  <label>头像</label>
-                  <div id="avatarSettingPreview" class="avatar clickable" title="点击查看头像">AI</div>
-                  <button id="avatarSettingUpload" class="btn" type="button">更换</button>
+          <div id="settingsPanel" class="settings-modal" aria-hidden="true" inert>
+            <div class="settings-container">
+              <div class="settings-sidebar">
+                <div class="settings-header">
+                  <div class="settings-title">设置</div>
                 </div>
-                <div class="setting">
-                  <label for="userName">用户名字</label>
-                  <input id="userName" type="text" placeholder="例如：我" />
-                </div>
-                <div class="setting">
-                  <label for="apiModelSelect">API 端点</label>
-                  <select id="apiModelSelect">
-                    <option value="1">/v1/chat/completions</option>
-                    <option value="0">/v1/completions</option>
-                  </select>
-                </div>
-                <div class="setting">
-                  <label for="maxTokens">max_tokens</label>
-                  <input id="maxTokens" type="number" value="512" min="1" max="32768" />
-                </div>
-                <div class="setting">
-                  <label for="temperature">temperature</label>
-                  <input id="temperature" type="number" value="0.7" step="0.1" min="0" max="2" />
-                </div>
-                <div class="setting">
-                  <label for="topP">top_p</label>
-                  <input id="topP" type="number" value="1" step="0.05" min="0" max="1" />
-                </div>
-                <div class="setting">
-                  <label for="minP">min_p</label>
-                  <input id="minP" type="number" step="0.01" min="0" max="1" value="0.05" />
-                </div>
-                <div class="setting">
-                  <label for="repeatPenalty">repeat_penalty</label>
-                  <input id="repeatPenalty" type="number" step="0.05" min="0" max="10" value="1.0" />
-                </div>
-                <div class="long-setting">
-                  <label for="stopSequences">stop</label>
-                  <textarea id="stopSequences" placeholder="一行一个 stop 序列；留空表示使用内置默认 stop"></textarea>
+                <nav class="settings-nav">
+                  <button class="nav-item active" data-tab="general">通用设置</button>
+                  <button class="nav-item" data-tab="model">模型参数</button>
+                  <button class="nav-item" data-tab="template">对话模板</button>
+                </nav>
+                <div class="settings-footer">
+                  <button id="closeSettings" class="btn primary full-width" type="button">完成</button>
                 </div>
               </div>
-
-              <div class="settings-center">
-                <div id="sysPromptBox" class="sys-prompt">
-                  <div class="sys-title">系统描述（将加入到对话开头）</div>
-                  <textarea id="systemPrompt" placeholder="例如：你是一个严谨的写作助手，输出中文，结构清晰…"></textarea>
+              
+              <div class="settings-main">
+                <div id="tab-general" class="settings-tab active">
+                  <div class="setting-group">
+                    <h3 class="group-title">个人信息</h3>
+                    <div class="setting-row">
+                      <label>头像</label>
+                      <div class="avatar-wrapper">
+                        <div id="avatarSettingPreview" class="avatar clickable" title="点击查看头像">AI</div>
+                        <button id="avatarSettingUpload" class="btn small" type="button">更换</button>
+                      </div>
+                    </div>
+                    <div class="setting-row">
+                      <label for="userName">用户昵称</label>
+                      <input id="userName" type="text" placeholder="例如：我" class="input-styled" />
+                    </div>
+                  </div>
+                  
+                  <div class="setting-group">
+                    <h3 class="group-title">角色设定</h3>
+                    <div id="sysPromptBox" class="setting-block">
+                      <label for="systemPrompt">系统描述 <span class="sub-label">（对话开头）</span></label>
+                      <textarea id="systemPrompt" placeholder="例如：你是一个严谨的写作助手，输出中文，结构清晰…"></textarea>
+                    </div>
+                    <div id="rolePromptBox" class="setting-block">
+                      <label for="rolePrompt">角色详情 <span class="sub-label">（性格/目标/设定）</span></label>
+                      <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
+                    </div>
+                  </div>
                 </div>
 
-                <div id="rolePromptBox" class="sys-prompt">
-                  <div class="sys-title">角色设定（将加入到对话开头）</div>
-                  <textarea id="rolePrompt" placeholder="例如：你叫XX，你的性格/目标/口癖/世界观…"></textarea>
+                <div id="tab-model" class="settings-tab">
+                  <div class="setting-group">
+                    <h3 class="group-title">接口配置</h3>
+                    <div class="setting-row">
+                      <label for="apiModelSelect">API 端点</label>
+                      <select id="apiModelSelect" class="select-styled">
+                        <option value="1">/v1/chat/completions</option>
+                        <option value="0">/v1/completions</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="setting-group">
+                    <h3 class="group-title">生成参数</h3>
+                    <div class="grid-2">
+                      <div class="setting-block">
+                        <label for="maxTokens">Max Tokens</label>
+                        <input id="maxTokens" type="number" value="512" min="1" max="32768" class="input-styled" />
+                      </div>
+                      <div class="setting-block">
+                        <label for="temperature">Temperature</label>
+                        <input id="temperature" type="number" value="0.7" step="0.1" min="0" max="2" class="input-styled" />
+                      </div>
+                      <div class="setting-block">
+                        <label for="topP">Top P</label>
+                        <input id="topP" type="number" value="1" step="0.05" min="0" max="1" class="input-styled" />
+                      </div>
+                      <div class="setting-block">
+                        <label for="minP">Min P</label>
+                        <input id="minP" type="number" step="0.01" min="0" max="1" value="0.05" class="input-styled" />
+                      </div>
+                      <div class="setting-block">
+                        <label for="repeatPenalty">Repeat Penalty</label>
+                        <input id="repeatPenalty" type="number" step="0.05" min="0" max="10" value="1.0" class="input-styled" />
+                      </div>
+                    </div>
+                    <div class="setting-block">
+                      <label for="stopSequences">Stop Sequences <span class="sub-label">（一行一个）</span></label>
+                      <textarea id="stopSequences" placeholder="留空表示使用内置默认 stop" class="code-font"></textarea>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="settings-right">
-                <div class="long-setting">
-                  <label for="userPrefix">用户消息前缀</label>
-                  <textarea id="userPrefix" placeholder="可选"></textarea>
-                </div>
-                <div class="long-setting">
-                  <label for="userSuffix">用户消息后缀</label>
-                  <textarea id="userSuffix" placeholder="可选"></textarea>
-                </div>
-                <div class="long-setting">
-                  <label for="assistantPrefix">助手消息前缀</label>
-                  <textarea id="assistantPrefix" placeholder="可选"></textarea>
-                </div>
-                <div class="long-setting">
-                  <label for="assistantSuffix">助手消息后缀</label>
-                  <textarea id="assistantSuffix" placeholder="可选"></textarea>
+                <div id="tab-template" class="settings-tab">
+                  <div class="setting-group">
+                    <h3 class="group-title">消息模板</h3>
+                    <div class="setting-block">
+                      <label for="userPrefix">用户消息前缀</label>
+                      <textarea id="userPrefix" placeholder="可选"></textarea>
+                    </div>
+                    <div class="setting-block">
+                      <label for="userSuffix">用户消息后缀</label>
+                      <textarea id="userSuffix" placeholder="可选"></textarea>
+                    </div>
+                    <div class="setting-block">
+                      <label for="assistantPrefix">助手消息前缀</label>
+                      <textarea id="assistantPrefix" placeholder="可选"></textarea>
+                    </div>
+                    <div class="setting-block">
+                      <label for="assistantSuffix">助手消息后缀</label>
+                      <textarea id="assistantSuffix" placeholder="可选"></textarea>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -175,15 +256,30 @@
     <div id="modelRowBackdrop" class="backdrop"></div>
     <aside id="sessionsDrawer" class="drawer" aria-hidden="true">
       <div class="drawer-header">
-        <div class="drawer-title">角色</div>
+        <div class="drawer-title" id="drawerTitle">管理</div>
         <button id="drawerClose" class="btn icon-btn" type="button" aria-label="Close">×</button>
       </div>
-      <div class="drawer-actions">
-        <button id="newSessionBtn" class="btn primary" type="button">新建角色</button>
-        <button id="reloadSessionsBtn" class="btn" type="button">刷新</button>
-        <span class="hint" id="drawerHint"></span>
+
+      <div class="drawer-tabs">
+        <button class="drawer-tab-item active" data-tab="sessions">角色</button>
+        <button class="drawer-tab-item" data-tab="topics">话题</button>
       </div>
-      <ul id="sessionsList" class="sessions"></ul>
+
+      <div id="sessionsTab" class="drawer-content active">
+        <div class="drawer-actions">
+          <button id="newSessionBtn" class="btn primary" type="button">新建角色</button>
+          <button id="reloadSessionsBtn" class="btn" type="button">刷新</button>
+          <span class="hint" id="drawerHint"></span>
+        </div>
+        <ul id="sessionsList" class="sessions"></ul>
+      </div>
+
+      <div id="topicsTab" class="drawer-content">
+        <div class="drawer-actions">
+          <button id="newTopicBtn" class="btn primary" type="button">新建话题</button>
+        </div>
+        <div id="topicList" class="topic-list" style="padding: 10px;"></div>
+      </div>
     </aside>
 
     <div id="editModal" class="modal-wrap" aria-hidden="true">
@@ -251,6 +347,41 @@
   <script src="/js/completion-ui-render.js"></script>
   <script src="/js/completion-runtime.js"></script>
   <script src="/js/completion-init.js"></script>
+  <script>
+    // Drawer Tab Switching Logic
+    (function() {
+      function initDrawerTabs() {
+        const tabBtns = document.querySelectorAll('.drawer-tab-item');
+        const tabPanes = document.querySelectorAll('.drawer-content');
+        const sessionsToggle = document.getElementById('sessionsToggle');
+
+        function switchTab(tabId) {
+          tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+          tabPanes.forEach(pane => pane.classList.toggle('active', pane.id === tabId + 'Tab'));
+          if (tabId === 'topics' && typeof renderTopics === 'function') {
+            renderTopics();
+          }
+        }
+
+        tabBtns.forEach(btn => {
+          btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // Intercept sessionsToggle to switch to sessions tab
+        if (sessionsToggle) {
+          sessionsToggle.addEventListener('click', (e) => {
+            switchTab('sessions');
+          }, true);
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDrawerTabs);
+      } else {
+        initDrawerTabs();
+      }
+    })();
+  </script>
 </body>
 
 </html>

@@ -11,7 +11,9 @@
 <body>
   <div class="app">
     <div class="header">
-      <input id="titleInput" class="title-input" type="text" placeholder="角色名称（自动保存）" />
+      <div class="chat-title">
+        <input id="titleInput" class="title-input" type="text" placeholder="角色名称（自动保存）" />
+      </div>
       <button id="sessionsToggle" class="btn icon-btn ghost" type="button" aria-label="角色列表">☰</button>
       <button id="toggleSettings" class="btn icon-btn ghost" type="button" aria-label="设置">⚙</button>
     </div>
@@ -20,14 +22,6 @@
 
     <div class="composer">
       <div class="model-row">
-        <div class="topic-panel">
-          <div class="topic-head">
-            <div class="topic-title">话题</div>
-            <button id="newTopicBtn" class="btn" type="button">新建话题</button>
-          </div>
-          <div id="topicList" class="topic-list"></div>
-        </div>
-
         <div class="pill">
           <label for="modelSelect">模型</label>
           <select id="modelSelect"></select>

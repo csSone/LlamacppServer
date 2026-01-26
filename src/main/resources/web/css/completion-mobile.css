@@ -600,6 +600,60 @@ textarea {
   background: rgba(2, 6, 23, 0.22);
 }
 
+.topic-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  display: none;
+  flex-direction: column;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.topic-overlay.open {
+  display: flex;
+}
+
+#topicBackdrop {
+  z-index: 80;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.topic-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0 10px;
+}
+
+.topic-overlay-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 0 10px;
+}
+
+.topic-overlay-actions .btn {
+  flex: 1 1 auto;
+}
+
+.topic-overlay-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(241, 245, 249, 0.9));
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.topic-overlay-body .topic-list {
+  flex: 1 1 auto;
+}
+
 .drawer {
   position: fixed;
   right: 0;

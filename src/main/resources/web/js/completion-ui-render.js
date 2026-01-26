@@ -60,11 +60,56 @@ function closeDrawer() {
   els.backdrop.classList.remove('show');
 }
 
+let lastSettingsFocus = null;
+let settingsTabsBound = false;
+
+function bindSettingsTabs() {
+  if (settingsTabsBound) return;
+  const panel = els.settingsPanel;
+  if (!panel) return;
+  const navItems = Array.from(panel.querySelectorAll('.nav-item'));
+  const tabs = Array.from(panel.querySelectorAll('.settings-tab'));
+  if (!navItems.length || !tabs.length) return;
+
+  for (const btn of navItems) {
+    btn.addEventListener('click', () => {
+      const key = btn?.dataset?.tab ? String(btn.dataset.tab) : '';
+      if (!key) return;
+      for (const b of navItems) b.classList.toggle('active', b === btn);
+      for (const t of tabs) t.classList.toggle('active', t && t.id === 'tab-' + key);
+    });
+  }
+
+  settingsTabsBound = true;
+}
+
 function setSettingsOpen(open) {
   const isOpen = !!open;
-  els.settingsPanel.classList.toggle('open', isOpen);
-  els.sysPromptBox.classList.toggle('open', isOpen);
-  els.rolePromptBox.classList.toggle('open', isOpen);
+  const panel = els.settingsPanel;
+  if (!panel) return;
+
+  if (isOpen) {
+    lastSettingsFocus = document.activeElement;
+    bindSettingsTabs();
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    panel.removeAttribute('inert');
+    if (!panel.hasAttribute('role')) panel.setAttribute('role', 'dialog');
+    if (!panel.hasAttribute('aria-modal')) panel.setAttribute('aria-modal', 'true');
+    if (els.closeSettings) els.closeSettings.focus({ preventScroll: true });
+  } else {
+    const active = document.activeElement;
+    const isFocusInside = active && panel.contains(active);
+    const focusTarget = (lastSettingsFocus && document.contains(lastSettingsFocus)) ? lastSettingsFocus : els.toggleSettings;
+    if (isFocusInside) {
+      if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus({ preventScroll: true });
+      else if (active && typeof active.blur === 'function') active.blur();
+    }
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('inert', '');
+    lastSettingsFocus = null;
+  }
   document.documentElement.style.overflow = isOpen ? 'hidden' : '';
 }
 
