@@ -53,17 +53,38 @@ function refreshCompletionTitleInMessages() {
 }
 
 function openDrawer() {
+  if (!els.drawer) return;
+  lastDrawerFocus = document.activeElement;
   els.drawer.classList.add('open');
   els.drawer.setAttribute('aria-hidden', 'false');
+  els.drawer.removeAttribute('inert');
+  if (!els.drawer.hasAttribute('role')) els.drawer.setAttribute('role', 'dialog');
+  if (!els.drawer.hasAttribute('aria-modal')) els.drawer.setAttribute('aria-modal', 'true');
   els.backdrop.classList.add('show');
+  if (els.drawerClose) {
+    setTimeout(() => {
+      try { els.drawerClose.focus({ preventScroll: true }); } catch (e) { }
+    }, 0);
+  }
 }
 
 function closeDrawer() {
+  if (!els.drawer) return;
+  const active = document.activeElement;
+  const isFocusInside = active && els.drawer.contains(active);
+  const focusTarget = (lastDrawerFocus && document.contains(lastDrawerFocus)) ? lastDrawerFocus : els.sessionsToggle;
+  if (isFocusInside) {
+    if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus({ preventScroll: true });
+    else if (active && typeof active.blur === 'function') active.blur();
+  }
   els.drawer.classList.remove('open');
   els.drawer.setAttribute('aria-hidden', 'true');
+  els.drawer.setAttribute('inert', '');
   els.backdrop.classList.remove('show');
+  lastDrawerFocus = null;
 }
 
+let lastDrawerFocus = null;
 let lastSettingsFocus = null;
 let settingsTabsBound = false;
 

@@ -329,7 +329,7 @@
     </div>
 
     <div id="drawerBackdrop" class="backdrop"></div>
-    <aside id="sessionsDrawer" class="drawer" aria-hidden="true">
+    <aside id="sessionsDrawer" class="drawer" aria-hidden="true" inert>
       <div class="drawer-header">
         <div class="drawer-title" id="drawerTitle">管理</div>
         <button id="drawerClose" class="btn icon-btn" type="button" aria-label="Close">×</button>
@@ -523,7 +523,6 @@
           if (newRaw !== currentRaw) {
             hiddenTitleInput.value = newRaw;
             safeCall(() => window.refreshCompletionTitleInMessages && window.refreshCompletionTitleInMessages());
-            safeCall(() => window.scheduleSave && window.scheduleSave('标题'));
           }
           syncTagFromHidden();
         }, true);

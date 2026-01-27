@@ -41,6 +41,47 @@ function bindEvents() {
 
   const isMobilePage = isMobileCompletionHtml();
   let lastTopicFocus = null;
+  state.settingsSnapshot = null;
+
+  function captureSettingsSnapshot() {
+    return {
+      apiModel: state.apiModel,
+      apiModelSelect: els.apiModelSelect ? String(els.apiModelSelect.value || '') : '',
+      userName: els.userName ? String(els.userName.value || '') : '',
+      systemPrompt: els.systemPrompt ? String(els.systemPrompt.value || '') : '',
+      rolePrompt: els.rolePrompt ? String(els.rolePrompt.value || '') : '',
+      userPrefix: els.userPrefix ? String(els.userPrefix.value || '') : '',
+      userSuffix: els.userSuffix ? String(els.userSuffix.value || '') : '',
+      assistantPrefix: els.assistantPrefix ? String(els.assistantPrefix.value || '') : '',
+      assistantSuffix: els.assistantSuffix ? String(els.assistantSuffix.value || '') : '',
+      maxTokens: els.maxTokens ? String(els.maxTokens.value || '') : '',
+      temperature: els.temperature ? String(els.temperature.value || '') : '',
+      topP: els.topP ? String(els.topP.value || '') : '',
+      minP: els.minP ? String(els.minP.value || '') : '',
+      repeatPenalty: els.repeatPenalty ? String(els.repeatPenalty.value || '') : '',
+      stopSequences: els.stopSequences ? String(els.stopSequences.value || '') : ''
+    };
+  }
+
+  function restoreSettingsSnapshot() {
+    const snap = state.settingsSnapshot;
+    if (!snap) return;
+    if (els.apiModelSelect) els.apiModelSelect.value = snap.apiModelSelect;
+    state.apiModel = Number(snap.apiModel) === 0 ? 0 : 1;
+    if (els.userName) els.userName.value = snap.userName;
+    if (els.systemPrompt) els.systemPrompt.value = snap.systemPrompt;
+    if (els.rolePrompt) els.rolePrompt.value = snap.rolePrompt;
+    if (els.userPrefix) els.userPrefix.value = snap.userPrefix;
+    if (els.userSuffix) els.userSuffix.value = snap.userSuffix;
+    if (els.assistantPrefix) els.assistantPrefix.value = snap.assistantPrefix;
+    if (els.assistantSuffix) els.assistantSuffix.value = snap.assistantSuffix;
+    if (els.maxTokens) els.maxTokens.value = snap.maxTokens;
+    if (els.temperature) els.temperature.value = snap.temperature;
+    if (els.topP) els.topP.value = snap.topP;
+    if (els.minP) els.minP.value = snap.minP;
+    if (els.repeatPenalty) els.repeatPenalty.value = snap.repeatPenalty;
+    if (els.stopSequences) els.stopSequences.value = snap.stopSequences;
+  }
 
   function setTopicOpen(open) {
     const isOpen = !!open;
@@ -122,7 +163,11 @@ function bindEvents() {
   if (els.topicToggle) {
     els.topicToggle.addEventListener('click', () => {
       if (els.drawer && els.drawer.classList.contains('open')) closeDrawer();
-      if (els.settingsPanel && els.settingsPanel.classList.contains('open')) setSettingsOpen(false);
+      if (els.settingsPanel && els.settingsPanel.classList.contains('open')) {
+        restoreSettingsSnapshot();
+        state.settingsSnapshot = null;
+        setSettingsOpen(false);
+      }
       if (els.modelRow && els.modelRow.classList.contains('visible')) setModelRowOpen(false);
       const open = isMobilePage
         ? !(els.topicOverlay && els.topicOverlay.classList.contains('open'))
@@ -208,7 +253,9 @@ function bindEvents() {
 
   els.sendBtn.addEventListener('click', () => runCompletion());
   els.stopBtn.addEventListener('click', () => {
+    if (typeof setStatus === 'function') setStatus('停止中…');
     if (state.abortController) state.abortController.abort();
+    if (state.toolAbortController) state.toolAbortController.abort();
   });
 
   els.clearChat.addEventListener('click', () => {
@@ -219,16 +266,96 @@ function bindEvents() {
     scheduleSave('清空对话');
   });
 
-  els.toggleSettings.addEventListener('click', () => {
+  const titleTag = document.getElementById('chatTitleTag');
+  const titleMain = document.getElementById('chatTitleMain');
+  const titleSettingInput = document.getElementById('completionTitleSetting');
+
+  function computeTitleDisplay(raw) {
+    const t = (raw == null ? '' : String(raw)).trim();
+    return { main: t || '默认角色' };
+  }
+
+  function syncTitleTagFromHidden() {
+    if (!isMobilePage) return;
+    if (!titleTag || !titleMain || !els.titleInput) return;
+    const d = computeTitleDisplay(els.titleInput.value);
+    titleMain.textContent = d.main;
+    titleTag.setAttribute('aria-label', d.main + '，点此打开设置');
+    titleTag.title = d.main + '（点此打开设置）';
+  }
+
+  function syncTitleSettingFromHidden() {
+    if (!isMobilePage) return;
+    if (!titleSettingInput || !els.titleInput) return;
+    titleSettingInput.value = (els.titleInput.value == null ? '' : String(els.titleInput.value));
+  }
+
+  function focusTitleSettingInput() {
+    if (!isMobilePage) return;
+    if (!titleSettingInput) return;
+    try { titleSettingInput.focus({ preventScroll: true }); } catch (e) {}
+    try { titleSettingInput.select(); } catch (e) {}
+  }
+
+  function toggleSettingsPanel() {
     const open = !els.settingsPanel.classList.contains('open');
-    setSettingsOpen(open);
     if (open) {
+      state.settingsSnapshot = captureSettingsSnapshot();
+      syncTitleSettingFromHidden();
+      setSettingsOpen(true);
       if (els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+      return;
     }
-  });
+    restoreSettingsSnapshot();
+    state.settingsSnapshot = null;
+    setSettingsOpen(false);
+  }
+
+  if (els.toggleSettings) {
+    els.toggleSettings.addEventListener('click', toggleSettingsPanel);
+  }
+
+  if (isMobilePage && titleTag) {
+    titleTag.addEventListener('click', () => {
+      if (els.drawer && els.drawer.classList.contains('open')) closeDrawer();
+      if (els.topicOverlay && els.topicOverlay.classList.contains('open')) setTopicOpen(false);
+      if (!els.settingsPanel.classList.contains('open')) {
+        state.settingsSnapshot = captureSettingsSnapshot();
+        syncTitleSettingFromHidden();
+        setSettingsOpen(true);
+        if (els.avatarSettingPreview) applyAssistantAvatar(els.avatarSettingPreview);
+      } else {
+        syncTitleSettingFromHidden();
+      }
+      setTimeout(focusTitleSettingInput, 0);
+    });
+  }
+
   els.closeSettings.addEventListener('click', () => {
+    if (isMobilePage && titleSettingInput && els.titleInput) {
+      const newRaw = (titleSettingInput.value == null ? '' : String(titleSettingInput.value)).trim();
+      const currentRaw = (els.titleInput.value == null ? '' : String(els.titleInput.value)).trim();
+      if (newRaw !== currentRaw) {
+        els.titleInput.value = newRaw;
+        if (typeof refreshCompletionTitleInMessages === 'function') refreshCompletionTitleInMessages();
+      }
+      syncTitleTagFromHidden();
+    }
+    state.apiModel = Number(els.apiModelSelect.value) === 0 ? 0 : 1;
+    state.settingsSnapshot = null;
+    if (typeof flushSave === 'function') flushSave('设置');
     setSettingsOpen(false);
   });
+  {
+    const cancelBtn = document.getElementById('cancelSettings');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        restoreSettingsSnapshot();
+        state.settingsSnapshot = null;
+        setSettingsOpen(false);
+      });
+    }
+  }
 
   if (els.refreshMcpTools) {
     els.refreshMcpTools.addEventListener('click', () => refreshMcpTools());
@@ -264,26 +391,13 @@ function bindEvents() {
 
   els.titleInput.addEventListener('input', () => {
     refreshCompletionTitleInMessages();
+    syncTitleTagFromHidden();
     scheduleSave('标题');
   });
   els.modelSelect.addEventListener('change', () => scheduleSave('模型'));
   els.apiModelSelect.addEventListener('change', () => {
     state.apiModel = Number(els.apiModelSelect.value) === 0 ? 0 : 1;
-    scheduleSave('端点');
   });
-  els.systemPrompt.addEventListener('input', () => scheduleSave('系统描述'));
-  els.rolePrompt.addEventListener('input', () => scheduleSave('角色设定'));
-  els.userName.addEventListener('input', () => scheduleSave('用户名'));
-  els.userPrefix.addEventListener('input', () => scheduleSave('用户前缀'));
-  els.userSuffix.addEventListener('input', () => scheduleSave('用户后缀'));
-  els.assistantPrefix.addEventListener('input', () => scheduleSave('助手前缀'));
-  els.assistantSuffix.addEventListener('input', () => scheduleSave('助手后缀'));
-  els.maxTokens.addEventListener('input', () => scheduleSave('参数'));
-  els.temperature.addEventListener('input', () => scheduleSave('参数'));
-  els.topP.addEventListener('input', () => scheduleSave('参数'));
-  els.minP.addEventListener('input', () => scheduleSave('参数'));
-  els.repeatPenalty.addEventListener('input', () => scheduleSave('参数'));
-  els.stopSequences.addEventListener('input', () => scheduleSave('参数'));
   els.thinkingToggle.addEventListener('change', () => scheduleSave('思考开关'));
   els.webSearchToggle.addEventListener('change', () => scheduleSave('联网搜索开关'));
 
@@ -333,6 +447,8 @@ function bindEvents() {
         return;
       }
       if (els.settingsPanel.classList.contains('open')) {
+        restoreSettingsSnapshot();
+        state.settingsSnapshot = null;
         setSettingsOpen(false);
         return;
       }
@@ -358,6 +474,29 @@ function bindEvents() {
       runCompletion();
     }
   });
+
+  if (isMobilePage && titleTag && titleMain && els.titleInput) {
+    syncTitleTagFromHidden();
+    if (!window.__mobileChatTitlePatched) {
+      window.__mobileChatTitlePatched = true;
+      const originalApplyCompletionData = window.applyCompletionData;
+      if (typeof originalApplyCompletionData === 'function') {
+        window.applyCompletionData = function() {
+          const ret = originalApplyCompletionData.apply(this, arguments);
+          syncTitleTagFromHidden();
+          if (els.settingsPanel && els.settingsPanel.classList.contains('open')) syncTitleSettingFromHidden();
+          return ret;
+        };
+      }
+      const originalSetSettingsOpen = window.setSettingsOpen;
+      if (typeof originalSetSettingsOpen === 'function') {
+        window.setSettingsOpen = function(open) {
+          if (open) syncTitleSettingFromHidden();
+          return originalSetSettingsOpen.apply(this, arguments);
+        };
+      }
+    }
+  }
 }
 
 async function init() {

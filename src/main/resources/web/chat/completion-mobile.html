@@ -13,10 +13,12 @@
     <div class="header">
       <button id="topicToggle" class="btn icon-btn ghost" type="button" aria-label="话题">🏷</button>
       <div class="chat-title">
-        <input id="titleInput" class="title-input" type="text" placeholder="角色名称（自动保存）" />
+        <button id="chatTitleTag" class="title-input title-tag" type="button" aria-label="打开设置">
+          <span id="chatTitleMain" class="title-tag-main"></span>
+        </button>
+        <input id="titleInput" class="title-input is-hidden" type="text" placeholder="角色名称（自动保存）" tabindex="-1" aria-hidden="true" />
       </div>
       <button id="sessionsToggle" class="btn icon-btn ghost" type="button" aria-label="角色列表">☰</button>
-      <button id="toggleSettings" class="btn icon-btn ghost" type="button" aria-label="设置">⚙</button>
     </div>
 
     <div id="chatList" class="chat-list"></div>
@@ -66,6 +68,10 @@
               <div id="avatarSettingPreview" class="avatar clickable" title="点击查看头像">AI</div>
               <button id="avatarSettingUpload" class="btn" type="button">更换</button>
             </div>
+          </div>
+          <div class="setting">
+            <label for="completionTitleSetting">角色名称</label>
+            <input id="completionTitleSetting" type="text" placeholder="例如：默认角色" />
           </div>
           <div class="setting">
             <label for="apiModelSelect">API 端点</label>
@@ -169,7 +175,7 @@
     </div>
 
     <div id="drawerBackdrop" class="backdrop"></div>
-    <aside id="sessionsDrawer" class="drawer" aria-hidden="true">
+    <aside id="sessionsDrawer" class="drawer" aria-hidden="true" inert>
       <div class="drawer-header">
         <div class="drawer-title">角色</div>
         <button id="drawerClose" class="btn icon-btn" type="button" aria-label="关闭">×</button>

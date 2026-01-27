@@ -875,6 +875,16 @@ async function regenerateMessage(messageId) {
     if (!confirm('将删除该气泡之后的对话内容并从这里重新生成，继续？')) return;
   }
 
+  {
+    const cutoff = Number.isFinite(msg?.order) ? msg.order : (Number.isFinite(msg?.ts) ? msg.ts : 0);
+    if (cutoff) {
+      state.systemLogs = (Array.isArray(state.systemLogs) ? state.systemLogs : []).filter(m => {
+        const o = Number.isFinite(m?.order) ? m.order : (Number.isFinite(m?.ts) ? m.ts : 0);
+        return o <= cutoff;
+      });
+    }
+  }
+
   if (msg.role === 'assistant') {
     const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
     if (hasToolCalls) {

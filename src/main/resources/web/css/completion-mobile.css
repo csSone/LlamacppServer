@@ -87,6 +87,28 @@ textarea {
   width: 100%;
 }
 
+.title-input.is-hidden {
+  display: none;
+}
+
+#chatTitleTag.title-tag {
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 10px;
+}
+
+#chatTitleTag .title-tag-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+
 .btn {
   border: 1px solid var(--border);
   background: var(--surface);
@@ -136,7 +158,7 @@ textarea {
 .chat-list {
   flex: 1;
   overflow: auto;
-  padding: 12px 12px 190px;
+  padding: 12px;
   background:
     radial-gradient(700px 450px at 40% 10%, rgba(148, 163, 184, 0.08), transparent 65%),
     transparent;

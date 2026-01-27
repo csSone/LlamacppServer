@@ -5,6 +5,102 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
+function normalizeUrlLikeText(text) {
+  let t = String(text == null ? '' : text);
+  t = t.replace(/^(https?):\\\/\\\//i, '$1://');
+  t = t.replace(/\\u002f/ig, '/');
+  t = t.replace(/\\\//g, '/');
+  return t;
+}
+
+function stripOneTrailingBoundaryChar(text) {
+  const s = String(text == null ? '' : text);
+  if (!s) return { prefix: s, suffix: '', stripped: false };
+  const last = s.slice(-1);
+  if (last && last.charCodeAt(0) > 127) return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  const simpleBoundary = `"'<> \t\r\n，。；：！？、）》】」’”`;
+  if (simpleBoundary.includes(last)) return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  if (last === ')') {
+    const opens = (s.match(/\(/g) || []).length;
+    const closes = (s.match(/\)/g) || []).length;
+    if (closes > opens) return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  }
+  if (last === ']') {
+    const opens = (s.match(/\[/g) || []).length;
+    const closes = (s.match(/\]/g) || []).length;
+    if (closes > opens) return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  }
+  if (last === '}') {
+    const opens = (s.match(/\{/g) || []).length;
+    const closes = (s.match(/\}/g) || []).length;
+    if (closes > opens) return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  }
+  if (last === ',' || last === '.' || last === ';' || last === ':' || last === '!' || last === '?') {
+    return { prefix: s.slice(0, -1), suffix: last, stripped: true };
+  }
+  return { prefix: s, suffix: '', stripped: false };
+}
+
+function cleanupHrefCandidate(value) {
+  let v = String(value == null ? '' : value).trim();
+  if (!v) return '';
+  v = normalizeUrlLikeText(v);
+  let suffix = '';
+  for (let i = 0; i < 50; i++) {
+    const step = stripOneTrailingBoundaryChar(v);
+    if (!step.stripped) break;
+    v = step.prefix;
+    suffix = step.suffix + suffix;
+  }
+  if (isSafeUrl(v)) return v;
+  for (let i = 0; i < 120 && v; i++) {
+    const last = v.slice(-1);
+    v = v.slice(0, -1);
+    suffix = last + suffix;
+    if (isSafeUrl(v)) return v;
+  }
+  return '';
+}
+
+function fixAutolinkElement(el) {
+  if (!el) return;
+  const hrefAttr = el.getAttribute('href') || '';
+  const text = el.textContent == null ? '' : String(el.textContent);
+  if (!hrefAttr || !text) return;
+
+  const hrefNorm = normalizeUrlLikeText(hrefAttr).trim();
+  const textNorm = normalizeUrlLikeText(text).trim();
+  const looksLikeAutolink = textNorm === hrefNorm || textNorm.startsWith(hrefNorm) || hrefNorm.startsWith(textNorm);
+  if (!looksLikeAutolink) return;
+
+  let prefix = text;
+  for (let i = 0; i < 80; i++) {
+    const step = stripOneTrailingBoundaryChar(prefix);
+    if (!step.stripped) break;
+    prefix = step.prefix;
+  }
+
+  for (let i = 0; i < 160 && prefix; i++) {
+    const candidate = normalizeUrlLikeText(prefix).trim();
+    if (isSafeUrl(candidate)) break;
+    prefix = prefix.slice(0, -1);
+  }
+
+  const fixedHref = normalizeUrlLikeText(prefix).trim();
+  if (!isSafeUrl(fixedHref)) return;
+
+  const fixedDisplay = fixedHref;
+  const trailingText = text.slice(prefix.length) || '';
+
+  el.setAttribute('href', fixedHref);
+  while (el.firstChild) el.removeChild(el.firstChild);
+  el.appendChild(el.ownerDocument.createTextNode(fixedDisplay));
+  if (trailingText) {
+    const parent = el.parentNode;
+    if (parent) parent.insertBefore(el.ownerDocument.createTextNode(trailingText), el.nextSibling);
+  }
+}
+
 function isSafeUrl(value) {
   const href = String(value == null ? '' : value).trim();
   if (!href) return false;
@@ -71,14 +167,20 @@ function sanitizeMarkdownHtml(html) {
         continue;
       }
       if ((tag === 'a' && name === 'href') || (tag === 'img' && name === 'src')) {
-        const v = el.getAttribute(attr.name) || '';
-        if (!isSafeUrl(v)) el.removeAttribute(attr.name);
+        const raw = el.getAttribute(attr.name) || '';
+        const fixed = cleanupHrefCandidate(raw);
+        if (!fixed) {
+          el.removeAttribute(attr.name);
+        } else {
+          el.setAttribute(attr.name, fixed);
+        }
       }
     }
 
     if (tag === 'a') {
       el.setAttribute('rel', 'noopener noreferrer');
       if (!el.getAttribute('target')) el.setAttribute('target', '_blank');
+      fixAutolinkElement(el);
     }
   }
 
