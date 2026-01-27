@@ -1,82 +1,146 @@
 #!/bin/bash
-# 设置Java目录，适合多JDK环境的用户
-JAVA_HOME=/opt/jdk-24.0.2/
-#!/bin/bash
-# 设置项目根目录（确保从项目根路径执行）
+# ============================================================
+# LlamacppServer Linux Build Script
+# Compatible with javac-win.bat logic
+# ============================================================
+
+set -e  # Exit on error
+
+# 设置项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_ROOT"
+
+# 设置目录路径
 SRC_DIR="$PROJECT_ROOT/src/main/java"
-CLASSES_DIR="$PROJECT_ROOT/build/classes"
+RES_DIR="$PROJECT_ROOT/src/main/resources"
 LIB_DIR="$PROJECT_ROOT/lib"
-# === 1. 强制要求 JAVA_HOME 已设置且有效 ===
-if [ -z "$JAVA_HOME" ]; then
-    echo "❌ 错误：环境变量 JAVA_HOME 未设置。请指定 JDK 21 安装路径。"
-    echo "   示例: export JAVA_HOME=/usr/lib/jvm/jdk-21"
-    exit 1
+BUILD_DIR="$PROJECT_ROOT/build"
+CLASSES_DIR="$BUILD_DIR/classes"
+BUILD_LIB_DIR="$BUILD_DIR/lib"
+
+EXITCODE=0
+
+echo ============================================================
+echo Building project...
+echo Project: $PROJECT_ROOT
+echo Output : $CLASSES_DIR
+echo ============================================================
+echo
+
+# === 清理并创建输出目录 ===
+if [ -d "$CLASSES_DIR" ]; then
+    rm -rf "$CLASSES_DIR"
 fi
-if [ ! -d "$JAVA_HOME" ]; then
-    echo "❌ 错误：JAVA_HOME 指向的目录不存在: $JAVA_HOME"
-    exit 1
+if [ -d "$BUILD_LIB_DIR" ]; then
+    rm -rf "$BUILD_LIB_DIR"
 fi
-JAVAC="$JAVA_HOME/bin/javac"
-if [ ! -f "$JAVAC" ] || [ ! -x "$JAVAC" ]; then
-    echo "❌ 错误：找不到可执行的 javac: $JAVAC"
-    echo "   请确认 JAVA_HOME 指向正确的 JDK 21 安装目录。"
-    exit 1
-fi
-# 验证版本是否为 JDK 21
-JAVA_VERSION=$("$JAVAC" -version 2>&1)
-if [[ "$JAVA_VERSION" != *"21."* ]]; then
-    echo "⚠️ 警告：检测到 Java 编译器版本不是 JDK 21: $JAVA_VERSION"
-    echo "   建议使用 JDK 21 以确保语言特性和性能优化兼容。"
-fi
-# === 2. 清理并创建输出目录，同时复制lib文件 ===
-rm -rf "$CLASSES_DIR"
 mkdir -p "$CLASSES_DIR"
-mkdir -p "$PROJECT_ROOT/build/lib"
-cp "$LIB_DIR"/*.jar "$PROJECT_ROOT/build/lib/" 2>/dev/null || true
-# === 3. 构建 classpath（lib/ 下所有 .jar 文件）===
+mkdir -p "$BUILD_LIB_DIR"
+
+# === 检测 Java 环境 ===
+JAVAC="javac"
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/javac" ]; then
+    JAVAC="$JAVA_HOME/bin/javac"
+fi
+
+# 检查 javac 是否可用
+if ! command -v "$JAVAC" &> /dev/null; then
+    echo "ERROR: javac not found."
+    echo "Install JDK 21 and set JAVA_HOME or add javac to PATH."
+    EXITCODE=1
+    exit $EXITCODE
+fi
+
+# 检查 java runtime
+if ! command -v java &> /dev/null; then
+    echo "ERROR: java runtime not found."
+    echo "Install JDK 21 and set JAVA_HOME or add java to PATH."
+    EXITCODE=1
+    exit $EXITCODE
+fi
+
+# === 构建 classpath 并复制 jar 文件 ===
 CLASSPATH=""
-for jar in "$LIB_DIR"/*.jar; do
-    if [ -f "$jar" ]; then
-        if [ -z "$CLASSPATH" ]; then
-            CLASSPATH="$jar"
-        else
+if ls "$LIB_DIR"/*.jar 1> /dev/null 2>&1; then
+    echo "Copying jars to $BUILD_LIB_DIR ..."
+    for jar in "$LIB_DIR"/*.jar; do
+        if [ -n "$CLASSPATH" ]; then
             CLASSPATH="$CLASSPATH:$jar"
+        else
+            CLASSPATH="$jar"
         fi
-    fi
-done
-if [ -z "$CLASSPATH" ]; then
-    echo "⚠️ 警告：lib/ 目录下未找到任何 .jar 文件。若项目无依赖可忽略。"
-fi
-# === 4. 执行编译（使用绝对路径 javac）===
-echo "🔧 正在使用 JDK 21 编译源码到 $CLASSES_DIR..."
-shopt -s globstar
-"$JAVAC" \
-    -source 21 \
-    -target 21 \
-    -encoding UTF-8 \
-    -d "$CLASSES_DIR" \
-    -cp "$CLASSPATH" \
-    "$SRC_DIR"/**/*.java
-# === 5. 检查结果，并创建启动脚本 ===
-if [ $? -eq 0 ]; then
-    RUN_SCRIPT="$PROJECT_ROOT/build/run.sh"
-    cat > "$RUN_SCRIPT" << 'EOF'
-    #!/bin/bash
-    java -Xms64m -Xmx96m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer
-EOF
-
-    chmod +x "$RUN_SCRIPT"
-
-    echo "✅ 启动脚本已生成: $RUN_SCRIPT"
-
-    echo "✅ 编译成功！"
-    echo "   输出目录: $CLASSES_DIR"
-    echo "   使用编译器: $JAVAC ($JAVA_VERSION)"
-    if [ -n "$CLASSPATH" ]; then
-        echo "   类路径包含: $(echo "$CLASSPATH" | tr ':' '\n' | sed 's/^/    /')"
-    fi
+    done
+    cp -f "$LIB_DIR"/*.jar "$BUILD_LIB_DIR/" 2>/dev/null || true
+    echo "Jars copied."
+    echo
 else
-    echo "❌ 编译失败。"
-    exit 1
+    echo "No jars found under $LIB_DIR ."
+    echo
 fi
+
+# === 检查源码目录 ===
+if [ ! -d "$SRC_DIR" ]; then
+    echo "ERROR: source directory not found: $SRC_DIR"
+    EXITCODE=1
+    exit $EXITCODE
+fi
+
+# === 收集源码文件 ===
+SOURCES=$(find "$SRC_DIR" -name "*.java" 2>/dev/null || true)
+if [ -z "$SOURCES" ]; then
+    echo "ERROR: no .java files found under: $SRC_DIR"
+    EXITCODE=1
+    exit $EXITCODE
+fi
+
+# === 执行编译 ===
+echo "Compiling Java sources..."
+if [ -n "$CLASSPATH" ]; then
+    "$JAVAC" --release 21 -encoding UTF-8 -d "$CLASSES_DIR" -cp "$CLASSPATH" $SOURCES
+else
+    "$JAVAC" --release 21 -encoding UTF-8 -d "$CLASSES_DIR" $SOURCES
+fi
+
+if [ $? -ne 0 ]; then
+    echo
+    echo "ERROR: compilation failed. Exit code: $?"
+    EXITCODE=$?
+    exit $EXITCODE
+fi
+echo "Compilation succeeded."
+echo
+
+# === 复制资源文件 ===
+if [ -d "$RES_DIR" ]; then
+    echo "Copying resources to $CLASSES_DIR ..."
+    cp -r "$RES_DIR"/* "$CLASSES_DIR/" 2>/dev/null || true
+    echo "Resources copied."
+    echo
+else
+    echo "No resources directory found: $RES_DIR"
+    echo
+fi
+
+# === 创建启动脚本 ===
+RUN_SCRIPT="$BUILD_DIR/run.sh"
+cat > "$RUN_SCRIPT" << 'EOF'
+#!/bin/bash
+cd "$(dirname "$0")"
+java -Xms64m -Xmx96m -cp "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer
+EOF
+chmod +x "$RUN_SCRIPT"
+
+# === 构建结果 ===
+echo ============================================================
+if [ $EXITCODE -eq 0 ]; then
+    echo "Build SUCCESS."
+    echo "Build output: $CLASSES_DIR"
+    echo "Run script  : $RUN_SCRIPT"
+else
+    echo "Build FAILED."
+    echo "Exit code: $EXITCODE"
+fi
+echo ============================================================
+echo
+
+exit $EXITCODE
