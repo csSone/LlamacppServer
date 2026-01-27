@@ -603,11 +603,6 @@ textarea {
   pointer-events: auto;
 }
 
-#modelRowBackdrop {
-  z-index: 50;
-  background: rgba(2, 6, 23, 0.22);
-}
-
 .topic-overlay {
   position: fixed;
   inset: 0;
@@ -839,6 +834,40 @@ textarea {
   border-radius: 12px;
   padding: 8px;
   background: var(--panel-2);
+}
+
+#mcpToolsModal .modal-card {
+  background: #ffffff;
+  backdrop-filter: none;
+}
+
+#mcpToolsModal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#mcpToolsModal .long-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+#mcpToolsModal #mcpToolsList.mcp-tools {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+#mcpToolsModal .mcp-server,
+#mcpToolsModal .mcp-tool-row {
+  contain: content;
 }
 
 .mcp-server {

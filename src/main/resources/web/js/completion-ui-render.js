@@ -46,6 +46,10 @@ function refreshCompletionTitleInMessages() {
     if (!left) continue;
     left.textContent = msg.role === 'user' ? userName : (msg.role === 'assistant' ? taskName : '系统');
   }
+  if (els.sessionsList) {
+    const active = els.sessionsList.querySelector('.session-item.active .session-title');
+    if (active) active.textContent = taskName;
+  }
 }
 
 function openDrawer() {
@@ -350,8 +354,7 @@ function renderMessage(msg) {
     details.className = 'tool-result';
     const summary = document.createElement('summary');
     const toolName = (msg && msg.tool_name != null) ? String(msg.tool_name) : 'Tool';
-    const statusText = msg && msg.is_error ? '失败' : '结果';
-    summary.textContent = toolName + '：' + statusText;
+    summary.textContent = toolName + '：' + computeToolStatusText(msg);
     details.appendChild(summary);
     const argsText = (msg && msg.tool_arguments != null) ? String(msg.tool_arguments) : '';
     const reqLabel = document.createElement('div');
@@ -399,6 +402,35 @@ function renderMessage(msg) {
   els.chatList.appendChild(wrap);
   syncMessageTimingsUi(msg.id);
   maybeScrollToBottom();
+}
+
+function computeToolStatusText(msg) {
+  const status = (msg && msg.tool_status != null) ? String(msg.tool_status) : '';
+  if (status === 'pending') return '执行中';
+  if (status === 'cancelled') return '已取消';
+  if (msg && msg.is_error) return '失败';
+  return '结果';
+}
+
+function syncToolMessageMeta(id) {
+  const key = String(id || '');
+  if (!key) return;
+  const msg = getMessageById(key);
+  if (!msg || msg.role !== 'tool') return;
+  const wrap = els.chatList ? els.chatList.querySelector('.msg.tool[data-id="' + key + '"]') : null;
+  if (!wrap) return;
+
+  const summary = wrap.querySelector('details.tool-result > summary');
+  if (summary) {
+    const toolName = (msg.tool_name != null) ? String(msg.tool_name) : 'Tool';
+    summary.textContent = toolName + '：' + computeToolStatusText(msg);
+  }
+
+  const reqPre = wrap.querySelector('pre.tool-io-request');
+  if (reqPre) {
+    const argsText = (msg.tool_arguments != null) ? String(msg.tool_arguments) : '';
+    reqPre.textContent = String(argsText).trim() ? argsText : '(空)';
+  }
 }
 
 function buildAvatarUrl(charactorId) {
@@ -736,6 +768,7 @@ function updateMessage(id, content) {
   if (m) m.content = content || '';
   const displayText = (m && typeof m.uiContent === 'string') ? m.uiContent : (content || '');
   if (el) requestRenderMessageContent(el, displayText);
+  syncToolMessageMeta(id);
   syncMessageTimingsUi(id);
   maybeScrollToBottom();
 }
@@ -746,6 +779,7 @@ function setMessageUiContent(id, uiText) {
   const m = getMessageById(id);
   if (m) m.uiContent = (uiText == null ? '' : String(uiText));
   if (el) requestRenderMessageContent(el, (uiText == null ? '' : String(uiText)));
+  syncToolMessageMeta(id);
   syncMessageTimingsUi(id);
   maybeScrollToBottom();
 }

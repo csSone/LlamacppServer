@@ -2,6 +2,7 @@ package org.mark.llamacpp.server.mcp;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -338,7 +339,8 @@ public class McpClientService {
 	
 	private JsonObject callToolShortLived(String sseUrl, String toolName, JsonObject args, JsonObject headers) throws Exception {
 		HttpURLConnection connection = createSseConnection(sseUrl, headers);
-		connection.setReadTimeout(DEFAULT_CALL_TIMEOUT_SECONDS * 1000);
+		connection.setReadTimeout(1000);
+		long deadline = System.currentTimeMillis() + (DEFAULT_CALL_TIMEOUT_SECONDS * 1000L);
 
 		URI postUri = null;
 		String lastEvent = null;
@@ -348,10 +350,19 @@ public class McpClientService {
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
 			String line;
 			while (true) {
+				if (Thread.currentThread().isInterrupted()) {
+					throw new InterruptedIOException("工具调用已取消: " + sseUrl);
+				}
 				try {
 					line = reader.readLine();
 				} catch (SocketTimeoutException e) {
-					throw new IOException("等待 tools/call 响应超时: " + sseUrl, e);
+					if (Thread.currentThread().isInterrupted()) {
+						throw new InterruptedIOException("工具调用已取消: " + sseUrl);
+					}
+					if (System.currentTimeMillis() >= deadline) {
+						throw new IOException("等待 tools/call 响应超时: " + sseUrl, e);
+					}
+					continue;
 				}
 				if (line == null) {
 					break;

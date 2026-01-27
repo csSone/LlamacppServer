@@ -508,31 +508,106 @@ function normalizeToolOutputForMessage(toolText, uiText) {
   return { content, uiContent, totalChars: total, uiTotalChars: uiTotal };
 }
 
+let toolExecuteQueue = Promise.resolve();
+
+function enqueueToolExecute(work, options) {
+  const opt = (options && typeof options === 'object') ? options : {};
+  const signal = opt.signal || null;
+  const run = () => {
+    if (signal && signal.aborted) {
+      const err = new Error('AbortError');
+      err.name = 'AbortError';
+      throw err;
+    }
+    return Promise.resolve().then(work);
+  };
+  const p = toolExecuteQueue.then(run, run);
+  toolExecuteQueue = p.catch(() => { });
+  return p;
+}
+
 async function executeToolCalls(toolCalls, preparedQuery) {
-  const results = [];
-  let hasError = false;
-  for (const tc of (Array.isArray(toolCalls) ? toolCalls : [])) {
+  const callList = (Array.isArray(toolCalls) ? toolCalls : []);
+  const pending = [];
+  const msgIdByToolCallId = new Map();
+  const signal = state.toolAbortController ? state.toolAbortController.signal : null;
+
+  for (const tc of callList) {
     const toolCallId = (typeof tc?.id === 'string' && tc.id) ? tc.id : uid();
     const fn = tc?.function || {};
     const name = (typeof fn?.name === 'string' ? fn.name : (typeof tc?.name === 'string' ? tc.name : ''));
     const args = (typeof fn?.arguments === 'string' ? fn.arguments : (typeof tc?.arguments === 'string' ? tc.arguments : ''));
+    pending.push({ toolCallId, name, args });
+    const msg = addMessage('tool', '', {
+      tool_call_id: toolCallId,
+      tool_name: name,
+      tool_arguments: args,
+      tool_status: 'pending',
+      uiContent: '执行中…'
+    });
+    msgIdByToolCallId.set(toolCallId, msg.id);
+  }
+
+  if (pending.length) {
+    await flushSave('工具请求');
+  }
+
+  const results = [];
+  let hasError = false;
+  function cancelAllToolMessages(fromIndex) {
+    const start = Number.isFinite(fromIndex) ? fromIndex : 0;
+    for (let i = start; i < pending.length; i++) {
+      const tc = pending[i];
+      const toolCallId = tc.toolCallId;
+      const messageId = msgIdByToolCallId.get(toolCallId);
+      if (!messageId) continue;
+      const m = getMessageById(messageId);
+      if (m) {
+        m.tool_status = 'cancelled';
+        m.noContext = true;
+      }
+      setMessageUiAndContent(messageId, '已取消', '');
+    }
+  }
+  for (const tc of pending) {
+    if (signal && signal.aborted) {
+      cancelAllToolMessages(pending.indexOf(tc));
+      const err = new Error('AbortError');
+      err.name = 'AbortError';
+      throw err;
+    }
+    const toolCallId = tc.toolCallId;
+    const name = tc.name;
+    const args = tc.args;
+    const messageId = msgIdByToolCallId.get(toolCallId);
     try {
-      const resp = await fetchJson('/api/tools/execute', {
+      const resp = await enqueueToolExecute(() => fetchJson('/api/tools/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool_name: name, arguments: args, preparedQuery })
-      });
+        body: JSON.stringify({ tool_name: name, arguments: args, preparedQuery }),
+        signal
+      }), { signal });
       if (resp && resp.success === false) {
         hasError = true;
         const errText = String(resp.error || '工具执行失败');
-        results.push({
+        const result = {
           tool_call_id: toolCallId,
           tool_name: name,
           tool_arguments: args,
           is_error: true,
           error: errText,
           content: JSON.stringify({ success: false, tool_name: name, error: errText })
-        });
+        };
+        results.push(result);
+        if (messageId) {
+          const normalized = normalizeToolOutputForMessage(String(result.content || ''), String(result.content || ''));
+          const m = getMessageById(messageId);
+          if (m) {
+            m.is_error = true;
+            m.tool_status = 'done';
+          }
+          setMessageUiAndContent(messageId, normalized.uiContent, normalized.content);
+        }
         continue;
       }
       const out = resp?.data?.content;
@@ -541,20 +616,56 @@ async function executeToolCalls(toolCalls, preparedQuery) {
       if (!String(uiText).trim()) {
         try { uiText = JSON.stringify(resp); } catch (e) { uiText = outText; }
       }
-      results.push({ tool_call_id: toolCallId, tool_name: name, tool_arguments: args, is_error: false, content: outText, ui: uiText });
+      const result = { tool_call_id: toolCallId, tool_name: name, tool_arguments: args, is_error: false, content: outText, ui: uiText };
+      results.push(result);
+      if (messageId) {
+        const normalized = normalizeToolOutputForMessage(String(result.content || ''), String(result.ui || result.content || ''));
+        const m = getMessageById(messageId);
+        if (m) {
+          m.is_error = false;
+          m.tool_status = 'done';
+        }
+        setMessageUiAndContent(messageId, normalized.uiContent, normalized.content);
+      }
     } catch (e) {
+      if ((e && e.name === 'AbortError') || (signal && signal.aborted)) {
+        cancelAllToolMessages(pending.indexOf(tc));
+        const err = new Error('AbortError');
+        err.name = 'AbortError';
+        throw err;
+      }
       hasError = true;
       const errText = String(e && e.message ? e.message : e);
-      results.push({
+      const result = {
         tool_call_id: toolCallId,
         tool_name: name,
         tool_arguments: args,
         is_error: true,
         error: errText,
         content: JSON.stringify({ success: false, tool_name: name, error: errText })
-      });
+      };
+      results.push(result);
+      if (messageId) {
+        const normalized = normalizeToolOutputForMessage(String(result.content || ''), String(result.content || ''));
+        const m = getMessageById(messageId);
+        if (m) {
+          m.is_error = true;
+          m.tool_status = 'done';
+        }
+        setMessageUiAndContent(messageId, normalized.uiContent, normalized.content);
+      }
     }
   }
+
+  if (hasError) {
+    for (const toolCallId of msgIdByToolCallId.keys()) {
+      const messageId = msgIdByToolCallId.get(toolCallId);
+      if (!messageId) continue;
+      const m = getMessageById(messageId);
+      if (m) m.noContext = true;
+    }
+  }
+
   return { results, hasError };
 }
 
@@ -562,6 +673,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
   const model = els.modelSelect.value || '';
   const params = currentParams();
   state.abortController = new AbortController();
+  state.toolAbortController = new AbortController();
   setStatus('生成中…');
   setBusyGenerating(true);
   setSaveHint('');
@@ -697,20 +809,6 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
         const r0 = await executeToolCalls(toolCalls, preparedQuery);
         const toolResults = r0?.results || [];
         const hasError = !!r0?.hasError;
-        for (const r of toolResults) {
-          const normalized = normalizeToolOutputForMessage(
-            (r && r.content != null ? String(r.content) : ''),
-            (r && r.ui != null ? String(r.ui) : (r && r.content != null ? String(r.content) : ''))
-          );
-          addMessage('tool', normalized.content, {
-            tool_call_id: r && r.tool_call_id != null ? String(r.tool_call_id) : '',
-            tool_name: r && r.tool_name != null ? String(r.tool_name) : '',
-            tool_arguments: r && r.tool_arguments != null ? String(r.tool_arguments) : '',
-            is_error: !!(r && r.is_error),
-            uiContent: normalized.uiContent,
-            noContext: hasError
-          });
-        }
         scheduleSave('工具');
         if (hasError) {
           const errTexts = toolResults.filter(x => x && x.is_error && x.error).map(x => String(x.error));
@@ -761,6 +859,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
   } finally {
     setBusyGenerating(false);
     state.abortController = null;
+    state.toolAbortController = null;
   }
 }
 
@@ -903,7 +1002,6 @@ async function saveCompletion(reason) {
   state.lastSavedAt = Date.now();
   setSaveHint((reason ? ('已保存（' + reason + '）') : '已保存') + ' · ' + new Date(state.lastSavedAt).toLocaleTimeString());
   clearCompletionBackup(state.currentCompletionId);
-  await loadCompletions(false);
 }
 
 async function loadModels() {
@@ -1060,8 +1158,14 @@ async function switchCompletion(id) {
   if (String(id) === String(state.currentCompletionId || '')) return;
   setCompletionsLoading(true);
   try {
-    state.currentCompletionId = String(id);
-    await loadCompletions(false);
+    const targetId = String(id);
+    state.currentCompletionId = targetId;
+    if (els.sessionsList && els.sessionsList.childNodes && els.sessionsList.childNodes.length) {
+      for (const li of els.sessionsList.querySelectorAll('.session-item')) {
+        const liId = li && li.dataset && li.dataset.id ? String(li.dataset.id) : '';
+        li.classList.toggle('active', liId === targetId);
+      }
+    }
     await loadCompletion(state.currentCompletionId);
     closeDrawer();
   } catch (e) {
@@ -1126,10 +1230,12 @@ function normalizeHistory(history) {
       reasoning: (typeof m?.reasoning === 'string' ? m.reasoning : ''),
       hidden: m?.hidden === true,
       uiContent: (typeof m?.uiContent === 'string' ? m.uiContent : undefined),
+      noContext: m?.noContext === true,
       tool_call_id: toolCallId,
       tool_name: toolName,
       tool_arguments: toolArguments,
       is_error: m?.is_error === true,
+      tool_status: (typeof m?.tool_status === 'string' ? m.tool_status : undefined),
       tool_calls: (toolCalls && toolCalls.length ? toolCalls : undefined),
       ts: typeof m?.ts === 'number' ? m.ts : Date.now(),
       order: typeof m?.order === 'number' ? m.order : undefined,

@@ -21,7 +21,6 @@ const els = {
   promptInput: document.getElementById('promptInput'),
   modelRowToggle: document.getElementById('modelRowToggle'),
   modelRow: document.querySelector('.model-row'),
-  modelRowBackdrop: document.getElementById('modelRowBackdrop'),
 
   modelSelect: document.getElementById('modelSelect'),
   refreshModels: document.getElementById('refreshModels'),
@@ -97,6 +96,7 @@ const state = {
   isLoadingCompletions: false,
   isLoadingModels: false,
   abortController: null,
+  toolAbortController: null,
   saveTimer: null,
   lastSavedAt: 0,
   saveHintText: '',

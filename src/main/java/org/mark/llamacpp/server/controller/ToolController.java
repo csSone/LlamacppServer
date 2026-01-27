@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.exception.RequestMethodException;
@@ -140,17 +141,21 @@ public class ToolController implements BaseController {
 			String tn = toolName;
 			String ta = toolArguments;
 			String u = url;
-			ioExecutor.execute(() -> {
+			Future<?> fut = ioExecutor.submit(() -> {
 				try {
 					JsonObject mcpResp = (u == null)
 							? mcpClientService.callTool(tn, ta)
 							: mcpClientService.callToolByUrl(u, tn, ta);
 					sendMcpToolResponse(ctx, mcpResp);
 				} catch (Exception e) {
+					if (Thread.currentThread().isInterrupted() || e instanceof java.io.InterruptedIOException || e instanceof InterruptedException) {
+						return;
+					}
 					logger.info("执行工具失败", e);
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行工具失败: " + e.getMessage()));
 				}
 			});
+			ctx.channel().closeFuture().addListener(ignored -> fut.cancel(true));
 			return;
 		} catch (Exception e) {
 			logger.info("执行工具失败", e);
@@ -166,15 +171,19 @@ public class ToolController implements BaseController {
 		String tn = toolName;
 		String ta = toolArguments;
 		String pq = preparedQuery;
-		ioExecutor.execute(() -> {
+		Future<?> fut = ioExecutor.submit(() -> {
 			try {
 				String out = executeSpecialBuiltinToolToText(tn, ta, pq);
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(contentData(out == null ? "" : out)));
 			} catch (Exception e) {
+				if (Thread.currentThread().isInterrupted() || e instanceof java.io.InterruptedIOException || e instanceof InterruptedException) {
+					return;
+				}
 				logger.info("执行工具失败", e);
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行工具失败: " + e.getMessage()));
 			}
 		});
+		ctx.channel().closeFuture().addListener(ignored -> fut.cancel(true));
 	}
 
 	private static String executeSpecialBuiltinToolToText(String toolName, String toolArguments, String preparedQuery) {

@@ -98,7 +98,6 @@ function bindEvents() {
     if (els.topicModal && els.topicModal.classList.contains('show')) setTopicOpen(false);
     if (els.modelRow && els.modelRow.classList.contains('visible')) {
       els.modelRow.classList.remove('visible');
-      if (els.modelRowBackdrop) els.modelRowBackdrop.classList.remove('show');
       els.modelRowToggle.textContent = '☰';
       els.modelRowToggle.title = '显示模型栏';
       els.modelRowToggle.setAttribute('aria-label', '显示模型栏');
@@ -113,7 +112,6 @@ function bindEvents() {
   function setModelRowOpen(open) {
     const isOpen = !!open;
     els.modelRow.classList.toggle('visible', isOpen);
-    if (els.modelRowBackdrop) els.modelRowBackdrop.classList.toggle('show', isOpen);
     els.modelRowToggle.textContent = isOpen ? '×' : '☰';
     els.modelRowToggle.title = isOpen ? '隐藏模型栏' : '显示模型栏';
     els.modelRowToggle.setAttribute('aria-label', isOpen ? '隐藏模型栏' : '显示模型栏');
@@ -155,12 +153,6 @@ function bindEvents() {
     const open = !els.modelRow.classList.contains('visible');
     setModelRowOpen(open);
   });
-
-  if (els.modelRowBackdrop) {
-    els.modelRowBackdrop.addEventListener('click', () => {
-      if (els.modelRow.classList.contains('visible')) setModelRowOpen(false);
-    });
-  }
 
   els.refreshModels.addEventListener('click', () => loadModels());
 
@@ -346,7 +338,6 @@ function bindEvents() {
       }
       if (els.modelRow.classList.contains('visible')) {
         els.modelRow.classList.remove('visible');
-        if (els.modelRowBackdrop) els.modelRowBackdrop.classList.remove('show');
         els.modelRowToggle.textContent = '☰';
         els.modelRowToggle.title = '显示模型栏';
         els.modelRowToggle.setAttribute('aria-label', '显示模型栏');
