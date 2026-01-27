@@ -107,6 +107,9 @@
       align-items: center;
       gap: 10px;
       flex: 0 0 auto;
+      width: 100%;
+      box-sizing: border-box;
+      justify-content: space-between;
     }
 
     .panel-title {
@@ -114,6 +117,23 @@
       font-size: 13px;
       color: var(--text-primary);
       margin: 0;
+    }
+
+    .panel-actions {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+
+    .btnx.danger {
+      background: rgba(220, 38, 38, 0.12);
+      border-color: rgba(220, 38, 38, 0.35);
+    }
+
+    .tools-head {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .panel-body {
@@ -317,6 +337,18 @@
       flex: 1 1 auto;
     }
 
+    .dlg-body input {
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: var(--bg-color);
+      color: var(--text-primary);
+      padding: 10px 10px;
+      font-size: 13px;
+      outline: none;
+      box-sizing: border-box;
+    }
+
     .dlg-foot {
       padding: 12px 14px;
       border-top: 1px solid var(--border-color);
@@ -363,10 +395,15 @@
         <div class="panel-header">
           <div class="tools-head">
             <div class="tools-title">
-              <h2 id="toolsTitle">Tools</h2>
               <span class="badge" id="toolsCount" style="display:none;"></span>
+              <h2 id="toolsTitle">Tools</h2>
+              
             </div>
             <div class="tools-meta muted" id="serverMeta"></div>
+          </div>
+          <div class="panel-actions">
+            <button class="btnx" id="btnRename" type="button" disabled><i class="fas fa-edit"></i>改名</button>
+            <button class="btnx danger" id="btnDelete" type="button" disabled><i class="fas fa-trash"></i>删除</button>
           </div>
         </div>
         <div class="panel-body">
@@ -394,6 +431,23 @@
     </div>
   </dialog>
 
+  <dialog id="dlgRename">
+    <div class="dlg">
+      <div class="dlg-head">
+        <h3 class="dlg-title">修改 MCP 服务器名称</h3>
+        <div class="muted" style="margin-left:auto;">POST /api/mcp/rename</div>
+      </div>
+      <div class="dlg-body">
+        <div class="muted" id="renameMeta"></div>
+        <input id="renameInput" type="text" autocomplete="off" />
+      </div>
+      <div class="dlg-foot">
+        <button class="btnx" id="btnRenameCancel" type="button">取消</button>
+        <button class="btnx primary" id="btnRenameSubmit" type="button"><i class="fas fa-save"></i>保存</button>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     const els = {
       serversList: document.getElementById('serversList'),
@@ -408,7 +462,14 @@
       dlgAdd: document.getElementById('dlgAdd'),
       jsonInput: document.getElementById('jsonInput'),
       btnCancel: document.getElementById('btnCancel'),
-      btnSubmit: document.getElementById('btnSubmit')
+      btnSubmit: document.getElementById('btnSubmit'),
+      btnDelete: document.getElementById('btnDelete'),
+      btnRename: document.getElementById('btnRename'),
+      dlgRename: document.getElementById('dlgRename'),
+      renameMeta: document.getElementById('renameMeta'),
+      renameInput: document.getElementById('renameInput'),
+      btnRenameCancel: document.getElementById('btnRenameCancel'),
+      btnRenameSubmit: document.getElementById('btnRenameSubmit')
     };
 
     const state = {
@@ -510,6 +571,11 @@
       renderTools(state.selectedUrl, selServer);
     }
 
+    function setServerActionEnabled(enabled) {
+      els.btnDelete.disabled = !enabled;
+      els.btnRename.disabled = !enabled;
+    }
+
     function renderTools(url, server) {
       els.toolsList.textContent = '';
       els.serverMeta.textContent = '';
@@ -517,6 +583,7 @@
 
       if (!url || !isObj(server)) {
         els.toolsTitle.textContent = 'Tools';
+        setServerActionEnabled(false);
         const empty = document.createElement('div');
         empty.className = 'muted';
         empty.textContent = '请选择一个 server';
@@ -524,18 +591,17 @@
         return;
       }
 
+      setServerActionEnabled(true);
       const serverName = safeStr(server?.name).trim();
       const title = serverName ? serverName : url;
       els.toolsTitle.textContent = title;
 
       const type = safeStr(server?.type).trim();
-      const active = (typeof server?.isActive === 'boolean') ? server.isActive : true;
       const desc = safeStr(server?.description).trim();
 
       const metaParts = [];
       metaParts.push(`url: ${url}`);
       if (type) metaParts.push(`type: ${type}`);
-      metaParts.push(`isActive: ${active ? 'true' : 'false'}`);
       if (desc) metaParts.push(desc);
       els.serverMeta.textContent = metaParts.join(' · ');
 
@@ -618,6 +684,38 @@
       return data;
     }
 
+    async function apiRemoveMcpServer(url) {
+      const resp = await fetch('/api/mcp/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      if (!data || data.success !== true) {
+        throw new Error(safeStr(data?.error) || '请求失败');
+      }
+      return data;
+    }
+
+    async function apiRenameMcpServer(url, name) {
+      const resp = await fetch('/api/mcp/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, name })
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      if (!data || data.success !== true) {
+        throw new Error(safeStr(data?.error) || '请求失败');
+      }
+      return data;
+    }
+
     async function refreshAll() {
       setStatus('正在加载 MCP servers...');
       try {
@@ -630,6 +728,90 @@
         state.selectedUrl = null;
         renderServers();
         setStatus(`加载失败: ${e?.message || e}`);
+      }
+    }
+
+    function openRenameDialog() {
+      const url = state.selectedUrl;
+      const server = url ? state.servers?.[url] : null;
+      if (!url || !isObj(server)) {
+        setStatus('请选择一个 server');
+        return;
+      }
+      const currentName = safeStr(server?.name).trim();
+      els.renameMeta.textContent = `url: ${url}`;
+      els.renameInput.value = currentName || fmtServerTitle(url, server);
+      if (typeof els.dlgRename.showModal === 'function') {
+        els.dlgRename.showModal();
+      } else {
+        els.dlgRename.setAttribute('open', 'open');
+      }
+      setTimeout(() => {
+        try {
+          els.renameInput.focus();
+          els.renameInput.select();
+        } catch {}
+      }, 0);
+    }
+
+    function closeRenameDialog() {
+      if (typeof els.dlgRename.close === 'function') {
+        els.dlgRename.close();
+      } else {
+        els.dlgRename.removeAttribute('open');
+      }
+    }
+
+    async function submitRename() {
+      const url = state.selectedUrl;
+      const server = url ? state.servers?.[url] : null;
+      if (!url || !isObj(server)) {
+        setStatus('请选择一个 server');
+        return;
+      }
+      const nextName = safeStr(els.renameInput.value).trim();
+      if (!nextName) {
+        setStatus('名称不能为空');
+        return;
+      }
+
+      setStatus('正在保存名称...');
+      els.btnRenameSubmit.disabled = true;
+      try {
+        await apiRenameMcpServer(url, nextName);
+        closeRenameDialog();
+        await refreshAll();
+        setStatus('名称已更新');
+      } catch (e) {
+        setStatus(`保存失败: ${e?.message || e}`);
+      } finally {
+        els.btnRenameSubmit.disabled = false;
+      }
+    }
+
+    async function deleteSelectedServer() {
+      const url = state.selectedUrl;
+      const server = url ? state.servers?.[url] : null;
+      if (!url || !isObj(server)) {
+        setStatus('请选择一个 server');
+        return;
+      }
+      const title = fmtServerTitle(url, server);
+      const ok = window.confirm(`确定删除该 MCP server？\n\n${title}\n${url}\n\n删除后需要重新添加才能恢复。`);
+      if (!ok) return;
+
+      setStatus('正在删除...');
+      els.btnDelete.disabled = true;
+      els.btnRename.disabled = true;
+      try {
+        await apiRemoveMcpServer(url);
+        state.selectedUrl = null;
+        await refreshAll();
+        setStatus('删除完成');
+      } catch (e) {
+        setStatus(`删除失败: ${e?.message || e}`);
+      } finally {
+        renderTools(state.selectedUrl, state.selectedUrl ? state.servers?.[state.selectedUrl] : null);
       }
     }
 
@@ -696,6 +878,16 @@
     els.btnAddJson.addEventListener('click', openDialog);
     els.btnCancel.addEventListener('click', closeDialog);
     els.btnSubmit.addEventListener('click', submitJson);
+    els.btnDelete.addEventListener('click', deleteSelectedServer);
+    els.btnRename.addEventListener('click', openRenameDialog);
+    els.btnRenameCancel.addEventListener('click', closeRenameDialog);
+    els.btnRenameSubmit.addEventListener('click', submitRename);
+    els.renameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitRename();
+      }
+    });
 
     refreshAll();
   </script>

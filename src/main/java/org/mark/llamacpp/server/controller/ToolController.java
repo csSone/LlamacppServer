@@ -48,6 +48,8 @@ public class ToolController implements BaseController {
 	private static final String PATH_MCP_TOOLS = "/api/mcp/tools";
 	/** 移除 MCP 服务 API 路径 */
 	private static final String PATH_MCP_REMOVE = "/api/mcp/remove";
+	/** 修改 MCP 服务名称 API 路径 */
+	private static final String PATH_MCP_RENAME = "/api/mcp/rename";
 
 	private static final String TOOL_BUILTIN_WEB_SEARCH = "builtin_web_search";
 	private static final String TOOL_GET_CURRENT_TIME = "get_current_time";
@@ -83,6 +85,9 @@ public class ToolController implements BaseController {
 			return true;
 		} else if (uri.startsWith(PATH_MCP_REMOVE)) {
 			this.handleMcpRemove(ctx, request);
+			return true;
+		} else if (uri.startsWith(PATH_MCP_RENAME)) {
+			this.handleMcpRename(ctx, request);
 			return true;
 		}
 
@@ -283,6 +288,48 @@ public class ToolController implements BaseController {
 		} catch (Exception e) {
 			logger.info("移除MCP服务失败", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除MCP服务失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleMcpRename(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (handleCorsOptions(ctx, request)) {
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
+		try {
+			String content = readRequestBodyOrSendError(ctx, request);
+			if (content == null) return;
+
+			JsonObject obj = parseJsonObjectOrSendError(ctx, content);
+			if (obj == null) return;
+
+			String url = extractMcpUrl(obj);
+			if (url == null) {
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的url参数");
+				return;
+			}
+
+			String name = trimToNull(JsonUtil.getJsonString(obj, "name", null));
+			if (name == null) {
+				name = trimToNull(JsonUtil.getJsonString(obj, "serverName", null));
+			}
+			if (name == null) {
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的name参数");
+				return;
+			}
+
+			boolean renamed = mcpClientService.renameServerByUrl(url, name);
+			if (!renamed) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到该MCP服务: " + url));
+				return;
+			}
+			Map<String, Object> data = new HashMap<>();
+			data.put("registry", mcpClientService.getSavedToolsRegistry());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("修改MCP服务名称失败", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("修改MCP服务名称失败: " + e.getMessage()));
 		}
 	}
 

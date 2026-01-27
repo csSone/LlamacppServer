@@ -269,6 +269,26 @@ public class McpClientService {
 		return true;
 	}
 
+	public synchronized boolean renameServerByUrl(String url, String name) throws IOException {
+		if (url == null || url.isBlank()) {
+			return false;
+		}
+		if (name == null || name.isBlank()) {
+			return false;
+		}
+		String normalizedUrl = url.trim();
+		String normalizedName = name.trim();
+		JsonObject registry = loadRegistry();
+		JsonObject servers = registry.getAsJsonObject("servers");
+		if (servers == null || !servers.has(normalizedUrl) || !servers.get(normalizedUrl).isJsonObject()) {
+			return false;
+		}
+		JsonObject server = servers.getAsJsonObject(normalizedUrl);
+		server.addProperty("name", normalizedName);
+		saveRegistry(registry);
+		return true;
+	}
+
 	/**
 	 * 调用指定名称的工具。会自动查找包含该工具的服务器。
 	 * 
@@ -444,10 +464,6 @@ public class McpClientService {
 		}
 
 		throw new IOException("未收到 tools/list 响应");
-	}
-
-	private HttpURLConnection createSseConnection(String sseUrl) throws IOException, URISyntaxException {
-		return createSseConnection(sseUrl, headersByUrl.get(sseUrl));
 	}
 
 	/**
