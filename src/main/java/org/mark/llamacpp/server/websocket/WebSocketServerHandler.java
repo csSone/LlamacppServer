@@ -4,6 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.*;
@@ -13,6 +17,7 @@ import io.netty.handler.codec.http.websocketx.*;
  */
 public class WebSocketServerHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     
+    private static final Logger logger = LoggerFactory.getLogger(WebSocketServerHandler.class);
     
     // WebSocket管理器
     private final WebSocketManager wsManager = WebSocketManager.getInstance();
@@ -61,6 +66,7 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<WebSocke
      */
     private void handleTextFrame(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
         String request = frame.text();
+        logger.info("WebSocket收到消息[{}]: {}", this.connectionId, request);
         
         try {
             // 尝试解析JSON消息

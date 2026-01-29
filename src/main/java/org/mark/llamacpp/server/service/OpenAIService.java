@@ -141,8 +141,7 @@ public class OpenAIService {
 
 			// 解析JSON请求体
 			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
-
-			//System.exit(0);
+			
 			// 获取模型名称
 			if (!requestJson.has("model")) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Missing required parameter: model", "model");

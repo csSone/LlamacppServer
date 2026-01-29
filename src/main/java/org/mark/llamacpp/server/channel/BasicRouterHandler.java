@@ -11,7 +11,6 @@ import java.util.concurrent.Executors;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.controller.BaseController;
 import org.mark.llamacpp.server.controller.HuggingFaceController;
-import org.mark.llamacpp.server.controller.LMStudioController;
 import org.mark.llamacpp.server.controller.LlamacppController;
 import org.mark.llamacpp.server.controller.ModelActionController;
 import org.mark.llamacpp.server.controller.ModelInfoController;
@@ -47,7 +46,6 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	
 	static {
 		pipeline.add(new HuggingFaceController());
-		pipeline.add(new LMStudioController());
 		pipeline.add(new LlamacppController());
 		pipeline.add(new ModelActionController());
 		pipeline.add(new ModelInfoController());
