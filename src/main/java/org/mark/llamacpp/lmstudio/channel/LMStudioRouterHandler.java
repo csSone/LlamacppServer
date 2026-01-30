@@ -3,7 +3,7 @@ package org.mark.llamacpp.lmstudio.channel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.mark.llamacpp.lmstudio.service.LMStudioService;
+import org.mark.llamacpp.lmstudio.LMStudioService;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.struct.ApiResponse;
@@ -68,7 +68,10 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 		}
 		//
 		try {
-			this.handleRequest(uri, ctx, request);
+			boolean handled = this.handleRequest(uri, ctx, request);
+			if(!handled) {
+				ctx.fireChannelRead(request.retain());
+			}
 		} catch (RequestMethodException e) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		}
