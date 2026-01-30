@@ -1,9 +1,6 @@
 package org.mark.llamacpp.ollama;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,15 +34,6 @@ public class Ollama {
 	 */
 	private static final Logger logger = LoggerFactory.getLogger(Ollama.class);
 	
-	
-	/**
-	 * 	日志的路径
-	 */
-	private static final Path CACHE_PATH = Paths.get("cache" + File.separator + "ollama");
-	
-	
-	
-
 	
 	private Thread worker;
 	
@@ -132,14 +120,39 @@ public class Ollama {
 		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
 		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length);
-		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
-		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "*");
+		//response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
+		//response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+		//response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "*");
 		//
-		response.headers().set(HttpHeaderNames.ETAG, ParamTool.buildEtag(content));
-		response.headers().set("X-Powered-By", "Express");
-		response.headers().set(HttpHeaderNames.CONNECTION, "alive");
+		//response.headers().set(HttpHeaderNames.ETAG, ParamTool.buildEtag(content));
+		//response.headers().set("X-Powered-By", "Express");
+		//response.headers().set(HttpHeaderNames.CONNECTION, "alive");
 		response.headers().set(HttpHeaderNames.DATE, ParamTool.getDate());
+		response.content().writeBytes(content);
+		
+		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) {
+				ctx.close();
+			}
+		});
+	}
+	
+	/**
+	 * 	
+	 * @param ctx
+	 * @param status
+	 * @param data
+	 */
+	public static void sendOllamaChunkedJson(ChannelHandlerContext ctx, HttpResponseStatus status, Object data) {
+		String json = JsonUtil.toJson(data);
+		byte[] content = json.getBytes(StandardCharsets.UTF_8);
+		
+		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
+		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
+		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length);
+		response.headers().set(HttpHeaderNames.DATE, ParamTool.getDate());
+		response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
 		response.content().writeBytes(content);
 		
 		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {

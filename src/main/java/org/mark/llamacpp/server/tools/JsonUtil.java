@@ -64,6 +64,22 @@ public class JsonUtil {
 			}
 		}
 	}
+	
+	public static long getJsonLong(JsonObject o, String key, long fallback) {
+		if (o == null || key == null || !o.has(key) || o.get(key) == null || o.get(key).isJsonNull())
+			return fallback;
+		try {
+			return o.get(key).getAsLong();
+		} catch (Exception e) {
+			try {
+				String s = o.get(key).getAsString();
+				Long v = parseLong(s);
+				return v == null ? fallback : v.longValue();
+			} catch (Exception e2) {
+				return fallback;
+			}
+		}
+	}
 
 	public static List<String> getJsonStringList(JsonElement el) {
 		if (el == null || el.isJsonNull())
@@ -125,6 +141,19 @@ public class JsonUtil {
 			return null;
 		try {
 			return Integer.valueOf(Integer.parseInt(t, 10));
+		} catch (Exception e) {
+			return null;
+		}
+	}
+	
+	private static Long parseLong(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim();
+		if (t.isEmpty())
+			return null;
+		try {
+			return Long.valueOf(Long.parseLong(t, 10));
 		} catch (Exception e) {
 			return null;
 		}

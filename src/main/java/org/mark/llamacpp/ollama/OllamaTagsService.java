@@ -5,15 +5,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.tools.ParamTool;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -25,20 +21,17 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  */
 public class OllamaTagsService {
 	
-	private static final Logger logger = LoggerFactory.getLogger(OllamaTagsService.class);
-	
-	
-	private final ExecutorService worker = Executors.newCachedThreadPool();
-	
-	
-	
 	public OllamaTagsService() {
 		
 	}
 	
 	
 	
-	
+	/**
+	 * 	
+	 * @param ctx
+	 * @param request
+	 */
 	public void handleModelList(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.GET) {
 			Ollama.sendOllamaError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED, "Only GET method is supported");

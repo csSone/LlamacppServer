@@ -118,40 +118,7 @@ public final class OllamaApiTool {
 		}
 	}
 
-	public static void applyOllamaOptionsToOpenAI(JsonObject openAiReq, JsonElement optionsEl) {
-		if (openAiReq == null || optionsEl == null || optionsEl.isJsonNull() || !optionsEl.isJsonObject()) {
-			return;
-		}
-		JsonObject options = optionsEl.getAsJsonObject();
 
-		copyNumber(options, "temperature", openAiReq, "temperature");
-		copyNumber(options, "top_p", openAiReq, "top_p");
-		copyNumber(options, "top_k", openAiReq, "top_k");
-		copyNumber(options, "repeat_penalty", openAiReq, "repeat_penalty");
-		copyNumber(options, "frequency_penalty", openAiReq, "frequency_penalty");
-		copyNumber(options, "presence_penalty", openAiReq, "presence_penalty");
-		copyNumber(options, "seed", openAiReq, "seed");
-
-		Integer numPredict = null;
-		try {
-			if (options.has("num_predict") && options.get("num_predict").isJsonPrimitive()) {
-				numPredict = options.get("num_predict").getAsInt();
-			}
-		} catch (Exception ignore) {
-		}
-		if (numPredict != null) {
-			openAiReq.addProperty("max_tokens", numPredict.intValue());
-		}
-
-		JsonElement stop = options.get("stop");
-		if (stop != null && !stop.isJsonNull()) {
-			if (stop.isJsonArray()) {
-				openAiReq.add("stop", stop.deepCopy());
-			} else if (stop.isJsonPrimitive()) {
-				openAiReq.add("stop", stop.deepCopy());
-			}
-		}
-	}
 
 	public static JsonArray normalizeOllamaMessagesForOpenAI(JsonArray messages) {
 		if (messages == null) {
@@ -183,6 +150,87 @@ public final class OllamaApiTool {
 		if (toolChoice != null && !toolChoice.isJsonNull()) {
 			openAiReq.add("tool_choice", toolChoice.deepCopy());
 		}
+	}
+
+	public static JsonObject toOpenAIEmbeddingsRequest(JsonObject ollamaReq) {
+		if (ollamaReq == null) {
+			return null;
+		}
+		JsonElement input = ollamaReq.get("input");
+		if (input == null || input.isJsonNull()) {
+			return null;
+		}
+		JsonObject out = new JsonObject();
+		if (input.isJsonArray() || input.isJsonPrimitive()) {
+			out.add("input", input.deepCopy());
+		} else {
+			out.addProperty("input", JsonUtil.jsonValueToString(input));
+		}
+		return out;
+	}
+
+	public static Map<String, Object> toOllamaEmbedResponse(String modelName, JsonObject openAiResp) {
+		return toOllamaEmbedResponse(modelName, openAiResp, 0L);
+	}
+	
+	public static Map<String, Object> toOllamaEmbedResponse(String modelName, JsonObject openAiResp, long totalDurationNs) {
+		Map<String, Object> out = new HashMap<>();
+		String resolvedModel = modelName;
+		if ((resolvedModel == null || resolvedModel.isBlank()) && openAiResp != null) {
+			resolvedModel = JsonUtil.getJsonString(openAiResp, "model", null);
+		}
+		out.put("model", resolvedModel == null ? "" : resolvedModel);
+
+		List<List<Double>> embeddings = new ArrayList<>();
+		long promptEvalCount = 0L;
+		if (openAiResp != null) {
+			try {
+				JsonObject usage = openAiResp.has("usage") && openAiResp.get("usage").isJsonObject() ? openAiResp.getAsJsonObject("usage") : null;
+				if (usage != null) {
+					promptEvalCount = JsonUtil.getJsonLong(usage, "prompt_tokens", 0L);
+				}
+			} catch (Exception ignore) {
+			}
+			try {
+				JsonElement dataEl = openAiResp.get("data");
+				if (dataEl != null && !dataEl.isJsonNull() && dataEl.isJsonArray()) {
+					JsonArray data = dataEl.getAsJsonArray();
+					for (int i = 0; i < data.size(); i++) {
+						JsonElement itemEl = data.get(i);
+						if (itemEl == null || itemEl.isJsonNull() || !itemEl.isJsonObject()) {
+							continue;
+						}
+						JsonObject item = itemEl.getAsJsonObject();
+						JsonElement embEl = item.get("embedding");
+						if (embEl == null || embEl.isJsonNull() || !embEl.isJsonArray()) {
+							continue;
+						}
+						JsonArray arr = embEl.getAsJsonArray();
+						List<Double> vec = new ArrayList<>(arr.size());
+						for (int j = 0; j < arr.size(); j++) {
+							JsonElement v = arr.get(j);
+							if (v == null || v.isJsonNull()) {
+								vec.add(Double.valueOf(0d));
+								continue;
+							}
+							try {
+								vec.add(Double.valueOf(v.getAsDouble()));
+							} catch (Exception e) {
+								vec.add(Double.valueOf(0d));
+							}
+						}
+						embeddings.add(vec);
+					}
+				}
+			} catch (Exception ignore) {
+			}
+		}
+
+		out.put("embeddings", embeddings);
+		out.put("total_duration", Long.valueOf(Math.max(0L, totalDurationNs)));
+		out.put("load_duration", Long.valueOf(0L));
+		out.put("prompt_eval_count", Long.valueOf(Math.max(0L, promptEvalCount)));
+		return out;
 	}
 	
 	/**
@@ -627,7 +675,14 @@ public final class OllamaApiTool {
 		ensureToolCallIdsInArray(toolCalls, toolCallIndexToId);
 	}
 
-	private static void copyNumber(JsonObject src, String srcKey, JsonObject dst, String dstKey) {
+	/**
+	 * 	复制数字
+	 * @param src
+	 * @param srcKey
+	 * @param dst
+	 * @param dstKey
+	 */
+	public static void copyNumber(JsonObject src, String srcKey, JsonObject dst, String dstKey) {
 		if (src == null || dst == null || srcKey == null || dstKey == null || !src.has(srcKey)) {
 			return;
 		}
@@ -639,7 +694,8 @@ public final class OllamaApiTool {
 		} catch (Exception ignore) {
 		}
 	}
-
+	
+	
 	public static JsonArray toolCallsFromFunctionCall(JsonObject functionCall, String id) {
 		if (functionCall == null) {
 			return null;
@@ -888,4 +944,27 @@ public final class OllamaApiTool {
 		}
 	}
 
+	/**
+	 * 	
+	 * @param map
+	 * @param key
+	 * @return
+	 */
+	public static long readLong(Map<String, Object> map, String key) {
+		if (map == null || key == null || key.isBlank()) {
+			return 0L;
+		}
+		Object v = map.get(key);
+		if (v == null) {
+			return 0L;
+		}
+		if (v instanceof Number) {
+			return ((Number) v).longValue();
+		}
+		try {
+			return Long.parseLong(String.valueOf(v).trim());
+		} catch (Exception ignore) {
+			return 0L;
+		}
+	}
 }

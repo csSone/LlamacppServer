@@ -37,12 +37,21 @@ public class GGUFMetaData {
     
     private final Integer fileType;
 
-    private GGUFMetaData(String fileName, String filePath, String architecture, Integer contextLength, Integer fileType) {
+    private final String baseName;
+
+    private final String name;
+
+    private final String sizeLabel;
+
+    private GGUFMetaData(String fileName, String filePath, String architecture, Integer contextLength, Integer fileType, String baseName, String name, String sizeLabel) {
         this.fileName = fileName;
         this.filePath = filePath;
         this.architecture = architecture;
         this.contextLength = contextLength;
         this.fileType = fileType;
+        this.baseName = baseName;
+        this.name = name;
+        this.sizeLabel = sizeLabel;
     }
 
     public static GGUFMetaData readFile(File file) {
@@ -53,6 +62,9 @@ public class GGUFMetaData {
         String architecture = null;
         Integer contextLength = null;
         Integer fileType = null;
+        String baseName = null;
+        String name = null;
+        String sizeLabel = null;
 
         // 使用 BufferedInputStream 提高读取性能
         try (FileInputStream fis = new FileInputStream(file);
@@ -84,6 +96,18 @@ public class GGUFMetaData {
                     Object value = readValue(dis, valueType);
                     architecture = value instanceof String ? (String) value : null;
                     handled = true;
+                } else if ("general.basename".equals(key)) {
+                    Object value = readValue(dis, valueType);
+                    baseName = value instanceof String ? (String) value : null;
+                    handled = true;
+                } else if ("general.name".equals(key)) {
+                    Object value = readValue(dis, valueType);
+                    name = value instanceof String ? (String) value : null;
+                    handled = true;
+                } else if ("general.size_label".equals(key)) {
+                    Object value = readValue(dis, valueType);
+                    sizeLabel = value instanceof String ? (String) value : null;
+                    handled = true;
                 } else if ("general.file_type".equals(key)) {
                     Object value = readValue(dis, valueType);
                     if (value instanceof Number) {
@@ -110,7 +134,7 @@ public class GGUFMetaData {
             return null;
         }
 
-        return new GGUFMetaData(file.getName(), file.getAbsolutePath(), architecture, contextLength, fileType);
+        return new GGUFMetaData(file.getName(), file.getAbsolutePath(), architecture, contextLength, fileType, baseName, name, sizeLabel);
     }
 
     public String getFileName() {
@@ -132,6 +156,18 @@ public class GGUFMetaData {
     public Integer getFileType() {
     	return fileType;
     }
+
+    public String getBaseName() {
+        return baseName;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getSizeLabel() {
+        return sizeLabel;
+    }
     
     public String getQuantizationType() {
     	if (fileType == null) return null;
@@ -144,6 +180,15 @@ public class GGUFMetaData {
     public String getStringValue(String key) {
         if ("general.architecture".equals(key)) {
             return architecture;
+        }
+        if ("general.basename".equals(key)) {
+            return baseName;
+        }
+        if ("general.name".equals(key)) {
+            return name;
+        }
+        if ("general.size_label".equals(key)) {
+            return sizeLabel;
         }
         return null;
     }

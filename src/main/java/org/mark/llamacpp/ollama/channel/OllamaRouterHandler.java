@@ -3,7 +3,8 @@ package org.mark.llamacpp.ollama.channel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.mark.llamacpp.ollama.OllamaService;
+import org.mark.llamacpp.ollama.OllamaChatService;
+import org.mark.llamacpp.ollama.OllamaEmbedService;
 import org.mark.llamacpp.ollama.OllamaShowService;
 import org.mark.llamacpp.ollama.OllamaTagsService;
 import org.mark.llamacpp.server.LlamaServer;
@@ -38,11 +39,6 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 	/**
 	 * 	
 	 */
-	private OllamaService ollamaService = new OllamaService();
-	
-	/**
-	 * 	
-	 */
 	private OllamaTagsService ollamaTagsService = new OllamaTagsService();
 	
 	/**
@@ -50,6 +46,12 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 	 */
 	private OllamaShowService ollamaShowService = new OllamaShowService();
 	
+	/**
+	 * 	
+	 */
+	private OllamaChatService ollamaChatService = new OllamaChatService();
+	
+	private OllamaEmbedService ollamaEmbedService = new OllamaEmbedService();
 	
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
@@ -105,7 +107,7 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 	private boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
 		if (request.method() == HttpMethod.OPTIONS) {
-			if (uri.startsWith("/api/tags") || uri.startsWith("/api/chat") || uri.startsWith("/api/show")) {
+			if (uri.startsWith("/api/tags") || uri.startsWith("/api/chat") || uri.startsWith("/api/show") || uri.startsWith("/api/embed")) {
 				LlamaServer.sendCorsResponse(ctx);
 				return true;
 			}
@@ -120,11 +122,17 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			this.ollamaShowService.handleShow(ctx, request);
 			return true;
 		}
-		
+		// 聊天补全。
 		if (uri.startsWith("/api/chat")) {
-			this.ollamaService.handleChat(ctx, request);
+			this.ollamaChatService.handleChat(ctx, request);
 			return true;
 		}
+		// 文本嵌入
+		if (uri.startsWith("/api/embed")) {
+			this.ollamaEmbedService.handleEmbed(ctx, request);
+			return true;
+		}
+		
 		
 		sendOllamaNotFound(ctx);
 		return true;

@@ -1,5 +1,6 @@
 package org.mark.llamacpp.ollama;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
+import org.mark.llamacpp.gguf.GGUFMetaDataReader;
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
@@ -131,6 +133,30 @@ public class OllamaShowService {
 				family = String.valueOf(fam);
 			}
 		}
+		// 存入一些基本的内容
+		File primaryFile = new File(primary.getFilePath());
+		Map<String, Object> m = GGUFMetaDataReader.read(primaryFile);
+		if (m != null) {
+			if (!verbose) {
+				m.remove("tokenizer.ggml.tokens.size");
+				m.put("tokenizer.ggml.merges", null);
+				m.put("tokenizer.ggml.token_type", null);
+				m.put("tokenizer.ggml.tokens", null);
+			} else {
+				m.remove("tokenizer.ggml.tokens.size");
+				if (!m.containsKey("tokenizer.ggml.merges")) {
+					m.put("tokenizer.ggml.merges", new ArrayList<>());
+				}
+				if (!m.containsKey("tokenizer.ggml.token_type")) {
+					m.put("tokenizer.ggml.token_type", new ArrayList<>());
+				}
+				if (!m.containsKey("tokenizer.ggml.tokens")) {
+					m.put("tokenizer.ggml.tokens", new ArrayList<>());
+				}
+			}
+			modelInfo.putAll(m);
+		}
+		
 		// 详情
 		Map<String, Object> details = new HashMap<>();
 		details.put("parent_model", "");
@@ -145,7 +171,8 @@ public class OllamaShowService {
 			details.put("quantization_level", quant);
 		}
 		// 存入参数信息
-		details.put("parameter_size", OllamaApiTool.guessParameterSize(modelId, model.getSize()));
+		details.put("parameter_size", primary.getSizeLabel());
+		
 		// 张量信息
 		List<Map<String, Object>> tensors = new ArrayList<>();
 		
