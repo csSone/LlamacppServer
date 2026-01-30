@@ -391,11 +391,13 @@ public class ModelActionController implements BaseController {
 
 			JsonObject obj = root.getAsJsonObject();
 			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
-			if (cmd == null || cmd.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的cmd参数"));
+			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+			if (cmd != null) cmd = cmd.trim();
+			if (extraParams != null) extraParams = extraParams.trim();
+			if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
 				return;
 			}
-			cmd = cmd.trim();
 			boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			String modelNameCmd = JsonUtil.getJsonString(obj, "modelName", null);
@@ -429,7 +431,7 @@ public class ModelActionController implements BaseController {
 			}
 			//
 			String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
-			boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, chatTemplateFilePath);
+			boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
 			if (!started) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
 				return;
@@ -443,6 +445,7 @@ public class ModelActionController implements BaseController {
 			data.put("device", device);
 			data.put("mg", mg);
 			data.put("cmd", cmd);
+			data.put("extraParams", extraParams);
 			data.put("enableVision", enableVision);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {

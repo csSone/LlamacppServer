@@ -347,12 +347,6 @@ function applyCmdToDynamicFields(modal, cmd) {
         if (consumed[i]) continue;
         const t = tokens[i] === null || tokens[i] === undefined ? '' : String(tokens[i]).trim();
         if (!t) continue;
-        if (isOptionLikeToken(t) && !optionLookup[t] && !allowedBareTokens.has(t)) {
-            const next = (i + 1) < tokens.length ? tokens[i + 1] : null;
-            const nextStr = next === null || next === undefined ? '' : String(next).trim();
-            if (nextStr && !isOptionLikeToken(nextStr)) i++;
-            continue;
-        }
         extras.push(quoteArgIfNeeded(t));
     }
     const extraStr = extras.join(' ').trim();
@@ -575,14 +569,6 @@ function buildLoadModelPayload(modal) {
     }
 
     const extraParams = getFieldString(modal, ['extraParams']).trim();
-    if (extraParams) {
-        const optionLookup = buildOptionLookupFromParamConfig(cfgList);
-        const allowedBareTokens = buildAllowedBareTokenSetFromParamConfig(cfgList);
-        const tokens = splitCmdArgs(extraParams);
-        const sanitized = sanitizeExtraParamTokens(tokens, optionLookup, allowedBareTokens).map(quoteArgIfNeeded).filter(Boolean);
-        const sanitizedStr = sanitized.join(' ').trim();
-        if (sanitizedStr) cmdParts.push(sanitizedStr);
-    }
 
     return {
         modelId,
@@ -591,7 +577,8 @@ function buildLoadModelPayload(modal) {
         enableVision,
         device: isAllSelected ? ['All'] : selectedDevices,
         mg: getSelectedMainGpu(),
-        cmd: cmdParts.join(' ').trim()
+        cmd: cmdParts.join(' ').trim(),
+        extraParams
     };
 }
 
@@ -616,6 +603,7 @@ function submitModelAction() {
             llamaBinPath: base && base.llamaBinPathSelect ? base.llamaBinPathSelect : '',
             mg: base && base.mg !== undefined ? base.mg : -1,
             cmd: base && base.cmd ? base.cmd : '',
+            extraParams: base && base.extraParams ? base.extraParams : '',
             enableVision: base && base.enableVision !== undefined ? !!base.enableVision : true,
             device: base && Array.isArray(base.device) ? base.device : ['All']
         };
@@ -640,16 +628,18 @@ function submitModelAction() {
     if (mode !== 'config') {
         const llamaBinPathSelect = payload && payload.llamaBinPathSelect ? String(payload.llamaBinPathSelect).trim() : '';
         const cmd = payload && payload.cmd ? String(payload.cmd).trim() : '';
+        const extraParams = payload && payload.extraParams ? String(payload.extraParams).trim() : '';
         if (!llamaBinPathSelect) {
             showToast('错误', '未提供llamaBinPath', 'error');
             return;
         }
-        if (!cmd) {
-            showToast('错误', '缺少必需的cmd参数', 'error');
+        if (!cmd && !extraParams) {
+            showToast('错误', '缺少必需的启动参数', 'error');
             return;
         }
         payload.llamaBinPathSelect = llamaBinPathSelect;
         payload.cmd = cmd;
+        payload.extraParams = extraParams;
     }
     if (submitBtn) {
         submitBtn.disabled = true;
@@ -713,17 +703,19 @@ function estimateVramAction() {
 
     const llamaBinPathSelect = payload && payload.llamaBinPathSelect ? String(payload.llamaBinPathSelect).trim() : '';
     const cmd = payload && payload.cmd ? String(payload.cmd).trim() : '';
+    const extraParams = payload && payload.extraParams ? String(payload.extraParams).trim() : '';
     if (!llamaBinPathSelect) {
         showToast('错误', '未提供llamaBinPath', 'error');
         return;
     }
-    if (!cmd) {
-        showToast('错误', '缺少必需的cmd参数', 'error');
+    if (!cmd && !extraParams) {
+        showToast('错误', '缺少必需的启动参数', 'error');
         return;
     }
     payload.modelId = modelId;
     payload.llamaBinPathSelect = llamaBinPathSelect;
     payload.cmd = cmd;
+    payload.extraParams = extraParams;
     fetch('/api/models/vram/estimate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {

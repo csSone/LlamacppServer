@@ -539,15 +539,17 @@ public class LlamaServerManager {
 	 * @param mg
 	 * @param enbaleVision
 	 * @param cmd
+	 * @param extraParams
 	 * @param chatTemplateFilePath
 	 * @return
 	 */
-	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String chatTemplateFilePath) {
+	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath) {
 		Map<String, Object> launchConfig = new HashMap<>();
 		launchConfig.put("llamaBinPath", llamaBinPath);
 		launchConfig.put("device", device);
 		launchConfig.put("mg", mg);
 		launchConfig.put("cmd", cmd);
+		launchConfig.put("extraParams", extraParams);
 		launchConfig.put("enableVision", enbaleVision);
 		
 		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty()) {
@@ -582,6 +584,7 @@ public class LlamaServerManager {
 		}
 
 		final String cmdSafe = cmd == null ? "" : cmd.trim();
+		final String extraSafe = extraParams == null ? "" : extraParams.trim();
 		final String binSafe = llamaBinPath.trim();
 		final List<String> devSafe = device;
 		final Integer mgSafe = mg;
@@ -589,7 +592,7 @@ public class LlamaServerManager {
 
 		try {
 			Future<?> future = this.executorService.submit(() -> {
-				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, chatTemplateFileSafe);
+				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe);
 			});
 			synchronized (this.processLock) {
 				this.loadingTasks.put(modelId, future);
@@ -744,16 +747,17 @@ public class LlamaServerManager {
 	 * @param mg
 	 * @param enableVision
 	 * @param cmd
+	 * @param extraParams
 	 * @param chatTemplateFilePath
 	 */
 	private void loadModelInBackgroundFromCmd(String modelId, GGUFModel targetModel, String llamaBinPath, List<String> device,
-			Integer mg, boolean enableVision, String cmd, String chatTemplateFilePath) {
+			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath) {
 		try {
 			if (this.isLoadCanceled(modelId)) {
 				return;
 			}
 			int port = this.getNextAvailablePort();
-			String commandStr = buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, chatTemplateFilePath);
+			String commandStr = buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
 			String processName = "llama-server-" + modelId;
 			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr);
 
@@ -874,11 +878,18 @@ public class LlamaServerManager {
 	 * @param device
 	 * @param mg
 	 * @param cmd
+	 * @param extraParams
 	 * @param chatTemplateFilePath
 	 * @return
 	 */
-	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String chatTemplateFilePath) {
+	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath) {
 		StringBuilder sb = new StringBuilder();
+		String allArgs = "";
+		if (cmd != null && !cmd.trim().isEmpty()) allArgs = cmd.trim();
+		if (extraParams != null && !extraParams.trim().isEmpty()) {
+			String e = extraParams.trim();
+			allArgs = allArgs.isEmpty() ? e : (allArgs + " " + e);
+		}
 
 		String exe = llamaBinPath + File.separator + "llama-server";
 		sb.append(ParamTool.quoteIfNeeded(exe));
@@ -892,7 +903,7 @@ public class LlamaServerManager {
 		
 		//	确认启用视觉
 		if(enableVision) {
-			if (targetModel.getMmproj() != null && !cmdHasFlag(cmd, "--mmproj") && !cmdHasFlag(cmd, "--no-mmproj")) {
+			if (targetModel.getMmproj() != null && !cmdHasFlag(allArgs, "--mmproj") && !cmdHasFlag(allArgs, "--no-mmproj")) {
 				sb.append(" --mmproj ");
 				String mmprojFile = targetModel.getPath() + "/" + targetModel.getMmproj().getFileName();
 				sb.append(ParamTool.quoteIfNeeded(mmprojFile));
@@ -917,22 +928,26 @@ public class LlamaServerManager {
 			sb.append(' ');
 			sb.append(cmd.trim());
 		}
-		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty() && !cmdHasFlag(cmd, "--chat-template-file") && !cmdHasFlag(cmd, "--chat-template")) {
+		if (extraParams != null && !extraParams.trim().isEmpty()) {
+			sb.append(' ');
+			sb.append(extraParams.trim());
+		}
+		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty() && !cmdHasFlag(allArgs, "--chat-template-file") && !cmdHasFlag(allArgs, "--chat-template")) {
 			sb.append(" --chat-template-file ");
 			sb.append(ParamTool.quoteIfNeeded(chatTemplateFilePath.trim()));
 		}
 
-		if (!cmdHasFlag(cmd, "--no-webui") && !cmdHasFlag(cmd, "--webui")) {
+		if (!cmdHasFlag(allArgs, "--no-webui") && !cmdHasFlag(allArgs, "--webui")) {
 			sb.append(" --no-webui");
 		}
-		if (!cmdHasFlag(cmd, "--metrics")) {
+		if (!cmdHasFlag(allArgs, "--metrics")) {
 			sb.append(" --metrics");
 		}
-		if (!cmdHasFlag(cmd, "--slot-save-path")) {
+		if (!cmdHasFlag(allArgs, "--slot-save-path")) {
 			sb.append(" --slot-save-path ");
 			sb.append(ParamTool.quoteIfNeeded(LlamaServer.getCachePath().toFile().getAbsolutePath()));
 		}
-		if (!cmdHasFlag(cmd, "--cache-ram")) {
+		if (!cmdHasFlag(allArgs, "--cache-ram")) {
 			sb.append(" --cache-ram -1");
 		}
 

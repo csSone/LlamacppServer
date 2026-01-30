@@ -227,11 +227,16 @@ public class SystemController implements BaseController {
 
 			JsonObject obj = root.getAsJsonObject();
 			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
-			if (cmd == null || cmd.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的cmd参数"));
+			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+			if (cmd != null) cmd = cmd.trim();
+			if (extraParams != null) extraParams = extraParams.trim();
+			if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
 				return;
 			}
-			cmd = cmd.trim();
+			String combinedCmd = "";
+			if (cmd != null && !cmd.isEmpty()) combinedCmd = cmd;
+			if (extraParams != null && !extraParams.isEmpty()) combinedCmd = combinedCmd.isEmpty() ? extraParams : (combinedCmd + " " + extraParams);
 			boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
@@ -242,7 +247,7 @@ public class SystemController implements BaseController {
 			Map<String, Object> data = new HashMap<>();
 			
 			// 只保留部分参数：--ctx-size --flash-attn --batch-size --ubatch-size --parallel --kv-unified --cache-type-k --cache-type-v
-			List<String> cmdlist = ParamTool.splitCmdArgs(cmd);
+			List<String> cmdlist = ParamTool.splitCmdArgs(combinedCmd);
 			// 运行fit-param
 			String output = LlamaServerManager.getInstance().handleFitParam(llamaBinPathSelect, modelId, enableVision, cmdlist);
 			// 提取第一个数值
