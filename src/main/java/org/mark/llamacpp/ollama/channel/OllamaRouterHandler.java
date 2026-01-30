@@ -132,13 +132,13 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			this.ollamaEmbedService.handleEmbed(ctx, request);
 			return true;
 		}
-		
-		
-		sendOllamaNotFound(ctx);
+		// 这些端点不能使用
+		// /api/copy /api/delete /api/pull /api/push
+		this.sendOllamaNotFound(ctx);
 		return true;
 	}
 
-	private static void sendOllamaNotFound(ChannelHandlerContext ctx) {
+	private void sendOllamaNotFound(ChannelHandlerContext ctx) {
 		String json = "{\"error\":\"Not Found\"}";
 		byte[] content = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
 		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND);
