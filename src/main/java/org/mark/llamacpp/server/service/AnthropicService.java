@@ -152,12 +152,12 @@ public class AnthropicService {
         if (anthropicReq.has("stream") && anthropicReq.get("stream").isJsonPrimitive()) {
             isStream = anthropicReq.get("stream").getAsBoolean();
         }
-
-        forwardRequestToLlamaCpp(ctx, request, content, port, "/v1/complete", isStream);
+        // 开始转发
+        this.forwardRequestToLlamaCpp(ctx, request, content, port, "/v1/complete", isStream);
     }
     
     /**
-     * 	
+     * 	对应：v1/messages
      * @param ctx
      * @param request
      */
@@ -175,6 +175,9 @@ public class AnthropicService {
 
         String content = request.content().toString(CharsetUtil.UTF_8);
         JsonObject anthropicReq;
+        
+        logger.info("请求内容：{}", content);
+        
         try {
             anthropicReq = gson.fromJson(content, JsonObject.class);
         } catch (Exception e) {
@@ -215,9 +218,77 @@ public class AnthropicService {
             isStream = anthropicReq.get("stream").getAsBoolean();
         }
 
-        forwardRequestToLlamaCpp(ctx, request, content, port, "/v1/messages", isStream);
+        this.forwardRequestToLlamaCpp(ctx, request, content, port, "/v1/messages", isStream);
     }
+    
+    
+    /**
+     * 	对应 v1/messages/count_tokens
+     * @param ctx
+     * @param request
+     */
+    public void handleMessagesCountTokensRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+        if (request.method() != HttpMethod.POST) {
+            sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED, "Only POST method is supported");
+            return;
+        }
 
+        String apiKey = request.headers().get("x-api-key");
+        if (apiKey == null || !ANTHROPIC_API_KEY.equals(apiKey)) {
+            sendError(ctx, HttpResponseStatus.UNAUTHORIZED, "invalid api key");
+            return;
+        }
+
+        String content = request.content().toString(CharsetUtil.UTF_8);
+        JsonObject anthropicReq;
+        try {
+            anthropicReq = gson.fromJson(content, JsonObject.class);
+        } catch (Exception e) {
+            sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Invalid JSON body");
+            return;
+        }
+
+        String modelName;
+        LlamaServerManager manager = LlamaServerManager.getInstance();
+
+        if (anthropicReq.has("model")) {
+            modelName = anthropicReq.get("model").getAsString();
+        } else {
+            modelName = manager.getFirstModelName();
+            if (modelName == null) {
+                sendError(ctx, HttpResponseStatus.NOT_FOUND, "No models loaded");
+                return;
+            }
+        }
+
+        if (!manager.getLoadedProcesses().containsKey(modelName)) {
+            if (manager.getLoadedProcesses().size() == 1) {
+                modelName = manager.getFirstModelName();
+            } else {
+                sendError(ctx, HttpResponseStatus.NOT_FOUND, "Model not found: " + modelName);
+                return;
+            }
+        }
+
+        Integer port = manager.getModelPort(modelName);
+        if (port == null) {
+            sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "Model port not found for " + modelName);
+            return;
+        }
+
+        forwardRequestToLlamaCpp(ctx, request, content, port, "/v1/messages/count_tokens", false);
+    }
+    
+    
+    /**
+     * 	转发操作。
+     * @param ctx
+     * @param request
+     * @param requestBody
+     * @param port
+     * @param endpoint
+     * @param isStream
+     */
     private void forwardRequestToLlamaCpp(ChannelHandlerContext ctx, FullHttpRequest request, String requestBody, int port, String endpoint, boolean isStream) {
         HttpMethod method = request.method();
         Map<String, String> headers = new HashMap<>();

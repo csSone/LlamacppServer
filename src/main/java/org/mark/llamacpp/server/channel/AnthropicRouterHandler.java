@@ -48,11 +48,17 @@ public class AnthropicRouterHandler extends SimpleChannelInboundHandler<FullHttp
 	 * 处理API请求
 	 */
     private void handleApiRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
-    		try {
+		try {
+			logger.info("Anthropic 收到请求：{}", uri);
 			// OpenAI API 端点
 			// 获取模型列表
 			if (uri.startsWith("/v1/models")) {
 				this.anthropicService.handleModelsRequest(ctx, request);
+				return;
+			}
+			// 
+			if (uri.startsWith("/v1/messages/count_tokens")) {
+				this.anthropicService.handleMessagesCountTokensRequest(ctx, request);
 				return;
 			}
 			// Anthropic API 端点 (Messages)
@@ -60,16 +66,17 @@ public class AnthropicRouterHandler extends SimpleChannelInboundHandler<FullHttp
 				this.anthropicService.handleMessagesRequest(ctx, request);
 				return;
 			}
+			
 			// Anthropic API 端点 (Legacy Complete)
 			if (uri.startsWith("/v1/complete")) {
 				this.anthropicService.handleCompleteRequest(ctx, request);
 				return;
 			}
-            this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
-        } catch (Exception e) {
-            logger.info("处理API请求时发生错误", e);
-            this.sendJsonResponse(ctx, ApiResponse.error("服务器内部错误"));
-        }
+			this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
+		} catch (Exception e) {
+			logger.info("处理API请求时发生错误", e);
+			this.sendJsonResponse(ctx, ApiResponse.error("服务器内部错误"));
+		}
     }
 
 	/**
