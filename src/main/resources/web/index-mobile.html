@@ -133,6 +133,8 @@
         #mobileHfGgufModal .modal-content,
         #mobileDownloadCreateModal .modal-content,
         #mobileDownloadSettingsModal .modal-content,
+        #mobileGeneralSettingsModal .modal-content,
+        #mobileWebSearchSettingsModal .modal-content,
         #mobileLlamaCppEditModal .modal-content,
         #mobileModelPathEditModal .modal-content,
         #consoleModal .modal-content {
@@ -304,6 +306,14 @@
         <div class="content-scrollable">
             <div class="model-list-container">
                 <div style="padding: 0.75rem; display:flex; flex-direction:column; gap: 0.75rem;">
+                    <button class="btn btn-secondary" id="mobileSettingsGeneralBtn" style="width:100%; justify-content:space-between;">
+                        <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-sliders-h"></i> 常规设置</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-secondary" id="mobileSettingsWebSearchBtn" style="width:100%; justify-content:space-between;">
+                        <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-globe"></i> 联网搜索</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                     <button class="btn btn-secondary" id="mobileSettingsLlamaCppBtn" style="width:100%; justify-content:space-between;">
                         <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-microchip"></i> Llama.cpp 路径</span>
                         <i class="fas fa-chevron-right"></i>
@@ -473,6 +483,81 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('mobileDownloadSettingsModal')">取消</button>
                 <button class="btn btn-primary" id="mobileDownloadSettingsSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="mobileGeneralSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-sliders-h"></i> 常规设置</h3>
+                <button class="modal-close" onclick="closeModal('mobileGeneralSettingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">兼容服务</label>
+                    <small class="form-text">用于快速启停本机兼容服务（Ollama / LMStudio）。</small>
+                </div>
+                <div class="settings-toggle-list">
+                    <div class="settings-toggle-row">
+                        <div class="settings-toggle-title">
+                            <i class="fas fa-plug"></i>
+                            <span>Ollama</span>
+                        </div>
+                        <div class="settings-compat-actions">
+                            <div class="settings-port-field">
+                                <span class="settings-port-label">端口</span>
+                                <input class="form-control settings-port-input" type="number" min="1" max="65535" step="1" id="mobileOllamaCompatPortInput" placeholder="11434">
+                            </div>
+                            <div class="form-check" style="margin: 0;">
+                                <input class="form-check-input" type="checkbox" id="mobileToggleOllamaCompat">
+                                <label class="form-check-label" for="mobileToggleOllamaCompat">启用</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <div class="settings-toggle-title">
+                            <i class="fas fa-plug"></i>
+                            <span>LMStudio</span>
+                        </div>
+                        <div class="settings-compat-actions">
+                            <div class="settings-port-field">
+                                <span class="settings-port-label">端口</span>
+                                <input class="form-control settings-port-input" type="number" min="1" max="65535" step="1" id="mobileLmstudioCompatPortInput" placeholder="1234">
+                            </div>
+                            <div class="form-check" style="margin: 0;">
+                                <input class="form-check-input" type="checkbox" id="mobileToggleLmstudioCompat">
+                                <label class="form-check-label" for="mobileToggleLmstudioCompat">启用</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-actions-row">
+                    <button class="btn btn-primary" type="button" id="mobileSaveCompatPortsBtn">保存端口</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('mobileGeneralSettingsModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="mobileWebSearchSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-globe"></i> 联网搜索</h3>
+                <button class="modal-close" onclick="closeModal('mobileWebSearchSettingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label" for="mobileZhipuSearchApiKeyInput">智谱 API Key</label>
+                    <input type="password" class="form-control" id="mobileZhipuSearchApiKeyInput" placeholder="填写后点击保存">
+                    <small class="form-text">默认使用智谱的联网搜索工具，由于本软件默认只有Http，无法保证网络安全，请确保在内网等安全的环境下使用，保护好自己的Key（我还没有时间开发基于搜索引擎的联网搜索，就拿这个凑合吧）。</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('mobileWebSearchSettingsModal')">取消</button>
+                <button class="btn btn-primary" type="button" id="mobileSaveZhipuSearchApiKeyBtn">保存</button>
             </div>
         </div>
     </div>
@@ -1012,6 +1097,9 @@
                 if (form) form.reset();
             } else if (id === 'mobileDownloadSettingsModal') {
                 const input = document.getElementById('mobileDefaultDownloadPathInput');
+                if (input) input.value = '';
+            } else if (id === 'mobileWebSearchSettingsModal') {
+                const input = document.getElementById('mobileZhipuSearchApiKeyInput');
                 if (input) input.value = '';
             }
         }
