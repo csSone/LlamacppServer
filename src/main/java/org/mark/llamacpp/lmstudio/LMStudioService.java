@@ -101,6 +101,8 @@ public class LMStudioService {
 				String architecture = null;
 				Integer contextLength = null;
 				String quantization = null;
+				JsonObject modelCaps = manager.getModelCapabilities(modelId);
+				boolean multimodal = false;
 
 				if (modelInfo != null) {
 					GGUFMetaData primaryModel = modelInfo.getPrimaryModel();
@@ -109,8 +111,9 @@ public class LMStudioService {
 						contextLength = primaryModel.getIntValue(architecture + ".context_length");
 						quantization = primaryModel.getQuantizationType();
 					}
-					modelType = resolveModelType(architecture, modelInfo.getMmproj() != null);
+					multimodal = modelInfo.getMmproj() != null;
 				}
+				modelType = resolveModelType(modelCaps, multimodal);
 				
 				// 模型类型
 				modelData.put("type", modelType);
@@ -131,7 +134,9 @@ public class LMStudioService {
 				}
 				// 能力
 				List<String> capabilities = new ArrayList<>(4);
-				capabilities.add("tool_use");
+				if (ParamTool.parseJsonBoolean(modelCaps, "tools", false)) {
+					capabilities.add("tool_use");
+				}
 				
 				modelData.put("capabilities", capabilities);
 				data.add(modelData);
@@ -1071,20 +1076,19 @@ public class LMStudioService {
 	}
 	
 	/**
-	 * 	判断模型的类型。
-	 * @param architecture
+	 * 	判断模型的类型。这个严重不准确
+	 * @param caps
 	 * @param multimodal
 	 * @return
 	 */
-	private static String resolveModelType(String architecture, boolean multimodal) {
+	private static String resolveModelType(JsonObject caps, boolean multimodal) {
 		if (multimodal) {
 			return "vlm";
 		}
-		if (architecture == null || architecture.isEmpty()) {
+		if (ParamTool.parseJsonBoolean(caps, "rerank", false)) {
 			return "llm";
 		}
-		String arch = architecture.toLowerCase(Locale.ROOT);
-		if (arch.contains("embed") || arch.contains("embedding") || arch.contains("bert")) {
+		if (ParamTool.parseJsonBoolean(caps, "embedding", false)) {
 			return "embeddings";
 		}
 		return "llm";

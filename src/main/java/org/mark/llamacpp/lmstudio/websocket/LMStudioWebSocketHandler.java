@@ -20,6 +20,7 @@ import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.tools.ParamTool;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -209,11 +210,16 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
                 String modelId = e.getKey();
                 LlamaCppProcess proc = e.getValue();
                 if (modelId == null || modelId.isBlank() || proc == null) continue;
+                
+                JsonObject caps = manager.getModelCapabilities(modelId);
+                if (ParamTool.parseJsonBoolean(caps, "embedding", false)) {
+                    continue;
+                }
 
                 String instanceKey = modelId + ":" + proc.getPid();
                 String instanceReference = INSTANCE_REFERENCE_BY_KEY.computeIfAbsent(instanceKey, k -> randomInstanceReference());
                 Long lastUsedTime = LAST_USED_TIME_BY_KEY.computeIfAbsent(instanceKey, k -> System.currentTimeMillis());
-                result.add(buildLoadedModelItem(manager, modelId, proc, instanceReference, lastUsedTime));
+                result.add(buildLoadedModelItem(manager, modelId, proc, instanceReference, lastUsedTime, caps));
             }
 
             Map<String, Object> resp = new LinkedHashMap<>();
@@ -279,7 +285,8 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
                 if (instanceReference.equals(ref)) {
                     long now = System.currentTimeMillis();
                     LAST_USED_TIME_BY_KEY.put(instanceKey, now);
-                    found = buildLoadedModelItem(manager, modelId, proc, ref, now);
+                    JsonObject caps = manager.getModelCapabilities(modelId);
+                    found = buildLoadedModelItem(manager, modelId, proc, ref, now, caps);
                     break;
                 }
             }
@@ -300,13 +307,14 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
             String modelId,
             LlamaCppProcess proc,
             String instanceReference,
-            long lastUsedTime
+            long lastUsedTime,
+            JsonObject caps
     ) {
         GGUFModel model = manager.findModelById(modelId);
         GGUFMetaData md = model == null ? null : model.getPrimaryModel();
         String architecture = md == null ? null : md.getArchitecture();
         boolean vision = model != null && model.getMmproj() != null;
-        String type = resolveModelType(architecture);
+        String type = ParamTool.parseJsonBoolean(caps, "embedding", false) ? "embedding" : "llm";
         String quantName = model == null ? null : model.getQuantizationType();
         Integer bits = resolveQuantBits(quantName);
         long sizeBytes = model == null ? 0L : model.getSize();
@@ -339,7 +347,7 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         item.put("ttlMs", null);
         item.put("lastUsedTime", lastUsedTime);
         item.put("vision", vision);
-        item.put("trainedForToolUse", true);
+        item.put("trainedForToolUse", ParamTool.parseJsonBoolean(caps, "tools", false));
         item.put("maxContextLength", maxContextLength);
         item.put("contextLength", contextLength);
         return item;
