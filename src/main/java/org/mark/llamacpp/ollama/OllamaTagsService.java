@@ -17,7 +17,7 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
- * 	对应API：/api/tags
+ * 	对应API：/api/tags和/api/ps
  */
 public class OllamaTagsService {
 	
@@ -28,7 +28,7 @@ public class OllamaTagsService {
 	
 	
 	/**
-	 * 	
+	 * 	处理模型列表
 	 * @param ctx
 	 * @param request
 	 */
@@ -59,6 +59,79 @@ public class OllamaTagsService {
 			item.put("modified_at", OllamaApiTool.formatOllamaTime(modifiedAt));
 			item.put("size", size);
 			item.put("digest", OllamaApiTool.sha256Hex(modelId + ":" + item.get("size") + ":" + item.get("modified_at")));
+			
+			Map<String, Object> details = new HashMap<>();
+			details.put("parent_model", "");
+			details.put("format", "gguf");
+			if (family != null && !family.isBlank()) {
+				details.put("family", family);
+				List<String> families = new ArrayList<>();
+				families.add(family);
+				details.put("families", families);
+			}
+			details.put("parameter_size", OllamaApiTool.guessParameterSize(modelId, size));
+			if (quant != null && !quant.isBlank()) {
+				details.put("quantization_level", quant);
+			}
+			item.put("details", details);
+			
+			models.add(item);
+		}
+		
+		Map<String, Object> resp = new HashMap<>();
+		resp.put("models", models);
+		
+		Ollama.sendOllamaJson(ctx, HttpResponseStatus.OK, resp);
+	}
+	
+	
+	/**
+	 * 	处理已经加载的模型。
+	 * @param ctx
+	 * @param request
+	 */
+	public void handleLoadedModel(ChannelHandlerContext ctx, FullHttpRequest request) {
+		if (request.method() != HttpMethod.GET) {
+			Ollama.sendOllamaError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED, "Only GET method is supported");
+			return;
+		}
+		
+		LlamaServerManager manager = LlamaServerManager.getInstance();
+		Map<String, LlamaCppProcess> loaded = manager.getLoadedProcesses();
+		manager.listModel();
+		
+		List<Map<String, Object>> models = new ArrayList<>();
+		for (Map.Entry<String, LlamaCppProcess> entry : loaded.entrySet()) {
+			String modelId = entry.getKey();
+			GGUFModel model = manager.findModelById(modelId);
+			
+			Map<String, Object> item = new HashMap<>();
+			item.put("name", modelId);
+			item.put("model", modelId);
+			
+			long size = model == null ? 0L : model.getSize();
+			Instant modifiedAt = OllamaApiTool.resolveModifiedAt(model);
+			String family = ParamTool.readArchitecture(model);
+			String quant = ParamTool.readQuantization(model);
+			
+			item.put("expires_at", OllamaApiTool.formatOllamaTime(modifiedAt));
+			item.put("size", size);
+			item.put("digest", OllamaApiTool.sha256Hex(modelId + ":" + item.get("size") + ":" + item.get("modified_at")));
+			item.put("size_vram", 0);
+			// 找到上下文参数
+			String cmd = entry.getValue().getCmd();
+			String[] array = cmd.split(" ");
+			String c = "0";
+			for(int i = 0; i < array.length; i++) {
+				String e = array[i];
+				if("-c".equals(e) || "--ctx-size".equals(e)) {
+					if(i + 1 < array.length) {
+						c = array[i + 1];
+					}
+					break;
+				}
+			}
+			item.put("context_length", Integer.parseInt(c));
 			
 			Map<String, Object> details = new HashMap<>();
 			details.put("parent_model", "");

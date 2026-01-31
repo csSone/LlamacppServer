@@ -132,6 +132,12 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			this.ollamaEmbedService.handleEmbed(ctx, request);
 			return true;
 		}
+		// 列出正在运行的模型。
+		if (uri.startsWith("/api/ps")) {
+			this.ollamaTagsService.handleLoadedModel(ctx, request);
+			return true;
+		}
+		
 		// 这些端点不能使用
 		// /api/copy /api/delete /api/pull /api/push /api/generate
 		this.sendOllamaNotFound(ctx);

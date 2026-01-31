@@ -175,6 +175,33 @@ public class OllamaShowService {
 		
 		// 张量信息
 		List<Map<String, Object>> tensors = new ArrayList<>();
+		// 能力信息
+		List<String> capabilities = new ArrayList<>();
+		JsonObject capinfo = manager.getModelCapabilities(modelId);
+		// 能否工具
+		if (ParamTool.parseJsonBoolean(capinfo, "tools", false)) {
+			capabilities.add("tools");
+		}
+		// 能否对话
+		if (!ParamTool.parseJsonBoolean(capinfo, "embedding", false)) {
+			capabilities.add("completion");
+		}
+		// 
+		if (ParamTool.parseJsonBoolean(capinfo, "thinking", false)) {
+			capabilities.add("thinking");
+		}
+		// 文本嵌入
+		if (ParamTool.parseJsonBoolean(capinfo, "embedding", false)) {
+			capabilities.add("embedding");
+		}
+		//
+		if (model.getMmproj() != null) {
+			capabilities.add("vision");
+		}
+		// rerank，ollama不支持，但是故意写在这里
+//		if (ParamTool.parseJsonBoolean(capinfo, "rerank", false)) {
+//			capabilities.add("rerank");
+//		}
 		
 		String license = "";
 		
@@ -186,10 +213,8 @@ public class OllamaShowService {
 		out.put("details", details);
 		out.put("model_info", modelInfo);
 		out.put("tensors", tensors);
-		List<String> caps = new ArrayList<>();
-		caps.add("completion");
-		caps.add("tools");
-		out.put("capabilities", caps);
+		
+		out.put("capabilities", capabilities);
 		out.put("modified_at", OllamaApiTool.formatOllamaTime(modifiedAt));
 		
 		Ollama.sendOllamaJson(ctx, HttpResponseStatus.OK, out);
