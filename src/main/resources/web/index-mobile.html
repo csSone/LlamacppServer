@@ -26,7 +26,7 @@
         }
         .model-list-container { border-radius: 0.75rem; }
         .model-item { padding: 0.9rem 1rem; align-items: flex-start; flex-wrap: nowrap; gap: 0.5rem; }
-        .model-fav-btn { width: 24px; height: 24px; margin-right: 0; border-radius: 7px; font-size: 0.95rem; }
+        .model-fav-btn { width: 100%; height: 24px; margin-right: 0; border-radius: 7px; font-size: 0.95rem; }
         .model-icon-wrapper { margin-right: 0.25rem; }
         .model-details { min-width: 0; margin-right: 0; display: flex; flex-direction: column; gap: 0.35rem; }
         .model-name { margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -681,11 +681,11 @@
                                     </div>
                                     <div class="form-check" style="margin-bottom: 0.5rem;">
                                         <input class="form-check-input" type="checkbox" id="capabilityRerank">
-                                        <label class="form-check-label" for="capabilityRerank">重排</label>
+                                        <label class="form-check-label" for="capabilityRerank">重排（还请手动开启对应开关）</label>
                                     </div>
                                     <div class="form-check" style="margin-bottom: 0;">
                                         <input class="form-check-input" type="checkbox" id="capabilityEmbedding">
-                                        <label class="form-check-label" for="capabilityEmbedding">嵌入</label>
+                                        <label class="form-check-label" for="capabilityEmbedding">嵌入（还请手动开启对应开关）</label>
                                     </div>
                                 </div>
                             </div>
@@ -966,11 +966,13 @@
 
                 html += `
                     <div class="model-item">
-                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${isFavourite ? '取消喜好' : '标记喜好'}">
-                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
-                        </button>
-                        <div class="model-icon-wrapper">
-                            ${modelIcon ? `<img src="${modelIcon}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                		<div>
+	                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${isFavourite ? '取消喜好' : '标记喜好'}">
+	                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
+	                        </button>
+	                        <div class="model-icon-wrapper">
+                            	${modelIcon ? `<img src="${modelIcon}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                        	</div>	                        
                         </div>
                         <div class="model-details">
                             <div class="model-name" title="${model.name}">${displayName}${model.isMultimodal ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}</div>
