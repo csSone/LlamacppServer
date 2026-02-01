@@ -27,6 +27,9 @@ public class ParamTool {
 	
 	private static final SimpleDateFormat SDF = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss 'GMT'", Locale.ENGLISH);
 	
+	
+	//private static final Pattern CTX_SIZE = Pattern.compile("(?:(?:--ctx-size)|(?:-c))\\s+(\\d+)");
+	
 	/**
 	 * 安全解析 JSON 对象中的布尔值，支持多种格式的布尔值输入。
 	 * 
@@ -61,6 +64,22 @@ public class ParamTool {
 		}
 	}
 	
+//	/**
+//	 * 	提取cmd命令中的上下文参数。
+//	 * @param cmd
+//	 * @return
+//	 */
+//    public static Integer parseContextLengthFromCmd(String cmd) {
+//        if (cmd == null || cmd.isEmpty()) return null;
+//        Matcher m = CTX_SIZE.matcher(cmd);
+//        if (m.find()) {
+//            try {
+//                return Integer.parseInt(m.group(1));
+//            } catch (Exception ignore) {
+//            }
+//        }
+//        return 0;
+//    }
 	
 	/**
 	 * 	生成当前的时间（

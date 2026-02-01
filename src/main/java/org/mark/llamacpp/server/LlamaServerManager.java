@@ -44,7 +44,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * 	
@@ -1139,6 +1142,24 @@ public class LlamaServerManager {
 						this.modelPorts.put(modelId, port);
 					}
 					LlamaServer.sendModelLoadEvent(modelId, true, "模型加载成功", port);
+					// 这里请求一次
+					try {
+						JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
+						int ctxSize = 0;
+						if (slotsResponse != null && slotsResponse.has("slots") && slotsResponse.get("slots").isJsonArray()) {
+							JsonArray slots = slotsResponse.getAsJsonArray("slots");
+							if (slots.size() > 0 && slots.get(0).isJsonObject()) {
+								JsonObject slot0 = slots.get(0).getAsJsonObject();
+								if (slot0.has("n_ctx") && !slot0.get("n_ctx").isJsonNull()) {
+									ctxSize = (int) Math.round(slot0.get("n_ctx").getAsDouble());
+								}
+							}
+						}
+						process.setCtxSize(ctxSize);
+					}catch (Exception e) {
+						e.printStackTrace();
+						process.setCtxSize(0);
+					}
 				} else {
 					process.stop();
 					if (this.isLoadCanceled(modelId)) {
@@ -1343,12 +1364,35 @@ public class LlamaServerManager {
 
 	private Object tryParseJson(String body) {
 		if (body == null || body.isBlank()) {
-			return "";
+			return null;
 		}
 		try {
 			return gson.fromJson(body, Object.class);
 		} catch (Exception e) {
-			return body;
+			return null;
+		}
+	}
+
+	private JsonObject tryParseJsonObject(String body) {
+		if (body == null || body.isBlank()) {
+			return null;
+		}
+		try {
+			JsonElement el = JsonParser.parseString(body);
+			if (el == null || el.isJsonNull()) {
+				return null;
+			}
+			if (el.isJsonObject()) {
+				return el.getAsJsonObject();
+			}
+			if (el.isJsonArray()) {
+				JsonObject wrapped = new JsonObject();
+				wrapped.add("slots", el.getAsJsonArray());
+				return wrapped;
+			}
+			return null;
+		} catch (Exception e) {
+			return null;
 		}
 	}
 	
@@ -1358,21 +1402,18 @@ public class LlamaServerManager {
 	 * @param modelId
 	 * @return
 	 */
-	public ApiResponse handleModelSlotsGet(String modelId) {
+	public JsonObject handleModelSlotsGet(String modelId) {
 		try {
 			int port = this.requireLoadedModelPort(modelId);
 			HttpResult r = this.callLocalModelEndpoint(port, "GET", "/slots", null, 30000, 30000);
 			if (r.statusCode >= 200 && r.statusCode < 300) {
-				Object parsed = this.tryParseJson(r.body);
-				Map<String, Object> data = new HashMap<>();
-				data.put("modelId", modelId);
-				data.put("slots", parsed);
-				return ApiResponse.success(data);
+				JsonObject parsed = this.tryParseJsonObject(r.body);
+				return parsed != null ? parsed : new JsonObject();
 			}
-			return ApiResponse.error("获取slots失败: " + r.body);
+			throw new RuntimeException("获取slots失败: " + r.body);
 		} catch (Exception e) {
 			logger.info("获取slots时发生错误", e);
-			return ApiResponse.error("获取slots失败: " + e.getMessage());
+			throw new RuntimeException("获取slots失败: " + e.getMessage(), e);
 		}
 	}
 	

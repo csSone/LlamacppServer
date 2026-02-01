@@ -1,5 +1,7 @@
 package org.mark.llamacpp.lmstudio.channel;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -88,7 +90,26 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 			throws RequestMethodException {
 		// 模型列表
 		if (uri.startsWith("/api/v0/models")) {
-			//this.handleModelList(uri, ctx, request);
+			String path = uri;
+			int q = path.indexOf('?');
+			if (q >= 0) {
+				path = path.substring(0, q);
+			}
+			if ("/api/v0/models".equals(path) || "/api/v0/models/".equals(path)) {
+				this.lmStudioService.handleModelList(ctx, request);
+				return true;
+			}
+			String prefix = "/api/v0/models/";
+			if (path.startsWith(prefix)) {
+				String remainder = path.substring(prefix.length());
+				int slash = remainder.indexOf('/');
+				if (slash >= 0) {
+					remainder = remainder.substring(0, slash);
+				}
+				String modelIdFilter = URLDecoder.decode(remainder, StandardCharsets.UTF_8);
+				this.lmStudioService.handleModelList(ctx, request, modelIdFilter);
+				return true;
+			}
 			this.lmStudioService.handleModelList(ctx, request);
 			return true;
 		}
@@ -102,11 +123,13 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 		
 		// 文本补全
 		if (uri.startsWith("/api/v0/completions")) {
+			this.lmStudioService.handleOpenAICompletionsRequest(ctx, request);
 			return true;
 		}
 		
 		// 文本嵌入
 		if (uri.startsWith("/api/v0/embeddings")) {
+			this.lmStudioService.handleOpenAIEmbeddingsRequest(ctx, request);
 			return true;
 		}
 		return false;

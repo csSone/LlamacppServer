@@ -26,6 +26,8 @@ import org.mark.llamacpp.server.mcp.McpClientService;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
 import org.mark.llamacpp.server.struct.LlamaCppDataStruct;
 import org.mark.llamacpp.server.struct.ModelPathConfig;
+import org.mark.llamacpp.server.tools.JsonUtil;
+import org.mark.llamacpp.server.tools.ParamTool;
 import org.mark.llamacpp.server.websocket.WebSocketManager;
 import org.mark.llamacpp.server.websocket.WebSocketServerHandler;
 import org.mark.llamacpp.win.WindowsTray;
@@ -839,6 +841,58 @@ public class LlamaServer {
 		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length);
 		setCorsHeaders(response.headers());
 		response.content().writeBytes(content);
+
+		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) {
+				ctx.close();
+			}
+		});
+	}
+
+	public static void sendExpressJsonResponse(ChannelHandlerContext ctx, HttpResponseStatus status, Object data, boolean allowAllMethods) {
+		String json = JsonUtil.toJson(data);
+		byte[] content = json.getBytes(CharsetUtil.UTF_8);
+
+		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status == null ? HttpResponseStatus.OK : status);
+		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8");
+		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length);
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+		if (allowAllMethods) {
+			response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "*");
+		}
+		response.headers().set(HttpHeaderNames.CONNECTION, "alive");
+		response.headers().set(HttpHeaderNames.DATE, ParamTool.getDate());
+		response.headers().set(HttpHeaderNames.ETAG, ParamTool.buildEtag(content));
+		response.headers().set("X-Powered-By", "Express");
+
+		response.content().writeBytes(content);
+
+		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) {
+				ctx.close();
+			}
+		});
+	}
+
+	public static void sendExpressRawJsonResponse(ChannelHandlerContext ctx, HttpResponseStatus status, byte[] content, boolean allowAllMethods) {
+		byte[] bytes = content == null ? new byte[0] : content;
+
+		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status == null ? HttpResponseStatus.OK : status);
+		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8");
+		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+		if (allowAllMethods) {
+			response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "*");
+		}
+		response.headers().set(HttpHeaderNames.CONNECTION, "alive");
+		response.headers().set(HttpHeaderNames.DATE, ParamTool.getDate());
+		response.headers().set(HttpHeaderNames.ETAG, ParamTool.buildEtag(bytes));
+		response.headers().set("X-Powered-By", "Express");
+		response.content().writeBytes(bytes);
 
 		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
 			@Override

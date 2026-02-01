@@ -64,6 +64,10 @@ public class LlamaCppProcess {
 	 */
 	private BufferedWriter stdwriter;
 	
+	/**
+	 * 	运行时设置的上下文。
+	 */
+	private int ctxSize;
 	
 	/**
 	 * 	构造器。
@@ -81,6 +85,22 @@ public class LlamaCppProcess {
 	 */
 	public void setOutputHandler(Consumer<String> outputHandler) {
 		this.outputHandler = outputHandler;
+	}
+	
+	/**
+	 * 	在模型加载成功后调用。
+	 * @param ctxSize
+	 */
+	public void setCtxSize(int ctxSize) {
+		this.ctxSize = ctxSize;
+	}
+	
+	/**
+	 * 	获取模型加载后实际的上下文长度。
+	 * @return
+	 */
+	public int getCtxSize() {
+		return this.ctxSize;
 	}
 	
 	/**

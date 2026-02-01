@@ -178,17 +178,6 @@ public class ToolExecutionService {
 	}
 
 	private String safeString(JsonObject obj, String key) {
-		try {
-			if (obj == null || key == null) {
-				return null;
-			}
-			JsonElement el = obj.get(key);
-			if (el == null || el.isJsonNull()) {
-				return null;
-			}
-			return el.getAsString();
-		} catch (Exception e) {
-			return null;
-		}
+		return JsonUtil.getJsonString(obj, key, null);
 	}
 }

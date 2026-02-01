@@ -809,9 +809,8 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
-			// 调别的实现然后响应
-			ApiResponse response = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
-			LlamaServer.sendJsonResponse(ctx, response);
+			JsonObject result = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
 			logger.info("获取模型slots信息时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型slots信息失败: " + e.getMessage()));

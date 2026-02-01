@@ -45,7 +45,6 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
     
     private static final Pattern QUANT_BITS = Pattern.compile("(?i)^Q(\\d+).*$");
     private static final Pattern PARAMS_B = Pattern.compile("(?i)(\\d+(?:\\.\\d+)?)B");
-    private static final Pattern CTX_SIZE = Pattern.compile("(?:(?:--ctx-size)|(?:-c))\\s+(\\d+)");
     
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final ConcurrentMap<String, String> INSTANCE_REFERENCE_BY_KEY = new ConcurrentHashMap<>();
@@ -136,9 +135,12 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
                 if (md == null) continue;
 
                 String modelId = model.getModelId();
+                
+                JsonObject caps = manager.getModelCapabilities(modelId);
+                
                 String architecture = md.getArchitecture();
                 boolean vision = model.getMmproj() != null;
-                String type = resolveModelType(architecture);
+                String type = ParamTool.parseJsonBoolean(caps, "embedding", false) ? "embedding" : "llm";
                 String quantName = model.getQuantizationType();
                 Integer bits = resolveQuantBits(quantName);
 
@@ -159,11 +161,11 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
                 quant.put("bits", bits);
                 quant.put("name", quantName);
                 item.put("quantization", quant);
-
+                // 这个功能中，只有非嵌入模型才会显示这些东西。
                 if (!"embedding".equals(type)) {
                     item.put("paramsString", resolveParamsString(baseName));
                     item.put("vision", vision);
-                    item.put("trainedForToolUse", true);
+                    item.put("trainedForToolUse", ParamTool.parseJsonBoolean(caps, "tools", false));
                 }
                 item.put("maxContextLength", md.getContextLength());
                 result.add(item);
@@ -291,6 +293,16 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         ctx.channel().writeAndFlush(new TextWebSocketFrame(gson.toJson(resp)));
     }
     
+    /**
+     * 	构建已经加载的模型的信息。
+     * @param manager
+     * @param modelId
+     * @param proc
+     * @param instanceReference
+     * @param lastUsedTime
+     * @param caps
+     * @return
+     */
     private static Map<String, Object> buildLoadedModelItem(
             LlamaServerManager manager,
             String modelId,
@@ -313,7 +325,6 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         String baseName = fileNameToBaseName(fileName);
         String baseOrId = baseName.isEmpty() ? modelId : baseName;
         String modelKey = modelId;
-        Integer contextLength = parseContextLengthFromCmd(proc.getCmd());
 
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("type", type);
@@ -338,7 +349,7 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         item.put("vision", vision);
         item.put("trainedForToolUse", ParamTool.parseJsonBoolean(caps, "tools", false));
         item.put("maxContextLength", maxContextLength);
-        item.put("contextLength", contextLength);
+        item.put("contextLength", proc.getCtxSize());
         return item;
     }
 
@@ -377,19 +388,12 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
             return null;
         }
     }
-
-    //private static String resolveModelType(String architecture, boolean multimodal) {
-    private static String resolveModelType(String architecture) {
-        if (architecture == null || architecture.isEmpty()) {
-            return "llm";
-        }
-        String arch = architecture.toLowerCase(Locale.ROOT);
-        if (arch.contains("embed") || arch.contains("embedding") || arch.contains("bert")) {
-            return "embedding";
-        }
-        return "llm";
-    }
-
+    
+    /**
+     * 	提取量化信息
+     * @param quantName
+     * @return
+     */
     private static Integer resolveQuantBits(String quantName) {
         if (quantName == null || quantName.isEmpty()) return null;
         if ("F16".equalsIgnoreCase(quantName)) return 16;
@@ -437,24 +441,17 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         return sb.toString();
     }
 
-    private static Integer parseContextLengthFromCmd(String cmd) {
-        if (cmd == null || cmd.isEmpty()) return null;
-        Matcher m = CTX_SIZE.matcher(cmd);
-        if (m.find()) {
-            try {
-                return Integer.parseInt(m.group(1));
-            } catch (Exception ignore) {
-            }
-        }
-        return null;
-    }
-    
     private static String randomInstanceReference() {
         byte[] bytes = new byte[18];
         SECURE_RANDOM.nextBytes(bytes);
         return Base64.getEncoder().withoutPadding().encodeToString(bytes);
     }
     
+    /**
+     * 	从模型名字里提取参数信息。
+     * @param baseName
+     * @return
+     */
     private static String resolveParamsString(String baseName) {
         if (baseName == null || baseName.isEmpty()) return null;
         Matcher m = PARAMS_B.matcher(baseName);

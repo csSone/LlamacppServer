@@ -4,6 +4,8 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -130,6 +132,108 @@ public class JsonUtil {
 				return "";
 			}
 		}
+	}
+
+	public static JsonObject tryParseObject(String s) {
+		try {
+			if (s == null || s.trim().isEmpty()) {
+				return null;
+			}
+			JsonElement el = fromJson(s, JsonElement.class);
+			return el != null && el.isJsonObject() ? el.getAsJsonObject() : null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	public static boolean ensureToolCallIds(JsonObject obj, Map<Integer, String> indexToId) {
+		if (obj == null) {
+			return false;
+		}
+		boolean changed = false;
+		JsonElement direct = obj.get("tool_calls");
+		if (direct != null && direct.isJsonArray()) {
+			changed |= ensureToolCallIdsInArray(direct.getAsJsonArray(), indexToId);
+		}
+		JsonElement choicesEl = obj.get("choices");
+		if (choicesEl != null && choicesEl.isJsonArray()) {
+			JsonArray choices = choicesEl.getAsJsonArray();
+			for (int i = 0; i < choices.size(); i++) {
+				JsonElement cEl = choices.get(i);
+				if (!cEl.isJsonObject()) {
+					continue;
+				}
+				JsonObject c = cEl.getAsJsonObject();
+				JsonObject message = (c.has("message") && c.get("message").isJsonObject()) ? c.getAsJsonObject("message") : null;
+				if (message != null) {
+					JsonElement tcs = message.get("tool_calls");
+					if (tcs != null && tcs.isJsonArray()) {
+						changed |= ensureToolCallIdsInArray(tcs.getAsJsonArray(), indexToId);
+					}
+				}
+				JsonObject delta = (c.has("delta") && c.get("delta").isJsonObject()) ? c.getAsJsonObject("delta") : null;
+				if (delta != null) {
+					JsonElement tcs = delta.get("tool_calls");
+					if (tcs != null && tcs.isJsonArray()) {
+						changed |= ensureToolCallIdsInArray(tcs.getAsJsonArray(), indexToId);
+					}
+				}
+			}
+		}
+		return changed;
+	}
+
+	private static boolean ensureToolCallIdsInArray(JsonArray arr, Map<Integer, String> indexToId) {
+		if (arr == null) {
+			return false;
+		}
+		boolean changed = false;
+		for (int i = 0; i < arr.size(); i++) {
+			JsonElement el = arr.get(i);
+			if (el == null || !el.isJsonObject()) {
+				continue;
+			}
+			JsonObject tc = el.getAsJsonObject();
+			Integer idx = readToolCallIndex(tc, i);
+			String id = getJsonString(tc, "id", null);
+			if (id == null || id.isBlank()) {
+				String existing = (indexToId == null || idx == null) ? null : indexToId.get(idx);
+				if (existing == null || existing.isBlank()) {
+					existing = "call_" + UUID.randomUUID().toString().replace("-", "");
+					if (indexToId != null && idx != null) {
+						indexToId.put(idx, existing);
+					}
+				}
+				tc.addProperty("id", existing);
+				changed = true;
+			} else if (indexToId != null && idx != null) {
+				indexToId.putIfAbsent(idx, id);
+			}
+		}
+		return changed;
+	}
+
+	private static Integer readToolCallIndex(JsonObject tc, int fallback) {
+		if (tc == null) {
+			return fallback;
+		}
+		JsonElement idxEl = tc.get("index");
+		if (idxEl == null || idxEl.isJsonNull()) {
+			return fallback;
+		}
+		try {
+			if (idxEl.isJsonPrimitive() && idxEl.getAsJsonPrimitive().isNumber()) {
+				return idxEl.getAsInt();
+			}
+			if (idxEl.isJsonPrimitive() && idxEl.getAsJsonPrimitive().isString()) {
+				String s = idxEl.getAsString();
+				if (s != null && !s.isBlank()) {
+					return Integer.parseInt(s.trim());
+				}
+			}
+		} catch (Exception ignore) {
+		}
+		return fallback;
 	}
 	
 	

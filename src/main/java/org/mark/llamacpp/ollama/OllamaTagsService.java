@@ -119,19 +119,8 @@ public class OllamaTagsService {
 			item.put("digest", OllamaApiTool.sha256Hex(modelId + ":" + item.get("size") + ":" + item.get("modified_at")));
 			item.put("size_vram", 0);
 			// 找到上下文参数
-			String cmd = entry.getValue().getCmd();
-			String[] array = cmd.split(" ");
-			String c = "0";
-			for(int i = 0; i < array.length; i++) {
-				String e = array[i];
-				if("-c".equals(e) || "--ctx-size".equals(e)) {
-					if(i + 1 < array.length) {
-						c = array[i + 1];
-					}
-					break;
-				}
-			}
-			item.put("context_length", Integer.parseInt(c));
+			Integer c = entry.getValue().getCtxSize();
+			item.put("context_length", c);
 			
 			Map<String, Object> details = new HashMap<>();
 			details.put("parent_model", "");
