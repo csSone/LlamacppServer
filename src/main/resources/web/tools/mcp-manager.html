@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MCP 服务与工具管理</title>
+  <title data-i18n="page.tools.mcp_manager.page_title">page.tools.mcp_manager.page_title</title>
   <link rel="stylesheet" href="../css/all.min.css" />
   <link href="../css/css2.css" rel="stylesheet" />
   <link rel="stylesheet" href="../css/index.css" />
@@ -13,7 +13,7 @@
       margin: 0;
       background: var(--bg-color);
       color: var(--text-primary);
-      font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+      font-family: "Microsoft YaHei", sans-serif;
     }
 
     .page {
@@ -373,17 +373,17 @@
 <body>
   <div class="page">
     <div class="top">
-      <h1 class="title"><i class="fas fa-toolbox"></i> MCP 服务与工具管理</h1>
+      <h1 class="title"><i class="fas fa-toolbox"></i> <span data-i18n="page.tools.mcp_manager.title">page.tools.mcp_manager.title</span></h1>
       <div class="top-actions">
-        <button class="btnx" id="btnRefresh" type="button"><i class="fas fa-sync-alt"></i>刷新</button>
-        <button class="btnx primary" id="btnAddJson" type="button"><i class="fas fa-plus"></i>添加 MCP JSON</button>
+        <button class="btnx" id="btnRefresh" type="button"><i class="fas fa-sync-alt"></i><span data-i18n="common.refresh">common.refresh</span></button>
+        <button class="btnx primary" id="btnAddJson" type="button"><i class="fas fa-plus"></i><span data-i18n="page.tools.mcp_manager.action.add_json">page.tools.mcp_manager.action.add_json</span></button>
       </div>
     </div>
 
     <div class="layout">
       <section class="panel">
         <div class="panel-header">
-          <h2 class="panel-title">Servers</h2>
+          <h2 class="panel-title" data-i18n="page.tools.mcp_manager.section.servers">page.tools.mcp_manager.section.servers</h2>
           <span class="muted" id="serversCount"></span>
         </div>
         <div class="panel-body">
@@ -396,14 +396,14 @@
           <div class="tools-head">
             <div class="tools-title">
               <span class="badge" id="toolsCount" style="display:none;"></span>
-              <h2 id="toolsTitle">Tools</h2>
+              <h2 id="toolsTitle" data-i18n="page.tools.mcp_manager.section.tools">page.tools.mcp_manager.section.tools</h2>
               
             </div>
             <div class="tools-meta muted" id="serverMeta"></div>
           </div>
           <div class="panel-actions">
-            <button class="btnx" id="btnRename" type="button" disabled><i class="fas fa-edit"></i>改名</button>
-            <button class="btnx danger" id="btnDelete" type="button" disabled><i class="fas fa-trash"></i>删除</button>
+            <button class="btnx" id="btnRename" type="button" disabled><i class="fas fa-edit"></i><span data-i18n="page.tools.mcp_manager.action.rename">page.tools.mcp_manager.action.rename</span></button>
+            <button class="btnx danger" id="btnDelete" type="button" disabled><i class="fas fa-trash"></i><span data-i18n="common.delete">common.delete</span></button>
           </div>
         </div>
         <div class="panel-body">
@@ -417,16 +417,16 @@
   <dialog id="dlgAdd">
     <div class="dlg">
       <div class="dlg-head">
-        <h3 class="dlg-title">添加 MCP 服务（JSON）</h3>
+        <h3 class="dlg-title" data-i18n="page.tools.mcp_manager.dialog.add.title">page.tools.mcp_manager.dialog.add.title</h3>
         <div class="muted" style="margin-left:auto;">POST /api/mcp/add</div>
       </div>
       <div class="dlg-body">
-        <div class="muted">格式需包含 mcpServers，对象内每个 key 为服务 ID。</div>
+        <div class="muted" data-i18n="page.tools.mcp_manager.dialog.add.tip">page.tools.mcp_manager.dialog.add.tip</div>
         <textarea id="jsonInput" spellcheck="false"></textarea>
       </div>
       <div class="dlg-foot">
-        <button class="btnx" id="btnCancel" type="button">取消</button>
-        <button class="btnx primary" id="btnSubmit" type="button"><i class="fas fa-cloud-upload-alt"></i>提交</button>
+        <button class="btnx" id="btnCancel" type="button" data-i18n="common.cancel">common.cancel</button>
+        <button class="btnx primary" id="btnSubmit" type="button"><i class="fas fa-cloud-upload-alt"></i><span data-i18n="page.tools.mcp_manager.action.submit">page.tools.mcp_manager.action.submit</span></button>
       </div>
     </div>
   </dialog>
@@ -434,7 +434,7 @@
   <dialog id="dlgRename">
     <div class="dlg">
       <div class="dlg-head">
-        <h3 class="dlg-title">修改 MCP 服务器名称</h3>
+        <h3 class="dlg-title" data-i18n="page.tools.mcp_manager.dialog.rename.title">page.tools.mcp_manager.dialog.rename.title</h3>
         <div class="muted" style="margin-left:auto;">POST /api/mcp/rename</div>
       </div>
       <div class="dlg-body">
@@ -442,12 +442,13 @@
         <input id="renameInput" type="text" autocomplete="off" />
       </div>
       <div class="dlg-foot">
-        <button class="btnx" id="btnRenameCancel" type="button">取消</button>
-        <button class="btnx primary" id="btnRenameSubmit" type="button"><i class="fas fa-save"></i>保存</button>
+        <button class="btnx" id="btnRenameCancel" type="button" data-i18n="common.cancel">common.cancel</button>
+        <button class="btnx primary" id="btnRenameSubmit" type="button"><i class="fas fa-save"></i><span data-i18n="common.save">common.save</span></button>
       </div>
     </div>
   </dialog>
 
+  <script src="../js/i18n.js"></script>
   <script>
     const els = {
       serversList: document.getElementById('serversList'),
@@ -476,6 +477,23 @@
       servers: {},
       selectedUrl: null
     };
+
+    function t(key, fallback) {
+      if (window.I18N && typeof window.I18N.t === 'function') {
+        return window.I18N.t(key, fallback);
+      }
+      return fallback == null ? key : fallback;
+    }
+
+    function tf(key, fallback, vars) {
+      let out = t(key, fallback);
+      if (!vars) return out;
+      for (const k of Object.keys(vars)) {
+        const v = vars[k];
+        out = out.split('{' + k + '}').join(v == null ? '' : String(v));
+      }
+      return out;
+    }
 
     function setStatus(text) {
       els.statusBar.textContent = (typeof text === 'string' && text.trim()) ? text.trim() : '';
@@ -507,7 +525,7 @@
       if (!entries.length) {
         const empty = document.createElement('div');
         empty.className = 'muted';
-        empty.textContent = '暂无 MCP Server';
+        empty.textContent = t('page.tools.mcp_manager.empty.no_servers');
         els.serversList.appendChild(empty);
         renderTools(null, null);
         return;
@@ -552,7 +570,7 @@
 
         const badge = document.createElement('span');
         badge.className = 'badge';
-        badge.textContent = `${item.toolsCount} tools`;
+        badge.textContent = tf('page.tools.mcp_manager.server.tools_count', null, { n: item.toolsCount });
 
         row1.appendChild(name);
         row1.appendChild(badge);
@@ -582,11 +600,11 @@
       els.toolsCount.style.display = 'none';
 
       if (!url || !isObj(server)) {
-        els.toolsTitle.textContent = 'Tools';
+        els.toolsTitle.textContent = t('page.tools.mcp_manager.section.tools');
         setServerActionEnabled(false);
         const empty = document.createElement('div');
         empty.className = 'muted';
-        empty.textContent = '请选择一个 server';
+        empty.textContent = t('page.tools.mcp_manager.empty.select_server');
         els.toolsList.appendChild(empty);
         return;
       }
@@ -600,19 +618,19 @@
       const desc = safeStr(server?.description).trim();
 
       const metaParts = [];
-      metaParts.push(`url: ${url}`);
-      if (type) metaParts.push(`type: ${type}`);
+      metaParts.push(tf('page.tools.mcp_manager.meta.url', null, { url }));
+      if (type) metaParts.push(tf('page.tools.mcp_manager.meta.type', null, { type }));
       if (desc) metaParts.push(desc);
       els.serverMeta.textContent = metaParts.join(' · ');
 
       const tools = getServerTools(server);
-      els.toolsCount.textContent = `${tools.length} tools`;
+      els.toolsCount.textContent = tf('page.tools.mcp_manager.server.tools_count', null, { n: tools.length });
       els.toolsCount.style.display = 'inline-flex';
 
       if (!tools.length) {
         const empty = document.createElement('div');
         empty.className = 'muted';
-        empty.textContent = '该 server 暂无 tools';
+        empty.textContent = t('page.tools.mcp_manager.empty.no_tools');
         els.toolsList.appendChild(empty);
         return;
       }
@@ -663,7 +681,7 @@
         throw new Error(`HTTP ${resp.status}`);
       }
       if (!data || data.success !== true) {
-        throw new Error(safeStr(data?.error) || '请求失败');
+        throw new Error(safeStr(data?.error) || t('common.request_failed'));
       }
       return isObj(data.data) ? data.data : {};
     }
@@ -679,7 +697,7 @@
         throw new Error(`HTTP ${resp.status}`);
       }
       if (!data || data.success !== true) {
-        throw new Error(safeStr(data?.error) || '请求失败');
+        throw new Error(safeStr(data?.error) || t('common.request_failed'));
       }
       return data;
     }
@@ -695,7 +713,7 @@
         throw new Error(`HTTP ${resp.status}`);
       }
       if (!data || data.success !== true) {
-        throw new Error(safeStr(data?.error) || '请求失败');
+        throw new Error(safeStr(data?.error) || t('common.request_failed'));
       }
       return data;
     }
@@ -711,23 +729,23 @@
         throw new Error(`HTTP ${resp.status}`);
       }
       if (!data || data.success !== true) {
-        throw new Error(safeStr(data?.error) || '请求失败');
+        throw new Error(safeStr(data?.error) || t('common.request_failed'));
       }
       return data;
     }
 
     async function refreshAll() {
-      setStatus('正在加载 MCP servers...');
+      setStatus(t('page.tools.mcp_manager.status.loading'));
       try {
         const payload = await apiGetMcpTools();
         state.servers = isObj(payload.servers) ? payload.servers : {};
         renderServers();
-        setStatus(`加载完成: ${Object.keys(state.servers).length} servers`);
+        setStatus(tf('page.tools.mcp_manager.status.loaded', null, { n: Object.keys(state.servers).length }));
       } catch (e) {
         state.servers = {};
         state.selectedUrl = null;
         renderServers();
-        setStatus(`加载失败: ${e?.message || e}`);
+        setStatus(tf('page.tools.mcp_manager.status.load_failed', null, { message: e?.message || String(e) }));
       }
     }
 
@@ -735,7 +753,7 @@
       const url = state.selectedUrl;
       const server = url ? state.servers?.[url] : null;
       if (!url || !isObj(server)) {
-        setStatus('请选择一个 server');
+        setStatus(t('page.tools.mcp_manager.empty.select_server'));
         return;
       }
       const currentName = safeStr(server?.name).trim();
@@ -766,24 +784,24 @@
       const url = state.selectedUrl;
       const server = url ? state.servers?.[url] : null;
       if (!url || !isObj(server)) {
-        setStatus('请选择一个 server');
+        setStatus(t('page.tools.mcp_manager.empty.select_server'));
         return;
       }
       const nextName = safeStr(els.renameInput.value).trim();
       if (!nextName) {
-        setStatus('名称不能为空');
+        setStatus(t('page.tools.mcp_manager.error.name_required'));
         return;
       }
 
-      setStatus('正在保存名称...');
+      setStatus(t('page.tools.mcp_manager.status.saving_name'));
       els.btnRenameSubmit.disabled = true;
       try {
         await apiRenameMcpServer(url, nextName);
         closeRenameDialog();
         await refreshAll();
-        setStatus('名称已更新');
+        setStatus(t('page.tools.mcp_manager.status.name_updated'));
       } catch (e) {
-        setStatus(`保存失败: ${e?.message || e}`);
+        setStatus(tf('page.tools.mcp_manager.status.save_failed', null, { message: e?.message || String(e) }));
       } finally {
         els.btnRenameSubmit.disabled = false;
       }
@@ -793,23 +811,23 @@
       const url = state.selectedUrl;
       const server = url ? state.servers?.[url] : null;
       if (!url || !isObj(server)) {
-        setStatus('请选择一个 server');
+        setStatus(t('page.tools.mcp_manager.empty.select_server'));
         return;
       }
       const title = fmtServerTitle(url, server);
-      const ok = window.confirm(`确定删除该 MCP server？\n\n${title}\n${url}\n\n删除后需要重新添加才能恢复。`);
+      const ok = window.confirm(tf('page.tools.mcp_manager.confirm.delete_server', null, { title, url }));
       if (!ok) return;
 
-      setStatus('正在删除...');
+      setStatus(t('page.tools.mcp_manager.status.deleting'));
       els.btnDelete.disabled = true;
       els.btnRename.disabled = true;
       try {
         await apiRemoveMcpServer(url);
         state.selectedUrl = null;
         await refreshAll();
-        setStatus('删除完成');
+        setStatus(t('page.tools.mcp_manager.status.deleted'));
       } catch (e) {
-        setStatus(`删除失败: ${e?.message || e}`);
+        setStatus(tf('page.tools.mcp_manager.status.delete_failed', null, { message: e?.message || String(e) }));
       } finally {
         renderTools(state.selectedUrl, state.selectedUrl ? state.servers?.[state.selectedUrl] : null);
       }
@@ -821,7 +839,7 @@
           ExampleServer: {
             type: "sse",
             isActive: true,
-            name: "示例 MCP 服务",
+            name: t('page.tools.mcp_manager.example.server_name'),
             baseUrl: "https://example.com/sse",
             headers: {
               Authorization: "Bearer <your-token>"
@@ -850,25 +868,25 @@
     async function submitJson() {
       const raw = safeStr(els.jsonInput.value);
       if (!raw.trim()) {
-        setStatus('JSON 为空');
+        setStatus(t('page.tools.mcp_manager.error.json_empty'));
         return;
       }
       try {
         JSON.parse(raw);
       } catch (e) {
-        setStatus(`JSON 解析失败: ${e?.message || e}`);
+        setStatus(tf('page.tools.mcp_manager.error.json_parse_failed', null, { message: e?.message || String(e) }));
         return;
       }
 
-      setStatus('正在提交配置并连接 MCP 服务...');
+      setStatus(t('page.tools.mcp_manager.status.submitting'));
       els.btnSubmit.disabled = true;
       try {
         await apiAddMcpJson(raw);
         closeDialog();
         await refreshAll();
-        setStatus('添加完成');
+        setStatus(t('page.tools.mcp_manager.status.added'));
       } catch (e) {
-        setStatus(`添加失败: ${e?.message || e}`);
+        setStatus(tf('page.tools.mcp_manager.status.add_failed', null, { message: e?.message || String(e) }));
       } finally {
         els.btnSubmit.disabled = false;
       }
@@ -889,7 +907,12 @@
       }
     });
 
-    refreshAll();
+    function initOnce() {
+      window.removeEventListener('i18n:ready', initOnce);
+      refreshAll();
+    }
+    window.addEventListener('i18n:ready', initOnce);
+    if (window.I18N) initOnce();
   </script>
 </body>
 </html>

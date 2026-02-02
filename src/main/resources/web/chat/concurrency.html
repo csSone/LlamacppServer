@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>并发压测 · Chat</title>
+  <title data-i18n="page.chat.concurrency.page_title">page.chat.concurrency.page_title</title>
   <style>
     :root {
-      --bg: #0b0f14;
-      --panel: rgba(17, 24, 39, 0.72);
-      --panel-2: rgba(15, 23, 42, 0.72);
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --border: rgba(148, 163, 184, 0.18);
+      --bg: #f6f8fb;
+      --panel: rgba(255, 255, 255, 0.86);
+      --panel-2: rgba(255, 255, 255, 0.92);
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: rgba(15, 23, 42, 0.10);
       --primary: #10a37f;
       --danger: #ef4444;
       --warn: #f59e0b;
-      --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      --shadow: 0 14px 34px rgba(2, 6, 23, 0.12);
       --radius: 14px;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
@@ -28,9 +28,9 @@
       color: var(--text);
       font-family: var(--sans);
       background:
-        radial-gradient(1200px 900px at 10% 15%, rgba(16, 163, 127, 0.14), transparent 55%),
-        radial-gradient(1000px 800px at 85% 12%, rgba(59, 130, 246, 0.14), transparent 55%),
-        radial-gradient(900px 700px at 60% 90%, rgba(168, 85, 247, 0.10), transparent 55%),
+        radial-gradient(1200px 900px at 10% 15%, rgba(16, 163, 127, 0.10), transparent 58%),
+        radial-gradient(1000px 800px at 85% 12%, rgba(59, 130, 246, 0.10), transparent 58%),
+        radial-gradient(900px 700px at 60% 90%, rgba(168, 85, 247, 0.08), transparent 60%),
         var(--bg);
       overflow: hidden;
     }
@@ -50,7 +50,7 @@
       gap: 12px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
-      background: rgba(17, 24, 39, 0.72);
+      background: rgba(255, 255, 255, 0.75);
       backdrop-filter: blur(12px);
     }
 
@@ -138,7 +138,7 @@
 
     .field input, .field select, .field textarea {
       width: 100%;
-      background: rgba(2, 6, 23, 0.35);
+      background: rgba(255, 255, 255, 0.90);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
@@ -155,7 +155,7 @@
 
     .field input:focus, .field select:focus, .field textarea:focus {
       border-color: rgba(16, 163, 127, 0.55);
-      box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.14);
+      box-shadow: 0 0 0 4px rgba(16, 163, 127, 0.12);
     }
 
     .row .half { width: calc(50% - 5px); }
@@ -163,7 +163,7 @@
 
     .btn {
       border: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.35);
+      background: rgba(255, 255, 255, 0.90);
       border-radius: 12px;
       padding: 10px 12px;
       cursor: pointer;
@@ -171,10 +171,11 @@
       min-height: 38px;
     }
 
+    .btn:hover { border-color: rgba(15, 23, 42, 0.16); background: rgba(255, 255, 255, 1); }
     .btn:active { transform: translateY(1px); }
     .btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .btn.primary { border-color: rgba(16, 163, 127, 0.5); background: rgba(16, 163, 127, 0.18); }
-    .btn.danger { border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.16); }
+    .btn.primary { border-color: rgba(16, 163, 127, 0.36); background: rgba(16, 163, 127, 0.12); }
+    .btn.danger { border-color: rgba(239, 68, 68, 0.38); background: rgba(239, 68, 68, 0.10); }
 
     .hint { color: var(--muted); font-size: 12px; }
 
@@ -195,7 +196,7 @@
       padding: 4px 8px;
       font-size: 12px;
       line-height: 1;
-      background: rgba(2, 6, 23, 0.35);
+      background: rgba(255, 255, 255, 0.90);
       color: var(--text);
     }
 
@@ -212,7 +213,7 @@
     .result {
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: rgba(2, 6, 23, 0.28);
+      background: rgba(255, 255, 255, 0.78);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -226,7 +227,7 @@
       gap: 10px;
       padding: 10px 12px;
       border-bottom: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.18);
+      background: rgba(255, 255, 255, 0.88);
       min-width: 0;
     }
 
@@ -265,7 +266,7 @@
       font-family: var(--mono);
       font-size: 12.5px;
       line-height: 1.5;
-      color: rgba(226, 232, 240, 0.92);
+      color: rgba(15, 23, 42, 0.92);
     }
 
     @media (max-width: 980px) {
@@ -278,8 +279,8 @@
   <div class="app">
     <div class="header">
       <div class="brand">
-        并发压测
-        <small>一次提交，同时发起 N 次 OpenAI 标准 API 请求</small>
+        <span data-i18n="page.chat.concurrency.brand.title">page.chat.concurrency.brand.title</span>
+        <small data-i18n="page.chat.concurrency.brand.subtitle">page.chat.concurrency.brand.subtitle</small>
       </div>
       <div class="status" id="globalStatus"></div>
     </div>
@@ -287,29 +288,29 @@
     <div class="main">
       <section class="card">
         <div class="card-head">
-          <div class="card-title">参数</div>
+          <div class="card-title" data-i18n="page.chat.concurrency.section.params">page.chat.concurrency.section.params</div>
           <div class="row" style="margin:0">
-            <button class="btn" id="refreshModelsBtn" type="button">刷新模型</button>
+            <button class="btn" id="refreshModelsBtn" type="button" data-i18n="page.chat.concurrency.action.refresh_models">page.chat.concurrency.action.refresh_models</button>
           </div>
         </div>
         <div class="card-body">
           <div class="row">
             <div class="field">
-              <label for="modelSelect">模型</label>
+              <label for="modelSelect" data-i18n="page.chat.concurrency.label.model">page.chat.concurrency.label.model</label>
               <select id="modelSelect"></select>
             </div>
           </div>
 
           <div class="row">
             <div class="field half">
-              <label for="endpointSelect">API 端点</label>
+              <label for="endpointSelect" data-i18n="page.chat.concurrency.label.api_endpoint">page.chat.concurrency.label.api_endpoint</label>
               <select id="endpointSelect">
                 <option value="chat">/v1/chat/completions</option>
                 <option value="completion">/v1/completions</option>
               </select>
             </div>
             <div class="field half">
-              <label for="concurrencyN">请求次数 N</label>
+              <label for="concurrencyN" data-i18n="page.chat.concurrency.label.request_count">page.chat.concurrency.label.request_count</label>
               <input id="concurrencyN" type="number" min="1" max="500" value="4" />
             </div>
           </div>
@@ -338,22 +339,22 @@
               </select>
             </div>
             <div class="field half">
-              <label for="systemPrompt">system（固定）</label>
-              <input id="systemPrompt" type="text" value="这是在做并发压力测试，本次是第N次请求。" disabled />
+              <label for="systemPrompt" data-i18n="page.chat.concurrency.label.system_fixed">page.chat.concurrency.label.system_fixed</label>
+              <input id="systemPrompt" type="text" value="" disabled />
             </div>
           </div>
 
           <div class="row">
             <div class="field">
-              <label for="promptInput">用户输入</label>
-              <textarea id="promptInput" placeholder="输入任意内容"></textarea>
+              <label for="promptInput" data-i18n="page.chat.concurrency.label.user_input">page.chat.concurrency.label.user_input</label>
+              <textarea id="promptInput" placeholder="page.chat.concurrency.placeholder.user_input" data-i18n="page.chat.concurrency.placeholder.user_input" data-i18n-attr="placeholder"></textarea>
             </div>
           </div>
 
           <div class="row" style="margin-top: 12px;">
-            <button class="btn primary" id="startBtn" type="button">开始并发请求</button>
-            <button class="btn danger" id="stopBtn" type="button" disabled>停止全部</button>
-            <button class="btn" id="clearBtn" type="button">清空结果</button>
+            <button class="btn primary" id="startBtn" type="button" data-i18n="page.chat.concurrency.action.start">page.chat.concurrency.action.start</button>
+            <button class="btn danger" id="stopBtn" type="button" disabled data-i18n="page.chat.concurrency.action.stop_all">page.chat.concurrency.action.stop_all</button>
+            <button class="btn" id="clearBtn" type="button" data-i18n="page.chat.concurrency.action.clear_results">page.chat.concurrency.action.clear_results</button>
           </div>
           <div class="hint" id="hintLine"></div>
         </div>
@@ -361,7 +362,7 @@
 
       <section class="card">
         <div class="card-head">
-          <div class="card-title">结果</div>
+          <div class="card-title" data-i18n="page.chat.concurrency.section.results">page.chat.concurrency.section.results</div>
           <div class="status" id="summaryLine"></div>
         </div>
         <div class="card-body">
@@ -371,6 +372,7 @@
     </div>
   </div>
 
+  <script src="/js/i18n.js"></script>
   <script>
     const els = {
       globalStatus: document.getElementById('globalStatus'),
@@ -401,6 +403,23 @@
       controllers: [],
       runId: 0
     };
+
+    function t(key, fallback) {
+      if (window.I18N && typeof window.I18N.t === 'function') {
+        return window.I18N.t(key, fallback);
+      }
+      return fallback == null ? key : fallback;
+    }
+
+    function tf(key, fallback, vars) {
+      let out = t(key, fallback);
+      if (!vars) return out;
+      for (const k of Object.keys(vars)) {
+        const v = vars[k];
+        out = out.split('{' + k + '}').join(v == null ? '' : String(v));
+      }
+      return out;
+    }
 
     function setGlobalStatus(text) {
       els.globalStatus.textContent = text || '';
@@ -574,7 +593,7 @@
 
       const badge = document.createElement('span');
       badge.className = 'badge run';
-      badge.textContent = 'RUN';
+      badge.textContent = t('page.chat.concurrency.result.badge.run');
 
       head.appendChild(title);
       head.appendChild(badge);
@@ -599,7 +618,7 @@
     }
 
     async function loadModels() {
-      setGlobalStatus('加载模型中…');
+      setGlobalStatus(t('page.chat.concurrency.status.loading_models'));
       try {
         const data = await fetchJson('/v1/models', { method: 'GET' });
         const models = Array.isArray(data?.data) ? data.data : [];
@@ -608,10 +627,10 @@
         if (!models.length) {
           const opt = document.createElement('option');
           opt.value = '';
-          opt.textContent = '未发现已加载模型';
+          opt.textContent = t('page.chat.concurrency.status.no_models');
           els.modelSelect.appendChild(opt);
           els.modelSelect.disabled = true;
-          setGlobalStatus('未发现已加载模型');
+          setGlobalStatus(t('page.chat.concurrency.status.no_models'));
           return;
         }
         for (const m of models) {
@@ -626,27 +645,27 @@
           els.modelSelect.value = models[0].id;
         }
         els.modelSelect.disabled = false;
-        setGlobalStatus('就绪');
+        setGlobalStatus(t('page.chat.concurrency.status.ready'));
       } catch (e) {
         els.modelSelect.innerHTML = '';
         const opt = document.createElement('option');
         opt.value = '';
-        opt.textContent = '加载失败';
+        opt.textContent = t('page.chat.concurrency.status.load_failed');
         els.modelSelect.appendChild(opt);
         els.modelSelect.disabled = true;
-        setGlobalStatus('模型加载失败：' + e.message);
+        setGlobalStatus(tf('page.chat.concurrency.status.models_load_failed', null, { message: e?.message || String(e) }));
       }
     }
 
     function buildSystemLines(requestIndex) {
-      const fixed = '这是在做并发压力测试，本次是第' + String(requestIndex) + '次请求。';
-      const randomLine = '随机种子：' + nonce();
+      const fixed = tf('page.chat.concurrency.system.fixed', null, { n: String(requestIndex) });
+      const randomLine = tf('page.chat.concurrency.system.random_seed', null, { seed: nonce() });
       return { fixed, randomLine };
     }
 
     function buildUserText(rawUserText, requestIndex) {
       const base = (rawUserText == null ? '' : String(rawUserText));
-      return base + '（这是在做并发压力测试，请回复不超过200个字符。这是第' + String(requestIndex) + '次请求。）';
+      return base + tf('page.chat.concurrency.user.appendix', null, { n: String(requestIndex) });
     }
 
     function buildRequestBody(endpointKind, model, promptText, params, systemLines) {
@@ -684,7 +703,7 @@
 
       const startWall = Date.now();
       const start = nowMs();
-      view.metaEl.textContent = '开始：' + new Date(startWall).toLocaleTimeString();
+      view.metaEl.textContent = tf('page.chat.concurrency.result.meta.started', null, { time: new Date(startWall).toLocaleTimeString() });
 
       let text = '';
       let reasoning = '';
@@ -712,7 +731,7 @@
           signal: controller.signal
         });
 
-        if (runId !== state.runId) throw new Error('已被新任务替换');
+        if (runId !== state.runId) throw new Error(t('page.chat.concurrency.error.replaced_by_new_run'));
 
         if (!res.ok) {
           const t = await res.text();
@@ -750,20 +769,22 @@
         const tps = computeTokensPerSecond({ timings: lastTimings, usage: lastUsage, elapsedMs: elapsed });
         const tMs = Math.round(elapsed);
         const tpsInt = (tps != null && isFinite(tps)) ? Math.round(tps) : null;
-        view.metaEl.textContent = '耗时：' + tMs + 'ms' + (tpsInt != null ? (' · ' + tpsInt + ' token/s') : '');
-        setResultStatus('ok', 'OK');
+        view.metaEl.textContent = tpsInt != null
+          ? tf('page.chat.concurrency.result.meta.elapsed_tps', null, { ms: tMs, tps: tpsInt })
+          : tf('page.chat.concurrency.result.meta.elapsed', null, { ms: tMs });
+        setResultStatus('ok', t('page.chat.concurrency.result.badge.ok'));
         return { ok: true, elapsedMs: elapsed, usage: lastUsage, timings: lastTimings, tokensPerSecond: tps };
       } catch (e) {
         const elapsed = Math.max(0, nowMs() - start);
         const tMs = Math.round(elapsed);
-        view.metaEl.textContent = '耗时：' + tMs + 'ms';
+        view.metaEl.textContent = tf('page.chat.concurrency.result.meta.elapsed', null, { ms: tMs });
         if (e?.name === 'AbortError') {
-          setResultStatus('err', 'ABORT');
-          view.preEl.textContent = '[已停止]';
+          setResultStatus('err', t('page.chat.concurrency.result.badge.abort'));
+          view.preEl.textContent = t('page.chat.concurrency.result.stopped');
           return { ok: false, aborted: true, elapsedMs: elapsed, error: 'Abort' };
         }
-        setResultStatus('err', 'ERR');
-        view.preEl.textContent = '错误：' + escapeText(e?.message || String(e));
+        setResultStatus('err', t('page.chat.concurrency.result.badge.err'));
+        view.preEl.textContent = tf('page.chat.concurrency.result.error_prefix', null, { message: escapeText(e?.message || String(e)) });
         return { ok: false, aborted: false, elapsedMs: elapsed, error: e?.message || String(e) };
       }
     }
@@ -772,12 +793,12 @@
       if (state.isRunning) return;
       const model = (els.modelSelect.value || '').trim();
       if (!model) {
-        setHint('请先加载并选择模型');
+        setHint(t('page.chat.concurrency.hint.select_model_first'));
         return;
       }
       const promptText = (els.promptInput.value || '').trim();
       if (!promptText) {
-        setHint('请输入要发送的内容');
+        setHint(t('page.chat.concurrency.hint.enter_content'));
         return;
       }
 
@@ -792,7 +813,7 @@
 
       clearResults();
       setHint('');
-      setGlobalStatus('运行中…');
+      setGlobalStatus(t('page.chat.concurrency.status.running'));
       setBusy(true);
 
       state.controllers = [];
@@ -828,14 +849,24 @@
       const tpsP95 = percentile(okTps, 95);
 
       const tokSummary = sumCompletionTokens > 0
-        ? (' · 完成tok ' + sumCompletionTokens + ' · 吞吐 ' + throughput.toFixed(2) + ' tok/s')
+        ? tf('page.chat.concurrency.summary.tokens', null, { sum: sumCompletionTokens, throughput: throughput.toFixed(2) })
         : '';
       const tpsSummary = okTps.length
-        ? (' · tok/s均值 ' + tpsAvg.toFixed(2) + ' · tok/s P50 ' + tpsP50.toFixed(2) + ' · tok/s P95 ' + tpsP95.toFixed(2))
+        ? tf('page.chat.concurrency.summary.tps', null, { avg: tpsAvg.toFixed(2), p50: tpsP50.toFixed(2), p95: tpsP95.toFixed(2) })
         : '';
 
-      setSummary('总耗时 ' + total.toFixed(1) + 'ms · OK ' + ok + ' · ERR ' + err + ' · ABORT ' + aborted + ' · 平均 ' + avg.toFixed(1) + 'ms · P50 ' + p50.toFixed(1) + 'ms · P95 ' + p95.toFixed(1) + 'ms' + tokSummary + tpsSummary);
-      setGlobalStatus('完成');
+      setSummary(tf('page.chat.concurrency.summary.base', null, {
+        total: total.toFixed(1),
+        ok,
+        err,
+        aborted,
+        avg: avg.toFixed(1),
+        p50: p50.toFixed(1),
+        p95: p95.toFixed(1),
+        tokSummary,
+        tpsSummary
+      }));
+      setGlobalStatus(t('page.chat.concurrency.status.done'));
       setBusy(false);
       state.controllers = [];
     }
@@ -857,7 +888,13 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-      loadModels();
+      function syncStaticI18nOnce() {
+        window.removeEventListener('i18n:ready', syncStaticI18nOnce);
+        els.systemPrompt.value = t('page.chat.concurrency.system_fixed_preview');
+        loadModels();
+      }
+      window.addEventListener('i18n:ready', syncStaticI18nOnce);
+      if (window.I18N) syncStaticI18nOnce();
     });
   </script>
 </body>
