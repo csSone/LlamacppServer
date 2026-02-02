@@ -8,7 +8,7 @@ This is a Java-based HTTP server for llama.cpp that provides OpenAI/Ollama-compa
 
 | Component | Version |
 |-----------|---------|
-| **Java** | 21 (JDK 24.0.2 configured in javac-linux.sh) |
+| **Java** | 21 (OpenJDK, system default: `/usr/lib/jvm/java-21-openjdk-amd64`) |
 | **Build Tool** | javac with Netty framework |
 | **Default Ports** | 8080 (OpenAI API), 8070 (Anthropic API) |
 | **Systemd Service** | llama-server.service |
@@ -63,8 +63,8 @@ src/main/java/org/mark/llamacpp/
 ```
 
 **Important**:
-- Modify `JAVA_HOME` in `javac-linux.sh` to your JDK path
-- Default is `/opt/jdk-24.0.2/` (change if different)
+- `JAVA_HOME` in `javac-linux.sh` defaults to system OpenJDK 21
+- Modify `JAVA_HOME` if using a custom JDK path
 
 ### Run
 
@@ -189,6 +189,24 @@ OpenAI requests are forwarded to llama.cpp with these transformations:
 
 ## Important Implementation Details
 
+### Model Loading Status Check (Recent Fix)
+
+**Problem**: Frontend shows model as "loaded" even after llama-server process exits, because `ModelInfoController` only checks if modelId exists in `loadedProcesses` Map, without verifying if the process is actually running.
+
+**Solution in ModelInfoController.handleModelDetailsRequest()** (line 566-571):
+```java
+// Check if model is truly loaded (process must exist AND be running)
+boolean isLoaded = false;
+LlamaCppProcess loadedProcess = manager.getLoadedProcesses().get(modelId);
+if (loadedProcess != null && loadedProcess.isRunning()) {
+    isLoaded = true;
+}
+```
+
+**Key Point**: Always call `LlamaCppProcess.isRunning()` to verify process status, which checks:
+- `process.isAlive()` - Process is still alive
+- Internal `isRunning` flag
+
 ### Model Name Matching (Recent Fix)
 
 **Problem**: Users call API with full filename (e.g., "gpt-oss-120b-Derestricted.MXFP4_MOE.gguf") but `loadedProcesses` uses folder name as key (e.g., "gpt-oss-120b").
@@ -275,6 +293,31 @@ curl -X POST http://localhost:8080/api/models/stop \
 # Or kill Java server (stops all models)
 sudo systemctl stop llama-server.service
 ```
+
+## Git Workflow
+
+This project uses a fork-based workflow with upstream repository:
+
+```bash
+# Add upstream if not already added
+git remote add upstream https://github.com/IIIIIllllIIIIIlllll/LlamacppServer.git
+
+# Fetch upstream updates
+git fetch upstream
+
+# Check for new commits
+git log HEAD..upstream/master --oneline
+
+# Rebase local branch on upstream/master
+git checkout master
+git pull --rebase upstream master
+
+# Merge upstream into feature branch
+git checkout fix/model-name-mismatch-in-chat-completions
+git merge master
+```
+
+**Branch Naming**: Use `fix/` or `feature/` prefix for topic branches
 
 ## Related Code
 
