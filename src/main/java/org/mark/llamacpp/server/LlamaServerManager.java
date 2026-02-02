@@ -1301,7 +1301,7 @@ public class LlamaServerManager {
 		if (!cmdHasFlag(allArgs, "--cache-ram")) {
 			sb.append(" --cache-ram -1");
 		}
-
+		sb.append(" --alias ").append(targetModel.getModelId());
 		return sb.toString().trim();
 	}
 
