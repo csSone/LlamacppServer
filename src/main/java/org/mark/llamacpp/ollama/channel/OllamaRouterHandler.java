@@ -90,7 +90,7 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			return;
 		}
 		// 如果是首页
-		if(uri.startsWith("/")) {
+		if(uri.equals("/")) {
 			String responseContent = "Ollama is running";
 			// 构建响应内容
 			byte[] contentBytes = responseContent.getBytes(StandardCharsets.UTF_8);
