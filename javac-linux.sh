@@ -8,11 +8,27 @@ RES_DIR_1="$PROJECT_ROOT/src/main/resources"
 RES_DIR_2="$PROJECT_ROOT/resources"
 CLASSES_DIR="$PROJECT_ROOT/build/classes"
 LIB_DIR="$PROJECT_ROOT/lib"
-# === 1. 强制要求 JAVA_HOME 已设置且有效 ===
+# === 1. 自动检测 JAVA_HOME（如果未设置）===
 if [ -z "$JAVA_HOME" ]; then
-    echo "❌ 错误：环境变量 JAVA_HOME 未设置。请指定 JDK 21 安装路径。"
-    echo "   示例: export JAVA_HOME=/usr/lib/jvm/jdk-21"
-    exit 1
+    # 尝试从 java 命令路径自动检测
+    if command -v java &> /dev/null; then
+        JAVA_PATH=$(readlink -f $(which java))
+        DETECTED_JAVA_HOME=$(dirname $(dirname "$JAVA_PATH"))
+        if [ -d "$DETECTED_JAVA_HOME" ] && [ -f "$DETECTED_JAVA_HOME/bin/javac" ]; then
+            export JAVA_HOME="$DETECTED_JAVA_HOME"
+            echo "✅ 自动检测到 JAVA_HOME: $JAVA_HOME"
+        else
+            echo "❌ 错误：环境变量 JAVA_HOME 未设置，且无法自动检测。"
+            echo "   请指定 JDK 21 安装路径。"
+            echo "   示例: export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
+            exit 1
+        fi
+    else
+        echo "❌ 错误：环境变量 JAVA_HOME 未设置，且系统中未找到 java 命令。"
+        echo "   请先安装 JDK 21，或设置 JAVA_HOME。"
+        echo "   示例: export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
+        exit 1
+    fi
 fi
 if [ ! -d "$JAVA_HOME" ]; then
     echo "❌ 错误：JAVA_HOME 指向的目录不存在: $JAVA_HOME"
