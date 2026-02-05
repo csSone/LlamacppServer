@@ -175,18 +175,14 @@ public class OpenAIService {
 				}
 			}
 
-			JsonArray models = new JsonArray();
-			for (JsonObject m : modelsByKey.values()) {
-				models.add(m);
-			}
 			JsonArray data = new JsonArray();
 			for (JsonObject d : dataById.values()) {
 				data.add(d);
 			}
 
+			// OpenAI 标准格式：只返回 data 字段
 			JsonObject response = new JsonObject();
 			response.addProperty("object", "list");
-			response.add("models", models);
 			response.add("data", data);
 			sendOpenAIJsonResponse(ctx, response);
 		} catch (Exception e) {
