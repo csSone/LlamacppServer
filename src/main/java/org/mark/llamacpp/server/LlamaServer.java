@@ -19,6 +19,7 @@ import org.mark.llamacpp.ollama.Ollama;
 import org.mark.llamacpp.server.channel.AnthropicRouterHandler;
 import org.mark.llamacpp.server.channel.BasicRouterHandler;
 import org.mark.llamacpp.server.channel.CompletionRouterHandler;
+import org.mark.llamacpp.server.channel.DocsRouterHandler;
 import org.mark.llamacpp.server.channel.FileDownloadRouterHandler;
 import org.mark.llamacpp.server.channel.OpenAIRouterHandler;
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
@@ -537,6 +538,7 @@ public class LlamaServer {
                                     .addLast(new HttpServerCodec())
                                     .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
                                     .addLast(new ChunkedWriteHandler())
+                                    .addLast(new DocsRouterHandler())
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new CompletionRouterHandler())
                                     .addLast(new AnthropicRouterHandler())
@@ -588,7 +590,8 @@ public class LlamaServer {
                                     .addLast(new ChunkedWriteHandler())
                                     .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
                                     .addLast(new WebSocketServerHandler())
-                                    
+
+                                    .addLast(new DocsRouterHandler())
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new CompletionRouterHandler())
                                     .addLast(new FileDownloadRouterHandler())
