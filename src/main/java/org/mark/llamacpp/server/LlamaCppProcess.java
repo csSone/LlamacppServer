@@ -306,6 +306,7 @@ public class LlamaCppProcess {
 					if (this.outputHandler != null) {
 						this.outputHandler.accept(line);
 					}
+					// 过滤掉 slot 状态更新日志，减少日志量
 					if(!line.contains("update_slots") && !line.contains("log_server_r")) {
 						logger.info(line);
 					}
