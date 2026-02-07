@@ -10,6 +10,7 @@ import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -22,14 +23,20 @@ import io.netty.handler.codec.http.HttpVersion;
 /**
  * API 文档路由处理器
  * 提供 OpenAPI 文档和 Swagger UI
+ *
+ * 使用 @Sharable 注解标记为可共享的单例，避免每次连接都重新创建实例
  */
+@ChannelHandler.Sharable
 public class DocsRouterHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
 	private static final Logger logger = LoggerFactory.getLogger(DocsRouterHandler.class);
 
 	private String cachedOpenApiJson;
 
-	public DocsRouterHandler() {
+	/**
+	 * 私有构造函数，防止外部直接创建实例
+	 */
+	private DocsRouterHandler() {
 		// 直接加载预生成的 openapi.json 文件，而不是运行时扫描源代码
 		// 支持多个部署场景：项目根目录或 build/ 子目录
 		try {
@@ -66,6 +73,20 @@ public class DocsRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
 			logger.error("加载 OpenAPI 文档失败", e);
 			this.cachedOpenApiJson = null;
 		}
+	}
+
+	/**
+	 * 单例实例，在类加载时初始化
+	 * 这样可以确保 openapi.json 只在启动时加载一次
+	 */
+	private static final DocsRouterHandler INSTANCE = new DocsRouterHandler();
+
+	/**
+	 * 获取单例实例
+	 * @return DocsRouterHandler 单例
+	 */
+	public static DocsRouterHandler getInstance() {
+		return INSTANCE;
 	}
 
 	/**

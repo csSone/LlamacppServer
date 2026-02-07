@@ -246,9 +246,9 @@ public class LlamaServerManager {
 					LlamaServer.sendModelSlotsEvent(modelId, filtered);
 				}
 			} catch (Exception e) {
-				logger.info("轮询slots时发生错误", e);
+				logger.debug("轮询slots时发生错误: {}", e.getMessage());
 			}
-		}, 1, 1, TimeUnit.SECONDS);
+		}, 1, 2, TimeUnit.SECONDS);
 	}
 	
 	/**
@@ -1477,14 +1477,15 @@ public class LlamaServerManager {
 	public JsonObject handleModelSlotsGet(String modelId) {
 		try {
 			int port = this.requireLoadedModelPort(modelId);
-			HttpResult r = this.callLocalModelEndpoint(port, "GET", "/slots", null, 30000, 30000);
+			HttpResult r = this.callLocalModelEndpoint(port, "GET", "/slots", null, 5000, 5000);
 			if (r.statusCode >= 200 && r.statusCode < 300) {
 				JsonObject parsed = this.tryParseJsonObject(r.body);
 				return parsed != null ? parsed : new JsonObject();
 			}
 			throw new RuntimeException("获取slots失败: " + r.body);
 		} catch (Exception e) {
-			logger.info("获取slots时发生错误", e);
+			// 降低日志级别，避免推理过程中的超时错误刷屏
+			logger.debug("获取slots时发生错误: {}", e.getMessage());
 			throw new RuntimeException("获取slots失败: " + e.getMessage(), e);
 		}
 	}

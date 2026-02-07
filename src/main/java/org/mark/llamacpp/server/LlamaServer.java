@@ -538,7 +538,7 @@ public class LlamaServer {
                                     .addLast(new HttpServerCodec())
                                     .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
                                     .addLast(new ChunkedWriteHandler())
-                                    .addLast(new DocsRouterHandler())
+                                    .addLast(DocsRouterHandler.getInstance())
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new CompletionRouterHandler())
                                     .addLast(new AnthropicRouterHandler())
@@ -591,7 +591,7 @@ public class LlamaServer {
                                     .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
                                     .addLast(new WebSocketServerHandler())
 
-                                    .addLast(new DocsRouterHandler())
+                                    .addLast(DocsRouterHandler.getInstance())
                                     .addLast(new BasicRouterHandler())
                                     .addLast(new CompletionRouterHandler())
                                     .addLast(new FileDownloadRouterHandler())
