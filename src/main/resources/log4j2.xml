@@ -1,13 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
+<Configuration status="WARN" monitorInterval="30">
+  <Properties>
+    <Property name="LOG_DIR">logs</Property>
+    <Property name="FILE_PATTERN">${LOG_DIR}/llamacpp-server-%d{yyyy-MM-dd}-%i.log</Property>
+    <Property name="CONSOLE_PATTERN">%d{HH:mm:ss.SSS} [%t] %highlight{%-5level} %style{%logger{36}}{cyan} - %msg%n%ex</Property>
+    <Property name="FILE_PATTERN_FORMAT">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n%ex</Property>
+  </Properties>
+
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT" follow="true">
-      <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n"/>
+      <PatternLayout pattern="${CONSOLE_PATTERN}"/>
     </Console>
+
+    <RollingFile name="RollingFile"
+                 fileName="${LOG_DIR}/llamacpp-server.log"
+                 filePattern="${FILE_PATTERN}">
+      <PatternLayout pattern="${FILE_PATTERN_FORMAT}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="100 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="30">
+        <Delete basePath="${LOG_DIR}" maxDepth="1">
+          <IfFileName glob="*.log"/>
+          <IfLastModified age="30d"/>
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+
+    <RollingFile name="ErrorFile"
+                 fileName="${LOG_DIR}/llamacpp-server-error.log"
+                 filePattern="${LOG_DIR}/error-%d{yyyy-MM-dd}-%i.log">
+      <PatternLayout pattern="${FILE_PATTERN_FORMAT}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="50 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+      <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+    </RollingFile>
   </Appenders>
+
   <Loggers>
+    <Logger name="io.netty" level="INFO" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+    </Logger>
+
+    <Logger name="com.google.gson" level="WARN" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+    </Logger>
+
+    <Logger name="org.mark.llamacpp" level="INFO" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+      <AppenderRef ref="ErrorFile"/>
+    </Logger>
+
     <Root level="INFO">
       <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+      <AppenderRef ref="ErrorFile"/>
     </Root>
   </Loggers>
 </Configuration>
