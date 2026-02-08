@@ -42,8 +42,8 @@ function handleWebSocketMessage(message) {
                 case 'model_slots': handleModelSlotsUpdate(data); break;
                 case 'console':
                     {
-                        const consoleModal = document.getElementById('consoleModal');
-                        if (consoleModal && consoleModal.classList.contains('show')) {
+                        const consoleMain = document.getElementById('main-console');
+                        if (consoleMain && consoleMain.style && consoleMain.style.display !== 'none') {
                             let text = '';
                             if (typeof data.line64 === 'string') {
                                 const bin = atob(data.line64);

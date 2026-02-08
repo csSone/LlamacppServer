@@ -37,13 +37,11 @@
     }
 
     function openConsoleModal() {
-        const modal = document.getElementById('consoleModal');
-        if (!modal) return;
-        modal.classList.add('show');
         fetchConsole();
         setTimeout(() => {
             scrollBottom();
         }, 100);
+        if (autoRefreshConsole && autoRefreshConsole.checked) startConsoleAuto();
     }
 
     function appendLogLine(line) {
@@ -89,4 +87,3 @@
     window.appendLogLine = appendLogLine;
     window.stopConsoleAuto = stopConsoleAuto;
 })();
-

@@ -35,7 +35,7 @@
                 <i class="fas fa-cloud"></i>
                 <span data-i18n="nav.hf">nav.hf</span>
             </a>
-            <a href="#" class="nav-item" onclick="openConsoleModal(); return false;">
+            <a href="#" class="nav-item" id="nav-console" onclick="showConsolePage(); return false;">
                 <i class="fas fa-terminal"></i>
                 <span data-i18n="nav.console">nav.console</span>
             </a>
@@ -430,6 +430,31 @@
         </div>
     </main>
 
+    <main class="main-area" id="main-console" style="display: none">
+        <div class="top-bar">
+            <h1 class="page-title"><i class="fas fa-terminal"></i> <span data-i18n="modal.console.title">modal.console.title</span></h1>
+            <div class="top-actions" style="display:flex; align-items:center; gap:12px;">
+                <button class="btn btn-secondary" id="refreshConsoleBtn" title="common.refresh" data-i18n="common.refresh" data-i18n-attr="title">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size: 14px; color: var(--text-secondary);">
+                    <input type="checkbox" id="autoRefreshConsole"> <span data-i18n="modal.console.auto_refresh">modal.console.auto_refresh</span>
+                </label>
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size: 14px; color: var(--text-secondary);">
+                    <span data-i18n="modal.console.interval_ms">modal.console.interval_ms</span>
+                    <input class="form-control" type="number" id="intervalConsoleInput" value="2000" min="500" style="width: 92px; padding: 4px 8px;">
+                </label>
+                <div id="consoleStatusText" style="font-size:12px; color:var(--text-secondary); margin-left:auto;"></div>
+            </div>
+        </div>
+
+        <div class="content-scrollable" style="padding: 0;">
+            <div id="logContainer" style="height: 100%; overflow:auto; padding:16px; font-family:'Menlo', 'Monaco', 'Courier New', monospace; background:#0f172a; color:#e5e7eb; font-size: 0.875rem;">
+                <pre id="consoleContent" style="margin:0; white-space:pre-wrap; word-break:break-word;"></pre>
+            </div>
+        </div>
+    </main>
+
     <!-- Add Llama.cpp Modal -->
     <div class="modal" id="addLlamaCppModal">
         <div class="modal-content" style="max-width: 700px;">
@@ -593,35 +618,6 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('addModelPathModal')" data-i18n="common.cancel">common.cancel</button>
                 <button class="btn btn-primary" onclick="addModelPath()" data-i18n="common.save">common.save</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Console Modal -->
-    <div class="modal" id="consoleModal">
-        <div class="modal-content" style="max-width: 1000px; height: 85vh;">
-            <div class="modal-header">
-                <h3 class="modal-title"><i class="fas fa-terminal"></i> <span data-i18n="modal.console.title">modal.console.title</span></h3>
-                <button class="modal-close" onclick="closeModal('consoleModal')">&times;</button>
-            </div>
-            <div class="modal-body" style="display: flex; flex-direction: column; padding: 0;">
-                <div style="display:flex; align-items:center; gap:12px; padding:12px; border-bottom:1px solid var(--border-color); background: #f8f9fa;">
-                    <button class="btn btn-secondary btn-sm" id="refreshConsoleBtn"><i class="fas fa-sync-alt"></i> <span data-i18n="common.refresh">common.refresh</span></button>
-                    <label style="display:inline-flex; align-items:center; gap:6px; font-size: 14px;">
-                        <input type="checkbox" id="autoRefreshConsole"> <span data-i18n="modal.console.auto_refresh">modal.console.auto_refresh</span>
-                    </label>
-                    <label style="display:inline-flex; align-items:center; gap:6px; font-size: 14px;">
-                        <span data-i18n="modal.console.interval_ms">modal.console.interval_ms</span>
-                        <input class="form-control" type="number" id="intervalConsoleInput" value="2000" min="500" style="width:80px; padding: 4px 8px;">
-                    </label>
-                    <div id="consoleStatusText" style="font-size:12px; color:var(--text-secondary); margin-left:auto;"></div>
-                </div>
-                <div id="logContainer" style="flex: 1; overflow:auto; padding:16px; font-family:'Menlo', 'Monaco', 'Courier New', monospace; background:#0f172a; color:#e5e7eb; font-size: 0.875rem;">
-                    <pre id="consoleContent" style="margin:0; white-space:pre-wrap; word-break:break-word;"></pre>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('consoleModal')" data-i18n="common.close">common.close</button>
             </div>
         </div>
     </div>
@@ -1717,6 +1713,8 @@
             document.getElementById('main-settings').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             //refreshModels();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -1733,6 +1731,8 @@
             document.getElementById('main-settings').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             loadLlamaCppList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -1749,11 +1749,28 @@
             document.getElementById('main-settings').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             loadModelPathList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-model-path');
+            if (nav) nav.classList.add('active');
+        }
+
+        function showConsolePage() {
+            document.getElementById('main-model-list').style.display = 'none';
+            document.getElementById('main-llamacpp-setting').style.display = 'none';
+            document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-settings').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = '';
+            openConsoleModal();
+            const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const nav = document.getElementById('nav-console');
             if (nav) nav.classList.add('active');
         }
         
@@ -1765,6 +1782,8 @@
             document.getElementById('main-settings').style.display = 'none';
             document.getElementById('main-hf').style.display = '';
             document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-hf');
@@ -1778,6 +1797,8 @@
             document.getElementById('main-model-path-setting').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-settings').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             const main = document.getElementById('main-download');
             const hasEntered = main && main.dataset && main.dataset.entered === '1';
             if (main) main.style.display = '';
@@ -1796,6 +1817,8 @@
             document.getElementById('main-model-path-setting').style.display = 'none';
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            stopConsoleAuto();
             const main = document.getElementById('main-settings');
             if (main) main.style.display = '';
 
