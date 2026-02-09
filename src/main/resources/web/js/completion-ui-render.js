@@ -319,6 +319,35 @@ function deleteMessage(messageId) {
   scheduleSave(t('page.chat.completion.save_reason.delete_message', '删除气泡'));
 }
 
+function getRunnableHtmlFromMessage(msg) {
+  const raw = (msg && typeof msg.uiContent === 'string') ? msg.uiContent : (msg && msg.content ? msg.content : '');
+  if (typeof extractRunnableHtml === 'function') return extractRunnableHtml(raw);
+  return '';
+}
+
+function openHtmlPreviewFromMessage(id) {
+  const msg = getMessageById(id);
+  if (!msg) return;
+  const html = getRunnableHtmlFromMessage(msg);
+  if (!html) {
+    if (typeof setStatus === 'function') setStatus(t('page.chat.completion.status.html_not_found', '未检测到可运行的HTML'));
+    return;
+  }
+  openHtmlPreview(html);
+}
+
+function syncHtmlPreviewAction(id) {
+  const msg = getMessageById(id);
+  if (!msg || msg.role !== 'assistant') return;
+  const wrap = els.chatList ? els.chatList.querySelector('.msg.assistant[data-id="' + id + '"]') : null;
+  if (!wrap) return;
+  const btn = wrap.querySelector('.msg-actions .msg-btn[data-action="run-html"]');
+  if (!btn) return;
+  const html = getRunnableHtmlFromMessage(msg);
+  btn.style.display = html ? '' : 'none';
+  btn.disabled = !html;
+}
+
 function renderMessage(msg) {
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + msg.role;
@@ -373,6 +402,12 @@ function renderMessage(msg) {
 
   if (msg.role === 'assistant' || msg.role === 'user') {
     addAction(t('page.chat.completion.action.regenerate', '重生成'), 'ghost', () => regenerateMessage(msg.id));
+  }
+  if (msg.role === 'assistant') {
+    const runHtmlBtn = addAction(t('page.chat.completion.action.run_html', '运行HTML'), 'ghost', () => openHtmlPreviewFromMessage(msg.id));
+    runHtmlBtn.dataset.action = 'run-html';
+    const html = getRunnableHtmlFromMessage(msg);
+    if (!html) runHtmlBtn.style.display = 'none';
   }
   addAction(t('page.chat.completion.action.edit', '编辑'), 'ghost', () => openEditModal(msg.id));
   addAction(t('page.chat.completion.action.delete', '删除'), 'danger', () => deleteMessage(msg.id));
@@ -727,6 +762,77 @@ function applyAssistantAvatar(avatarEl) {
   img.src = url;
 }
 
+let htmlPreviewOverlay = null;
+let htmlPreviewKeydown = null;
+
+function closeHtmlPreview() {
+  try { if (htmlPreviewKeydown) document.removeEventListener('keydown', htmlPreviewKeydown); } catch (e) { }
+  try { if (htmlPreviewOverlay) htmlPreviewOverlay.remove(); } catch (e) { }
+  htmlPreviewOverlay = null;
+  htmlPreviewKeydown = null;
+}
+
+function openHtmlPreview(html) {
+  closeHtmlPreview();
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '9999';
+  overlay.style.background = 'rgba(0, 0, 0, 0.55)';
+  overlay.style.backdropFilter = 'blur(6px)';
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeHtmlPreview();
+  });
+  const card = document.createElement('div');
+  card.style.position = 'fixed';
+  card.style.inset = '0';
+  card.style.display = 'flex';
+  card.style.flexDirection = 'column';
+  card.style.border = 'none';
+  card.style.borderRadius = '0';
+  card.style.background = '#ffffff';
+  card.style.boxShadow = 'none';
+  const head = document.createElement('div');
+  head.style.display = 'flex';
+  head.style.alignItems = 'center';
+  head.style.justifyContent = 'space-between';
+  head.style.gap = '10px';
+  head.style.padding = '10px 12px';
+  head.style.borderBottom = '1px solid var(--border)';
+  head.style.background = '#f9fafb';
+  const title = document.createElement('div');
+  title.textContent = t('page.chat.completion.modal.html_preview.title', 'HTML预览');
+  title.style.fontWeight = '800';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'btn icon-btn';
+  closeBtn.addEventListener('click', () => closeHtmlPreview());
+  head.appendChild(title);
+  head.appendChild(closeBtn);
+  const body = document.createElement('div');
+  body.style.flex = '1 1 auto';
+  body.style.overflow = 'hidden';
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
+  frame.style.border = 'none';
+  frame.style.width = '100%';
+  frame.style.height = '100%';
+  card.appendChild(head);
+  body.appendChild(frame);
+  card.appendChild(body);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  htmlPreviewOverlay = overlay;
+  htmlPreviewKeydown = (e) => {
+    if (e && e.key === 'Escape') closeHtmlPreview();
+  };
+  document.addEventListener('keydown', htmlPreviewKeydown);
+  setTimeout(() => {
+    try { frame.srcdoc = html; } catch (e) { }
+  }, 0);
+}
+
 let avatarUploadInput = null;
 
 function getAvatarUploadInput() {
@@ -829,6 +935,7 @@ function updateMessage(id, content) {
   const displayText = (m && typeof m.uiContent === 'string') ? m.uiContent : (content || '');
   if (el) requestRenderMessageContent(el, displayText);
   syncToolMessageMeta(id);
+  syncHtmlPreviewAction(id);
   syncMessageTimingsUi(id);
   maybeScrollToBottom();
 }
@@ -840,6 +947,7 @@ function setMessageUiContent(id, uiText) {
   if (m) m.uiContent = (uiText == null ? '' : String(uiText));
   if (el) requestRenderMessageContent(el, (uiText == null ? '' : String(uiText)));
   syncToolMessageMeta(id);
+  syncHtmlPreviewAction(id);
   syncMessageTimingsUi(id);
   maybeScrollToBottom();
 }

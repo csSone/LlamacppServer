@@ -427,6 +427,31 @@ function markdownToSafeHtml(text) {
   return sanitizeMarkdownHtml(raw);
 }
 
+function wrapHtmlFragment(fragment) {
+  const raw = String(fragment == null ? '' : fragment).trim();
+  if (!raw) return '';
+  if (/<html[\s>]/i.test(raw)) return raw;
+  return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>html,body{margin:0;padding:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fff;color:#111}</style></head><body>' + raw + '</body></html>';
+}
+
+function extractRunnableHtml(text) {
+  const input = String(text == null ? '' : text);
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  if (/^\s*<!doctype html[\s>]/i.test(trimmed) || /^\s*<html[\s>]/i.test(trimmed)) {
+    return wrapHtmlFragment(trimmed);
+  }
+  const fence = /```+([a-zA-Z0-9_-]*)\s*([\s\S]*?)```+/g;
+  let match = null;
+  while ((match = fence.exec(input)) !== null) {
+    const lang = String(match[1] || '').toLowerCase();
+    if (!lang || !(lang === 'html' || lang === 'htm' || lang === 'xhtml')) continue;
+    const body = String(match[2] || '').trim();
+    if (body) return wrapHtmlFragment(body);
+  }
+  return '';
+}
+
 let markdownRaf = 0;
 let lastMarkdownFlushAt = 0;
 const pendingMarkdownRenders = new Map();
