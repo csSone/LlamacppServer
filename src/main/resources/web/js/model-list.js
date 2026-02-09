@@ -223,7 +223,7 @@ function renderModelsList(models) {
                             <div class="model-name" title="${model.name}" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'))">
                                 ${displayName}
                                 ${model.isMultimodal ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}
-                                <span class="model-slots" id="slots-${encodeURIComponent(model.id)}">${renderSlotsSquaresInner(model.slots)}</span>
+                                <span class="model-slots" id="slots-${encodeURIComponent(model.id)}" style="display:${Array.isArray(model.slots) && model.slots.length > 0 ? 'inline-flex' : 'none'};">${renderSlotsSquaresInner(model.slots)}</span>
                             </div>
                             <div class="model-meta">
                                 <span><i class="fas fa-layer-group"></i> ${architecture}</span>
@@ -267,6 +267,8 @@ function updateModelSlotsDom(modelId, slots) {
     try {
         const el = document.getElementById(`slots-${encodeURIComponent(modelId)}`);
         if (!el) return;
+        const hasSlots = Array.isArray(slots) && slots.length > 0;
+        el.style.display = hasSlots ? 'inline-flex' : 'none';
         el.innerHTML = renderSlotsSquaresInner(slots);
     } catch (e) {}
 }

@@ -82,7 +82,10 @@ function applyModelPatch(modelId, patch) {
 function handleModelLoadStartEvent(data) {
     if (!data || !data.modelId) return;
     if (typeof showModelLoadingState === 'function') showModelLoadingState(data.modelId);
-    applyModelPatch(data.modelId, { isLoading: true, isLoaded: false, status: 'stopped', port: data.port ?? null });
+    applyModelPatch(data.modelId, { isLoading: true, isLoaded: false, status: 'stopped', port: data.port ?? null, slots: [] });
+    if (typeof updateModelSlotsDom === 'function') {
+        updateModelSlotsDom(data.modelId, []);
+    }
 }
 
 function handleModelStatusUpdate(data) {
@@ -101,9 +104,12 @@ function handleModelLoadEvent(data) {
         window.pendingModelLoad = null;
     }
     if (data.success) {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null, slots: [] });
     } else {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] });
+    }
+    if (typeof updateModelSlotsDom === 'function') {
+        updateModelSlotsDom(data.modelId, []);
     }
 }
 
@@ -111,7 +117,10 @@ function handleModelStopEvent(data) {
     showToast('模型停止', `模型 ${data.modelId} 停止${data.success ? '成功' : '失败'}`, data.success ? 'success' : 'error');
     if (data.success) {
         if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId);
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] });
+        if (typeof updateModelSlotsDom === 'function') {
+            updateModelSlotsDom(data.modelId, []);
+        }
     }
 }
 
