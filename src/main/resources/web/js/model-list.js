@@ -83,6 +83,120 @@ function getModelIcon(architecture) {
     return null;
 }
 
+const _modelIconMemoryCache = new Map();
+const _modelIconObjectUrlCache = new Map();
+let _modelIconObjectUrlRevokeBound = false;
+
+function getCachedModelIconDataUrl(iconPath) {
+    if (!iconPath) return null;
+    if (_modelIconMemoryCache.has(iconPath)) return _modelIconMemoryCache.get(iconPath);
+    return null;
+}
+
+function _bindModelIconObjectUrlRevokeOnce() {
+    if (_modelIconObjectUrlRevokeBound) return;
+    _modelIconObjectUrlRevokeBound = true;
+    try {
+        window.addEventListener('beforeunload', () => {
+            try {
+                for (const url of _modelIconObjectUrlCache.values()) {
+                    try { URL.revokeObjectURL(url); } catch (e) {}
+                }
+                _modelIconObjectUrlCache.clear();
+            } catch (e) {}
+        }, { once: true });
+    } catch (e) {}
+}
+
+function _dataUrlToBlob(dataUrl) {
+    try {
+        const s = String(dataUrl || '');
+        const idx = s.indexOf(',');
+        if (idx < 0) return null;
+        const meta = s.slice(0, idx);
+        const b64 = s.slice(idx + 1);
+        const m = meta.match(/^data:([^;]+);base64$/i);
+        if (!m) return null;
+        const mime = m[1] || 'application/octet-stream';
+        const bin = atob(b64);
+        const len = bin.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
+    } catch (e) {
+        return null;
+    }
+}
+
+function getCachedModelIconObjectUrl(iconPath) {
+    if (!iconPath) return null;
+    if (_modelIconObjectUrlCache.has(iconPath)) return _modelIconObjectUrlCache.get(iconPath);
+    const dataUrl = getCachedModelIconDataUrl(iconPath);
+    if (!dataUrl) return null;
+    const blob = _dataUrlToBlob(dataUrl);
+    if (!blob) return null;
+    try {
+        const url = URL.createObjectURL(blob);
+        _bindModelIconObjectUrlRevokeOnce();
+        _modelIconObjectUrlCache.set(iconPath, url);
+        return url;
+    } catch (e) {
+        return null;
+    }
+}
+
+function _tryCacheModelIconFromImg(img, iconPath) {
+    try {
+        if (!img || !iconPath) return null;
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (!w || !h) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+            _modelIconMemoryCache.set(iconPath, dataUrl);
+            return getCachedModelIconObjectUrl(iconPath) || dataUrl;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function hydrateModelIcons(container) {
+    try {
+        if (!container) return;
+        const imgs = container.querySelectorAll('img[data-model-icon-path]');
+        if (!imgs || imgs.length === 0) return;
+        imgs.forEach(img => {
+            const iconPath = img.getAttribute('data-model-icon-path');
+            if (!iconPath) return;
+            const cachedUrl = getCachedModelIconObjectUrl(iconPath);
+            if (cachedUrl) {
+                if (img.src !== cachedUrl) img.src = cachedUrl;
+                return;
+            }
+            if (img.getAttribute('data-model-icon-cache-bound') === '1') return;
+            img.setAttribute('data-model-icon-cache-bound', '1');
+            const handler = () => {
+                const currentPath = img.getAttribute('data-model-icon-path');
+                if (currentPath !== iconPath) return;
+                const src = _tryCacheModelIconFromImg(img, iconPath);
+                if (src && img.getAttribute('data-model-icon-path') === iconPath) {
+                    img.src = src;
+                }
+            };
+            img.addEventListener('load', handler, { once: true });
+            if (img.complete && img.naturalWidth) handler();
+        });
+    } catch (e) {}
+}
+
 let currentModelsData = [];
 
 function getParamsCount(name) {
@@ -180,7 +294,8 @@ function renderModelsList(models) {
             statusClass = status === 'running' ? 'status-running' : 'status-loaded';
         }
 
-        const modelIcon = getModelIcon(architecture);
+        const modelIconPath = getModelIcon(architecture);
+        const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
         const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
         const isFavourite = !!model.favourite;
 
@@ -217,7 +332,7 @@ function renderModelsList(models) {
                             <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
                         </button>
                         <div class="model-icon-wrapper">
-                            ${modelIcon ? `<img src="${modelIcon}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                            ${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
                         </div>
                         <div class="model-details">
                             <div class="model-name" title="${model.name}" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'))">
@@ -240,6 +355,7 @@ function renderModelsList(models) {
                 `;
     });
     modelsList.innerHTML = html;
+    hydrateModelIcons(modelsList);
     const input = document.getElementById('modelSearchInput');
     if (input) filterModels(input.value);
 }

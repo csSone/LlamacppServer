@@ -970,7 +970,8 @@
                     statusClass = status === 'running' ? 'status-running' : 'status-loaded';
                 }
 
-                const modelIcon = getModelIcon(architecture);
+                const modelIconPath = getModelIcon(architecture);
+                const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
                 const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
                 const modelId = encodeURIComponent(model.id);
 
@@ -981,7 +982,7 @@
 	                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
 	                        </button>
 	                        <div class="model-icon-wrapper">
-                            	${modelIcon ? `<img src="${modelIcon}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                            	${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
                         	</div>	                        
                         </div>
                         <div class="model-details">
@@ -1005,6 +1006,7 @@
                 `;
             });
             modelsList.innerHTML = html;
+            hydrateModelIcons(modelsList);
             const input = document.getElementById('modelSearchInput');
             if (input) filterModels(input.value);
         }
