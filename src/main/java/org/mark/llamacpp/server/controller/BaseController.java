@@ -23,6 +23,13 @@ public interface BaseController {
 	
 	
 	/**
+	 * 	断开连接的事件。
+	 * @param ctx
+	 */
+	default public void inactive(ChannelHandlerContext ctx) {}
+	
+	
+	/**
 	 * 	简单的断言。
 	 * @param check
 	 * @param message

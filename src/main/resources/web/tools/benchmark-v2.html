@@ -10,6 +10,7 @@
   <style>
     html, body {
       height: 100%;
+      min-height: 100%;
       margin: 0;
       background: var(--bg-color);
       color: var(--text-primary);
@@ -17,6 +18,7 @@
     }
     .page {
       height: 100%;
+      min-height: 100vh;
       width: 100%;
       min-width: 0;
       display: flex;
@@ -30,7 +32,7 @@
       gap: 10px;
       padding: 14px 18px;
       border-bottom: 1px solid var(--border-color);
-      background: var(--sidebar-bg);
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0)) , var(--sidebar-bg);
       flex: 0 0 auto;
     }
     .title {
@@ -46,9 +48,11 @@
       padding: 16px 18px 24px 18px;
       overflow: auto;
       flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
       gap: 16px;
+      align-items: stretch;
     }
     .card {
       background: var(--card-bg);
@@ -58,6 +62,8 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+      min-height: 0;
     }
     .row {
       display: grid;
@@ -73,73 +79,258 @@
       gap: 10px;
       align-items: center;
     }
-    .output {
-      white-space: pre-wrap;
-      word-break: break-all;
-      background: var(--bg-color);
+    .form-card .row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .form-card .row label {
+      font-size: 12px;
+    }
+    .table-wrap {
+      background: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 12px;
-      min-height: 160px;
-      max-height: 460px;
       overflow: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
+      min-height: 320px;
+      max-height: none;
+    }
+    .form-control {
+      width: 100%;
+      padding: 0.425rem 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.675rem;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    .record-card .row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .record-card .table-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
     }
     .hint {
       color: var(--text-secondary);
       font-size: 12px;
+    }
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .result-table th,
+    .result-table td {
+      border: 1px solid var(--border-color);
+      padding: 6px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .result-table th {
+      background: var(--sidebar-bg);
+      color: var(--text-secondary);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .result-table tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .result-table tbody tr:hover {
+      background: rgba(99, 102, 241, 0.08);
+    }
+    .result-table .empty {
+      text-align: center;
+      color: var(--text-secondary);
+    }
+    @media (max-width: 960px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (min-width: 961px) {
+      .content {
+        grid-template-rows: minmax(0, 1fr);
+      }
+      .card {
+        height: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="top">
-      <h1 class="title"><i class="fas fa-gauge-high"></i> Benchmark V2</h1>
+      <h1 class="title"><i class="fas fa-gauge-high"></i> <span data-i18n="page.benchmark_v2.title">Benchmark V2</span></h1>
     </div>
     <div class="content">
-      <div class="card">
+      <div class="card form-card">
         <div class="row">
-          <label for="modelSelect">已加载模型</label>
+          <label for="modelSelect" data-i18n="page.benchmark_v2.label.loaded_models">已加载模型</label>
           <select id="modelSelect" class="form-control"></select>
         </div>
         <div class="row">
-          <label for="promptTokensInput">提示词长度</label>
+          <label for="promptTokensInput" data-i18n="page.benchmark_v2.label.prompt_tokens">提示词长度</label>
           <input id="promptTokensInput" type="number" class="form-control" value="8192" min="1" />
         </div>
         <div class="row">
-          <label for="maxTokensInput">输出最大token</label>
+          <label for="maxTokensInput" data-i18n="page.benchmark_v2.label.max_tokens">输出最大token</label>
           <input id="maxTokensInput" type="number" class="form-control" value="256" min="1" />
         </div>
         <div class="actions">
-          <button id="runBtn" class="btn btn-primary">开始测试</button>
-          <span id="statusText" class="hint"></span>
+          <button id="runBtn" class="btn btn-primary" data-i18n="page.benchmark_v2.action.run">开始测试</button>
+          <button id="refreshBtn" class="btn" data-i18n="page.benchmark_v2.action.refresh_models">刷新模型</button>
         </div>
       </div>
-      <div class="card">
+      <div class="card record-card">
         <div class="row" style="grid-template-columns: 1fr;">
-          <strong>响应结果</strong>
-          <div id="output" class="output"></div>
+          <strong data-i18n="page.benchmark_v2.section.records">测试记录</strong>
+          <span id="statusText" class="hint"></span>
+          <div class="table-wrap">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th data-i18n="page.benchmark_v2.table.time">时间</th>
+                  <th data-i18n="page.benchmark_v2.table.model">模型</th>
+                  <th data-i18n="page.benchmark_v2.table.llamacpp">llama.cpp</th>
+                  <th data-i18n="page.benchmark_v2.table.prompt_tokens">提示词长度</th>
+                  <th data-i18n="page.benchmark_v2.table.prefill_speed">预填充速度（token/s）</th>
+                  <th data-i18n="page.benchmark_v2.table.output_tokens">输出长度</th>
+                  <th data-i18n="page.benchmark_v2.table.decode_speed">输出速度（token/s）</th>
+                </tr>
+              </thead>
+              <tbody id="resultBody">
+                <tr id="emptyRow">
+                  <td class="empty" colspan="7" data-i18n="page.benchmark_v2.empty.no_records">暂无记录</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
+  <script src="/js/i18n.js"></script>
   <script>
     const els = {
       modelSelect: document.getElementById('modelSelect'),
       promptTokens: document.getElementById('promptTokensInput'),
       maxTokens: document.getElementById('maxTokensInput'),
       runBtn: document.getElementById('runBtn'),
-      output: document.getElementById('output'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      resultBody: document.getElementById('resultBody'),
       status: document.getElementById('statusText')
     };
     
+    function t(key, fallback) {
+      if (window.I18N && typeof window.I18N.t === 'function') {
+        return window.I18N.t(key, fallback);
+      }
+      return fallback == null ? key : fallback;
+    }
+
+    function tf(key, params, fallback) {
+      const template = t(key, fallback);
+      if (!params || template == null) return template;
+      let out = String(template);
+      for (const k of Object.keys(params)) {
+        out = out.split(`{${k}}`).join(String(params[k]));
+      }
+      return out;
+    }
+
     function setStatus(text) {
       if (els.status) els.status.textContent = text || '';
     }
     
-    function setOutput(value) {
-      els.output.textContent = value == null ? '' : String(value);
+    function readRuntimeCtx() {
+      const opt = els.modelSelect.selectedOptions && els.modelSelect.selectedOptions[0];
+      if (!opt) return null;
+      const raw = opt.dataset ? opt.dataset.runtimeCtx : null;
+      const n = raw == null ? NaN : Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function validateTokenLimit() {
+      const promptTokens = parseInt(els.promptTokens.value, 10);
+      const maxTokens = parseInt(els.maxTokens.value, 10);
+      const runtimeCtx = readRuntimeCtx();
+      if (!runtimeCtx) return true;
+      if (!Number.isFinite(promptTokens) || promptTokens <= 0) return false;
+      if (!Number.isFinite(maxTokens) || maxTokens <= 0) return false;
+      if (promptTokens + maxTokens > runtimeCtx) {
+        setStatus(tf('page.benchmark_v2.status.token_sum_limit', { ctx: runtimeCtx }, `提示词长度 + 输出最大token 不能超过模型上下文长度 (${runtimeCtx})`));
+        return false;
+      }
+      return true;
+    }
+
+    function formatNumber(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '-';
+      return n.toFixed(3).replace(/\.?0+$/, '');
+    }
+
+    function formatTimestamp(value) {
+      if (value == null) return '-';
+      const raw = String(value).trim();
+      if (/^\d{8}_\d{6}$/.test(raw)) {
+        return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)} ${raw.slice(9, 11)}:${raw.slice(11, 13)}:${raw.slice(13, 15)}`;
+      }
+      const parsed = Date.parse(raw);
+      if (!Number.isNaN(parsed)) {
+        return new Date(parsed).toLocaleString();
+      }
+      return raw;
+    }
+
+    function clearResultRows(message) {
+      if (!els.resultBody) return;
+      els.resultBody.innerHTML = '';
+      const tr = document.createElement('tr');
+      tr.id = 'emptyRow';
+      const td = document.createElement('td');
+      td.className = 'empty';
+      td.colSpan = 7;
+      td.textContent = message || t('page.benchmark_v2.empty.no_records', '暂无记录');
+      tr.appendChild(td);
+      els.resultBody.appendChild(tr);
+    }
+
+    function appendRow(rowValues) {
+      if (!els.resultBody) return;
+      const emptyRow = document.getElementById('emptyRow');
+      if (emptyRow) emptyRow.remove();
+      const tr = document.createElement('tr');
+      for (const v of rowValues) {
+        const td = document.createElement('td');
+        td.textContent = v == null || v === '' ? '-' : String(v);
+        tr.appendChild(td);
+      }
+      els.resultBody.appendChild(tr);
+    }
+
+    function normalizeRecordRow(record, fallbackModelId) {
+      const timings = record && record.timings ? record.timings : null;
+      const promptTokens = record && record.promptTokens != null ? record.promptTokens : (timings ? timings.prompt_n : null);
+      const outputTokens = timings && timings.predicted_n != null ? timings.predicted_n : (record ? record.maxTokens : null);
+      return [
+        formatTimestamp(record && record.timestamp ? record.timestamp : null),
+        (record && record.modelId) ? record.modelId : (fallbackModelId || '-'),
+        record && record.llamaBinPath ? record.llamaBinPath : '-',
+        promptTokens != null ? promptTokens : '-',
+        formatNumber(timings && timings.prompt_per_second != null ? timings.prompt_per_second : null),
+        outputTokens != null ? outputTokens : '-',
+        formatNumber(timings && timings.predicted_per_second != null ? timings.predicted_per_second : null)
+      ];
     }
     
     async function fetchJson(url, options) {
@@ -158,30 +349,68 @@
     }
     
     async function loadModels() {
-      setStatus('加载模型列表中…');
+      setStatus(t('page.benchmark_v2.status.loading_models', '加载模型列表中…'));
       try {
-        const data = await fetchJson('/api/models/loaded', { method: 'GET' });
-        const models = Array.isArray(data.models) ? data.models : [];
+        const data = await fetchJson('/v1/models', { method: 'GET' });
+        const models = Array.isArray(data.data) ? data.data : [];
         els.modelSelect.innerHTML = '';
         if (!models.length) {
           const opt = document.createElement('option');
           opt.value = '';
-          opt.textContent = '暂无已加载模型';
+          opt.textContent = t('page.benchmark_v2.option.no_loaded_models', '暂无已加载模型');
           els.modelSelect.appendChild(opt);
           els.modelSelect.disabled = true;
-          setStatus('没有已加载模型');
+          setStatus(t('page.benchmark_v2.status.no_loaded_models', '没有已加载模型'));
+          clearResultRows();
           return;
         }
         for (const m of models) {
           const opt = document.createElement('option');
-          opt.value = m.id || '';
-          opt.textContent = `${m.name || m.id || '未知模型'} (${m.id || '-'})`;
+          const id = m.id || '';
+          opt.value = id;
+          opt.textContent = id || t('common.unknown', '未知');
+          if (m.runtimeCtx != null) {
+            opt.dataset.runtimeCtx = m.runtimeCtx;
+          }
           els.modelSelect.appendChild(opt);
         }
         els.modelSelect.disabled = false;
-        setStatus('模型列表已加载');
+        setStatus(t('page.benchmark_v2.status.models_loaded', '模型列表已加载'));
+        validateTokenLimit();
+        loadBenchmarkRecords(els.modelSelect.value);
       } catch (e) {
-        setStatus(e.message || '模型列表加载失败');
+        setStatus(e.message || t('page.benchmark_v2.status.models_load_failed', '模型列表加载失败'));
+      }
+    }
+
+    async function loadBenchmarkRecords(modelId) {
+      const id = (modelId || '').trim();
+      if (!id) {
+        clearResultRows();
+        return;
+      }
+      setStatus(t('page.benchmark_v2.status.loading_records', '加载记录中…'));
+      try {
+        const data = await fetchJson(`/api/v2/models/benchmark/get?modelId=${encodeURIComponent(id)}`, { method: 'GET' });
+        const records = data && data.data && Array.isArray(data.data.records) ? data.data.records : [];
+        if (!records.length) {
+          clearResultRows();
+          setStatus(t('page.benchmark_v2.status.no_records', '暂无记录'));
+          return;
+        }
+        clearResultRows('');
+        const sorted = records.slice().sort((a, b) => {
+          const ta = (a && a.timestamp) ? String(a.timestamp) : '';
+          const tb = (b && b.timestamp) ? String(b.timestamp) : '';
+          return tb.localeCompare(ta);
+        });
+        for (const r of sorted) {
+          appendRow(normalizeRecordRow(r, id));
+        }
+        setStatus(tf('page.benchmark_v2.status.records_loaded', { count: sorted.length }, `已加载 ${sorted.length} 条记录`));
+      } catch (e) {
+        clearResultRows();
+        setStatus(e.message || t('page.benchmark_v2.status.records_load_failed', '记录加载失败'));
       }
     }
     
@@ -190,20 +419,22 @@
       const promptTokens = parseInt(els.promptTokens.value, 10);
       const maxTokens = parseInt(els.maxTokens.value, 10);
       if (!modelId) {
-        setStatus('请选择模型');
+        setStatus(t('page.benchmark_v2.status.select_model', '请选择模型'));
         return;
       }
       if (!Number.isFinite(promptTokens) || promptTokens <= 0) {
-        setStatus('提示词长度必须大于0');
+        setStatus(t('page.benchmark_v2.status.prompt_tokens_gt0', '提示词长度必须大于0'));
         return;
       }
       if (!Number.isFinite(maxTokens) || maxTokens <= 0) {
-        setStatus('输出最大token必须大于0');
+        setStatus(t('page.benchmark_v2.status.max_tokens_gt0', '输出最大token必须大于0'));
+        return;
+      }
+      if (!validateTokenLimit()) {
         return;
       }
       els.runBtn.disabled = true;
-      setStatus('执行中…');
-      setOutput('');
+      setStatus(t('page.benchmark_v2.status.running', '执行中…'));
       try {
         const payload = {
           modelId,
@@ -215,17 +446,47 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        setOutput(JSON.stringify(data, null, 2));
-        setStatus(data.success ? '完成' : (data.error || '失败'));
+        const timings = data && data.data ? data.data.timings : null;
+        if (data && data.success && timings) {
+          const record = {
+            timestamp: new Date().toISOString(),
+            modelId,
+            promptTokens,
+            maxTokens,
+            llamaBinPath: data.data.llamaBinPath,
+            timings
+          };
+          appendRow(normalizeRecordRow(record, modelId));
+        }
+        setStatus(data.success ? t('page.benchmark_v2.status.done', '完成') : (data.error || t('page.benchmark_v2.status.failed', '失败')));
       } catch (e) {
-        setStatus(e.message || '请求失败');
+        setStatus(e.message || t('page.benchmark_v2.status.request_failed', '请求失败'));
       } finally {
         els.runBtn.disabled = false;
       }
     }
     
     els.runBtn.addEventListener('click', runBenchmark);
-    loadModels();
+    els.refreshBtn.addEventListener('click', loadModels);
+    els.modelSelect.addEventListener('change', () => {
+      validateTokenLimit();
+      loadBenchmarkRecords(els.modelSelect.value);
+    });
+    els.promptTokens.addEventListener('input', validateTokenLimit);
+    els.maxTokens.addEventListener('input', validateTokenLimit);
+
+    function initPage() {
+      document.title = t('page.benchmark_v2.page_title', 'Benchmark V2');
+      loadModels();
+    }
+
+    function initOnce() {
+      window.removeEventListener('i18n:ready', initOnce);
+      initPage();
+    }
+
+    window.addEventListener('i18n:ready', initOnce);
+    if (window.I18N) initOnce();
   </script>
 </body>
 </html>

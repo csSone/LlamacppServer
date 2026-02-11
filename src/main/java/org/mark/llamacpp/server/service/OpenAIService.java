@@ -132,6 +132,9 @@ public class OpenAIService {
 				if (modelId == null || modelId.isBlank()) {
 					continue;
 				}
+				// 取出配置的上下文长度
+				int runtimeCtx = e.getValue().getCtxSize();
+				
 				JsonObject info = manager.getLoadedModelInfo(modelId);
 				if (info == null) {
 					try {
@@ -161,7 +164,9 @@ public class OpenAIService {
 							key = JsonUtil.getJsonString(m, "name");
 						}
 						if (!key.isEmpty() && !modelsByKey.containsKey(key)) {
-							modelsByKey.put(key, m.deepCopy());
+							JsonObject mCopy = m.deepCopy();
+							mCopy.addProperty("runtimeCtx", runtimeCtx);
+							modelsByKey.put(key, mCopy);
 						}
 					}
 
@@ -169,7 +174,9 @@ public class OpenAIService {
 						JsonObject d = item.getAsJsonObject("data");
 						String id = JsonUtil.getJsonString(d, "id");
 						if (!id.isEmpty() && !dataById.containsKey(id)) {
-							dataById.put(id, d.deepCopy());
+							JsonObject dCopy = d.deepCopy();
+							dCopy.addProperty("runtimeCtx", runtimeCtx);
+							dataById.put(id, dCopy);
 						}
 					}
 				}

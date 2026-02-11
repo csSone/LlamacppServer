@@ -997,7 +997,7 @@ public class LlamaServerManager {
 			int port = this.getNextAvailablePort();
 			String commandStr = buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
 			String processName = "llama-server-" + modelId;
-			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr);
+			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath);
 
 			logger.info("启动命令：{}", commandStr);
 
@@ -1445,7 +1445,12 @@ public class LlamaServerManager {
 			throw new RuntimeException("获取模型信息失败: " + e.getMessage(), e);
 		}
 	}
-
+	
+	/**
+	 * 	获取已加载模型的信息。
+	 * @param modelId
+	 * @return
+	 */
 	public JsonObject getLoadedModelInfo(String modelId) {
 		String id = modelId == null ? "" : modelId.trim();
 		if (id.isEmpty()) {

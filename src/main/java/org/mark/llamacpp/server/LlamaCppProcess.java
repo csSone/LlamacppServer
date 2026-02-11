@@ -82,13 +82,28 @@ public class LlamaCppProcess {
 	private int ctxSize;
 	
 	/**
+	 * 	llamacpp进程的路径，没啥用途，主要为了定位。
+	 */
+	private final String llamaBinPath;
+	
+	/**
 	 * 	构造器。
 	 * @param name 进程名称
 	 * @param cmd 启动命令
+	 * @param llamaBinPath llamacpp路径
 	 */
-	public LlamaCppProcess(String name, String cmd) {
+	public LlamaCppProcess(String name, String cmd, String llamaBinPath) {
 		this.name = name;
 		this.cmd = cmd;
+		this.llamaBinPath = llamaBinPath;
+	}
+	
+	/**
+	 * 	获取llamacpp路径
+	 * @return
+	 */
+	public String getLlamaBinPath() {
+		return this.llamaBinPath;
 	}
 	
 	/**
@@ -399,6 +414,14 @@ public class LlamaCppProcess {
 	 */
 	public boolean isRunning() {
 		return this.isRunning.get() && this.process != null && this.process.isAlive();
+	}
+	
+	/**
+	 * 	获取进程
+	 * @return
+	 */
+	public Process getProcess() {
+		return this.process;
 	}
 	
 	/**

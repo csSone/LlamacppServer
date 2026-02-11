@@ -176,6 +176,16 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	}
 	
 	
+	@Override
+	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		for(BaseController controller : pipeline) {
+			controller.inactive(ctx);
+		}
+		// 事件通知
+		super.channelInactive(ctx);
+	}
+	
+	
 	/**
 	 * 	简单的断言。
 	 * @param check
