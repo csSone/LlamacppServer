@@ -773,13 +773,12 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            initWebSocket();
             let didInit = false;
             function initOnce() {
                 if (didInit) return;
                 didInit = true;
                 window.removeEventListener('i18n:ready', initOnce);
-                loadModels();
-                initWebSocket();
                 initModelSearch();
                 loadParamConfig();
             }

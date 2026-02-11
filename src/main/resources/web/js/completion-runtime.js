@@ -17,6 +17,29 @@ function tf(key, params, fallback) {
   return out;
 }
 
+function isImageAttachment(a) {
+  if (!a) return false;
+  if (a.isImage === true) return true;
+  const hasHints = (typeof isLikelyImageUrl === 'function') && (typeof getFileExt === 'function') && Array.isArray(IMAGE_EXTS);
+  if (!hasHints) return false;
+  return isLikelyImageUrl(a.url) || IMAGE_EXTS.includes(getFileExt(a.name || ''));
+}
+
+function toLlamaLocalImageUrl(url) {
+  const raw = (url == null ? '' : String(url)).trim();
+  if (!raw) return raw;
+  try {
+    const u = new URL(raw, window.location.href);
+    if (u.origin === window.location.origin) {
+      u.hostname = '127.0.0.1';
+      return u.href;
+    }
+    return u.href;
+  } catch (e) {
+    return raw;
+  }
+}
+
 function buildPrompt(messages) {
   const lines = [];
   const sys = (els.systemPrompt.value || '').trim();
@@ -39,7 +62,8 @@ function buildPrompt(messages) {
       const atts = Array.isArray(m.attachments) ? m.attachments : [];
       for (const a of atts) {
         if (a && a.url) {
-          t += (t ? '\n' : '') + '[file] ' + String(a.url);
+          const finalUrl = isImageAttachment(a) ? toLlamaLocalImageUrl(a.url) : String(a.url);
+          t += (t ? '\n' : '') + '[file] ' + finalUrl;
         }
       }
       lines.push(userName + ': ' + userPrefix + t + userSuffix);
@@ -89,7 +113,12 @@ function buildContent(messages, options) {
         if (raw && raw.length) parts.push({ type: 'text', text: raw });
         for (const a of atts) {
           if (!a || !a.url) continue;
-          parts.push({ type: 'file', text: String(a.url) });
+          if (isImageAttachment(a)) {
+            const finalUrl = toLlamaLocalImageUrl(a.url);
+            parts.push({ type: 'image_url', image_url: { url: finalUrl } });
+          } else {
+            parts.push({ type: 'file', text: String(a.url) });
+          }
         }
         out.push({ role: 'user', content: parts.length ? parts : raw });
       } else {

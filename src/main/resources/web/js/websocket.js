@@ -1,8 +1,24 @@
 let websocket = null;
 let reconnectAttempts = 0;
-const maxReconnectAttempts = 5;
-const reconnectInterval = 5000;
+const reconnectInterval = 1000;
 const wsDecoder = new TextDecoder('utf-8');
+let reconnectTimer = null;
+
+function triggerModelListLoad() {
+    if (typeof loadModels !== 'function') return;
+    if (window.I18N) {
+        loadModels();
+        return;
+    }
+    let done = false;
+    const handler = () => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('i18n:ready', handler);
+        loadModels();
+    };
+    window.addEventListener('i18n:ready', handler);
+}
 
 function initWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -13,17 +29,23 @@ function initWebSocket() {
         websocket.onopen = function(event) {
             console.log('WebSocket Connected');
             reconnectAttempts = 0;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
             websocket.send(JSON.stringify({ type: 'connect', message: 'Connected', timestamp: new Date().toISOString() }));
+            triggerModelListLoad();
         };
         websocket.onmessage = function(event) {
             handleWebSocketMessage(event.data);
         };
         websocket.onclose = function(event) {
             console.log('WebSocket Closed');
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                setTimeout(initWebSocket, reconnectInterval);
+            reconnectAttempts++;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
             }
+            reconnectTimer = setTimeout(initWebSocket, reconnectInterval);
         };
         websocket.onerror = function(error) { console.error('WebSocket Error:', error); };
     } catch (error) { console.error('WebSocket Init Failed:', error); }

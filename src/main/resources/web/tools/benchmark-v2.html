@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benchmark V2</title>
+  <link rel="stylesheet" href="../css/all.min.css" />
+  <link href="../css/css2.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/index.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg-color);
+      color: var(--text-primary);
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      height: 100%;
+      width: 100%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1 1 auto;
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--sidebar-bg);
+      flex: 0 0 auto;
+    }
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      margin: 0;
+    }
+    .content {
+      padding: 16px 18px 24px 18px;
+      overflow: auto;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .row label {
+      color: var(--text-secondary);
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .output {
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 160px;
+      max-height: 460px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+    .hint {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top">
+      <h1 class="title"><i class="fas fa-gauge-high"></i> Benchmark V2</h1>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="row">
+          <label for="modelSelect">已加载模型</label>
+          <select id="modelSelect" class="form-control"></select>
+        </div>
+        <div class="row">
+          <label for="promptTokensInput">提示词长度</label>
+          <input id="promptTokensInput" type="number" class="form-control" value="8192" min="1" />
+        </div>
+        <div class="row">
+          <label for="maxTokensInput">输出最大token</label>
+          <input id="maxTokensInput" type="number" class="form-control" value="256" min="1" />
+        </div>
+        <div class="actions">
+          <button id="runBtn" class="btn btn-primary">开始测试</button>
+          <span id="statusText" class="hint"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row" style="grid-template-columns: 1fr;">
+          <strong>响应结果</strong>
+          <div id="output" class="output"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const els = {
+      modelSelect: document.getElementById('modelSelect'),
+      promptTokens: document.getElementById('promptTokensInput'),
+      maxTokens: document.getElementById('maxTokensInput'),
+      runBtn: document.getElementById('runBtn'),
+      output: document.getElementById('output'),
+      status: document.getElementById('statusText')
+    };
+    
+    function setStatus(text) {
+      if (els.status) els.status.textContent = text || '';
+    }
+    
+    function setOutput(value) {
+      els.output.textContent = value == null ? '' : String(value);
+    }
+    
+    async function fetchJson(url, options) {
+      const resp = await fetch(url, options || {});
+      const text = await resp.text();
+      let json = null;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        json = { success: false, error: text || '请求失败' };
+      }
+      if (!resp.ok) {
+        throw new Error((json && json.error) ? json.error : '请求失败');
+      }
+      return json;
+    }
+    
+    async function loadModels() {
+      setStatus('加载模型列表中…');
+      try {
+        const data = await fetchJson('/api/models/loaded', { method: 'GET' });
+        const models = Array.isArray(data.models) ? data.models : [];
+        els.modelSelect.innerHTML = '';
+        if (!models.length) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '暂无已加载模型';
+          els.modelSelect.appendChild(opt);
+          els.modelSelect.disabled = true;
+          setStatus('没有已加载模型');
+          return;
+        }
+        for (const m of models) {
+          const opt = document.createElement('option');
+          opt.value = m.id || '';
+          opt.textContent = `${m.name || m.id || '未知模型'} (${m.id || '-'})`;
+          els.modelSelect.appendChild(opt);
+        }
+        els.modelSelect.disabled = false;
+        setStatus('模型列表已加载');
+      } catch (e) {
+        setStatus(e.message || '模型列表加载失败');
+      }
+    }
+    
+    async function runBenchmark() {
+      const modelId = (els.modelSelect.value || '').trim();
+      const promptTokens = parseInt(els.promptTokens.value, 10);
+      const maxTokens = parseInt(els.maxTokens.value, 10);
+      if (!modelId) {
+        setStatus('请选择模型');
+        return;
+      }
+      if (!Number.isFinite(promptTokens) || promptTokens <= 0) {
+        setStatus('提示词长度必须大于0');
+        return;
+      }
+      if (!Number.isFinite(maxTokens) || maxTokens <= 0) {
+        setStatus('输出最大token必须大于0');
+        return;
+      }
+      els.runBtn.disabled = true;
+      setStatus('执行中…');
+      setOutput('');
+      try {
+        const payload = {
+          modelId,
+          promptTokens,
+          maxTokens
+        };
+        const data = await fetchJson('/api/v2/models/benchmark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        setOutput(JSON.stringify(data, null, 2));
+        setStatus(data.success ? '完成' : (data.error || '失败'));
+      } catch (e) {
+        setStatus(e.message || '请求失败');
+      } finally {
+        els.runBtn.disabled = false;
+      }
+    }
+    
+    els.runBtn.addEventListener('click', runBenchmark);
+    loadModels();
+  </script>
+</body>
+</html>

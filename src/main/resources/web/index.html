@@ -718,15 +718,6 @@
     <script>
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', function() {
-            let didLoadModels = false;
-            function loadModelsOnce() {
-                if (didLoadModels) return;
-                didLoadModels = true;
-                window.removeEventListener('i18n:ready', loadModelsOnce);
-                loadModels();
-            }
-            window.addEventListener('i18n:ready', loadModelsOnce);
-            if (window.I18N) loadModelsOnce();
             initWebSocket();
             initModelSearch();
             loadParamConfig();

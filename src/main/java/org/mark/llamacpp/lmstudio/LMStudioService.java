@@ -53,7 +53,9 @@ import io.netty.util.CharsetUtil;
 
 
 
-
+/**
+ * 	LM Studio的兼容API实现。
+ */
 public class LMStudioService {
 
 	/**
@@ -123,8 +125,10 @@ public class LMStudioService {
 				if (modelInfo != null) {
 					GGUFMetaData primaryModel = modelInfo.getPrimaryModel();
 					if (primaryModel != null) {
-						architecture = primaryModel.getStringValue("general.architecture");
-						contextLength = primaryModel.getIntValue(architecture + ".context_length");
+						//architecture = primaryModel.getStringValue("general.architecture");
+						//contextLength = primaryModel.getIntValue(architecture + ".context_length");
+						architecture = primaryModel.getArchitecture();
+						contextLength = primaryModel.getContextLength();
 						quantization = primaryModel.getQuantizationType();
 					}
 					multimodal = modelInfo.getMmproj() != null;
@@ -145,9 +149,13 @@ public class LMStudioService {
 				}
 				// 状态
 				modelData.put("state", "loaded");
+				// 最大上下文长度
 				if (contextLength != null) {
 					modelData.put("max_context_length", contextLength);
 				}
+				// 加载后上下文长度
+				modelData.put("loaded_context_length", entry.getValue().getCtxSize());
+				
 				// 能力
 				List<String> capabilities = new ArrayList<>(4);
 				if (ParamTool.parseJsonBoolean(modelCaps, "tools", false)) {
