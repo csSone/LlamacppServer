@@ -1,6 +1,8 @@
 package org.mark.llamacpp.server.service;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -8,7 +10,13 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
@@ -18,6 +26,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import io.netty.channel.ChannelHandlerContext;
+
+
+/**
+ * 	性能测试 V2，直接通过/v1/chat/completions发送提示词来测试性能。
+ */
 public class BenchmarkService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(BenchmarkService.class);
@@ -41,10 +55,167 @@ public class BenchmarkService {
 		}
 	}
 	
+	
+	/**
+	 * 	和llamacpp之间建立的连接。
+	 */
+	private ConcurrentHashMap<ChannelHandlerContext, HttpURLConnection> connections = new ConcurrentHashMap<>();
+	
+	
+	public BenchmarkService() {
+		
+	}
+	
+
+	public Map<String, Object> handleBenchmark(ChannelHandlerContext ctx, JsonObject json) {
+		HttpURLConnection connection = null;
+		try {
+			if (json == null) {
+				throw new IllegalArgumentException("请求体解析失败");
+			}
+			String modelId = JsonUtil.getJsonString(json, "modelId", null);
+			if (modelId != null) modelId = modelId.trim();
+			if (modelId == null || modelId.isEmpty()) {
+				throw new IllegalArgumentException("缺少必需的modelId参数");
+			}
+			Integer promptTokens = JsonUtil.getJsonInt(json, "promptTokens", null);
+			if (promptTokens == null || promptTokens.intValue() <= 0) {
+				throw new IllegalArgumentException("缺少必需的promptTokens参数");
+			}
+			Integer maxTokens = JsonUtil.getJsonInt(json, "maxTokens", null);
+			if (maxTokens == null || maxTokens.intValue() <= 0) {
+				throw new IllegalArgumentException("缺少必需的maxTokens参数");
+			}
+
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			if (!manager.getLoadedProcesses().containsKey(modelId)) {
+				throw new IllegalStateException("模型未加载: " + modelId);
+			}
+			Integer port = manager.getModelPort(modelId);
+			if (port == null) {
+				throw new IllegalStateException("未找到模型端口: " + modelId);
+			}
+			LlamaCppProcess process = manager.getLoadedProcesses().get(modelId);
+			final String llamaBinPath = process == null ? null : process.getLlamaBinPath();
+
+			JsonArray messages = normalizeMessages(json.get("messages"));
+			JsonObject bench = generatePromptForTargetTokens(modelId, messages, promptTokens.intValue() - 1);
+			String contentText = bench != null && bench.has("content") && !bench.get("content").isJsonNull()
+					? bench.get("content").getAsString()
+					: "";
+			JsonObject userMsg = ensureUserMessage(messages);
+			userMsg.addProperty("content", contentText);
+
+			JsonObject forward = new JsonObject();
+			forward.addProperty("model", modelId);
+			forward.add("messages", messages);
+			forward.addProperty("max_tokens", maxTokens.intValue());
+			forward.addProperty("stream", false);
+
+			String targetUrl = String.format("http://localhost:%d/v1/chat/completions", port.intValue());
+			URL url = URI.create(targetUrl).toURL();
+			connection = (HttpURLConnection) url.openConnection();
+			connection.setRequestMethod("POST");
+			connection.setDoOutput(true);
+			connection.setConnectTimeout(3600 * 7 * 24);
+			connection.setReadTimeout(3600 * 7 * 24);
+			connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			
+			if (ctx != null) {
+				this.connections.put(ctx, connection);
+			}
+
+			byte[] outBytes = JsonUtil.toJson(forward).getBytes(StandardCharsets.UTF_8);
+			try (OutputStream os = connection.getOutputStream()) {
+				os.write(outBytes);
+			}
+
+			int responseCode = connection.getResponseCode();
+			String responseBody = readBody(connection, responseCode >= 200 && responseCode < 300);
+			if (!(responseCode >= 200 && responseCode < 300)) {
+				throw new IllegalStateException("模型返回错误: " + responseBody);
+			}
+
+			JsonObject respObj = JsonUtil.fromJson(responseBody, JsonObject.class);
+			JsonObject timingsObj = (respObj != null && respObj.has("timings") && respObj.get("timings").isJsonObject())
+					? respObj.getAsJsonObject("timings")
+					: null;
+			if (timingsObj == null) {
+				throw new IllegalStateException("模型返回内容缺少timings");
+			}
+
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("promptTokens", promptTokens);
+			data.put("maxTokens", maxTokens);
+			data.put("timings", JsonUtil.fromJson(timingsObj, Object.class));
+			data.put("llamaBinPath", llamaBinPath);
+
+			try {
+				String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+				String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+				String fileName = safeModelId + "_V2.jsonl";
+				File dir = new File("benchmarks");
+				if (!dir.exists()) {
+					dir.mkdirs();
+				}
+				File outFile = new File(dir, fileName);
+				try (FileOutputStream fos = new FileOutputStream(outFile, true)) {
+					JsonObject record = new JsonObject();
+					record.addProperty("timestamp", timestamp);
+					record.addProperty("modelId", modelId);
+					record.addProperty("promptTokens", promptTokens);
+					record.addProperty("maxTokens", maxTokens);
+					record.addProperty("llamaBinPath", llamaBinPath);
+					record.add("timings", timingsObj);
+					String line = JsonUtil.toJson(record) + System.lineSeparator();
+					fos.write(line.getBytes(StandardCharsets.UTF_8));
+				}
+				data.put("savedPath", outFile.getAbsolutePath());
+			} catch (Exception ex) {
+				logger.info("保存基准测试V2结果到文件失败", ex);
+			}
+
+			return data;
+		} catch (RuntimeException e) {
+			logger.info("执行模型基准测试V2时发生错误", e);
+			throw e;
+		} catch (Exception e) {
+			logger.info("执行模型基准测试V2时发生错误", e);
+			throw new RuntimeException("执行模型基准测试失败: " + e.getMessage(), e);
+		} finally {
+			if (ctx != null) {
+				this.connections.remove(ctx, connection);
+			}
+			if (connection != null) {
+				try {
+					connection.disconnect();
+				} catch (Exception ignore) {
+				}
+			}
+		}
+	}
+	
+	
+	/**
+	 * 	生成提示词。
+	 * @param modelId
+	 * @param messages
+	 * @param targetTokens
+	 * @return
+	 */
 	public JsonObject generatePromptForTargetTokens(String modelId, JsonArray messages, int targetTokens) {
 		return generatePromptForTargetTokens(modelId, messages, targetTokens, null);
 	}
 	
+	/**
+	 * 	生成提示词。
+	 * @param modelId
+	 * @param messages
+	 * @param targetTokens
+	 * @param options
+	 * @return
+	 */
 	public JsonObject generatePromptForTargetTokens(String modelId, JsonArray messages, int targetTokens,
 			BenchmarkTokenOptions options) {
 		if (targetTokens <= 0) {
@@ -209,6 +380,13 @@ public class BenchmarkService {
 		return arr.size();
 	}
 	
+	/**
+	 * 	向指定的llamacpp进程发送提示词。
+	 * @param modelId
+	 * @param path
+	 * @param payload
+	 * @return
+	 */
 	private JsonObject postJson(String modelId, String path, JsonObject payload) {
 		HttpURLConnection connection = null;
 		try {
@@ -275,6 +453,13 @@ public class BenchmarkService {
 			return "";
 		}
 	}
+
+	private static JsonArray normalizeMessages(JsonElement el) {
+		if (el != null && el.isJsonArray()) {
+			return el.getAsJsonArray().deepCopy();
+		}
+		return new JsonArray();
+	}
 	
 	private JsonObject ensureUserMessage(JsonArray messages) {
 		JsonObject lastUser = null;
@@ -336,5 +521,22 @@ public class BenchmarkService {
 			sb.append(u);
 		}
 		return sb.toString();
+	}
+	
+	
+	/**
+	 * 	通信断开时的操作
+	 * @param ctx
+	 * @throws Exception
+	 */
+	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		// 如果不为null，就关闭连接
+		if (ctx == null) return;
+		HttpURLConnection conn = this.connections.remove(ctx);
+		if (conn == null) return;
+		try {
+			conn.disconnect();
+		} catch (Exception ignore) {
+		}
 	}
 }
