@@ -17,6 +17,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
@@ -51,6 +52,11 @@ public class ModelActionController implements BaseController {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelActionController.class);
 	
+	
+	/**
+	 * 	这是给性能测试用的。
+	 */
+	private ConcurrentHashMap<ChannelHandlerContext, HttpURLConnection> connections = new ConcurrentHashMap<>();
 	
 	
 	public ModelActionController() {
@@ -108,6 +114,11 @@ public class ModelActionController implements BaseController {
 			this.handleModelBenchmarkV2(ctx, request);
 			return true;
 		}
+
+		if (uri.startsWith("/api/v2/models/benchmark/get")) {
+			this.handleModelBenchmarkV2Get(ctx, request);
+			return true;
+		}		
 		
 		// 对应URL-GET：/metrics
 		// 客户端传入modelId作为参数
@@ -610,9 +621,14 @@ public class ModelActionController implements BaseController {
 		}
 	}
 	
+	/**
+	 * 	基准测试V2
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
 	private void handleModelBenchmarkV2(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
-		
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
@@ -650,9 +666,11 @@ public class ModelActionController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到模型端口: " + modelId));
 				return;
 			}
+			LlamaCppProcess process = manager.getLoadedProcesses().get(modelId);
+			final String llamaBinPath = process.getLlamaBinPath();
 			
 			JsonArray messages = normalizeMessages(json.get("messages"));
-			JsonObject bench = new BenchmarkService().generatePromptForTargetTokens(modelId, messages, promptTokens.intValue());
+			JsonObject bench = new BenchmarkService().generatePromptForTargetTokens(modelId, messages, promptTokens.intValue() - 1);
 			String contentText = bench.has("content") ? bench.get("content").getAsString() : "";
 			JsonObject userMsg = ensureUserMessage(messages);
 			userMsg.addProperty("content", contentText);
@@ -668,12 +686,15 @@ public class ModelActionController implements BaseController {
 			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 			connection.setRequestMethod("POST");
 			connection.setDoOutput(true);
-			connection.setConnectTimeout(30000);
-			connection.setReadTimeout(300000);
+			connection.setConnectTimeout(3600 * 7 * 24);
+			connection.setReadTimeout(3600 * 7 * 24);
 			connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
 			
+			// 缓存
+			this.connections.put(ctx, connection);
+			
 			byte[] outBytes = JsonUtil.toJson(forward).getBytes(StandardCharsets.UTF_8);
-			connection.setRequestProperty("Content-Length", String.valueOf(outBytes.length));
+			//connection.setRequestProperty("Content-Length", String.valueOf(outBytes.length));
 			try (OutputStream os = connection.getOutputStream()) {
 				os.write(outBytes);
 			}
@@ -681,14 +702,44 @@ public class ModelActionController implements BaseController {
 			int responseCode = connection.getResponseCode();
 			String responseBody = readBody(connection, responseCode >= 200 && responseCode < 300);
 			if (responseCode >= 200 && responseCode < 300) {
-				Object parsed = JsonUtil.fromJson(responseBody, Object.class);
+				JsonObject respObj = JsonUtil.fromJson(responseBody, JsonObject.class);
+				JsonObject timingsObj = (respObj != null && respObj.has("timings") && respObj.get("timings").isJsonObject())
+						? respObj.getAsJsonObject("timings")
+						: null;
+				if (timingsObj == null) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型返回内容缺少timings"));
+					return;
+				}
 				Map<String, Object> data = new HashMap<>();
 				data.put("modelId", modelId);
 				data.put("promptTokens", promptTokens);
 				data.put("maxTokens", maxTokens);
-				data.put("benchmark", JsonUtil.fromJson(bench, Object.class));
-				data.put("messages", JsonUtil.fromJson(messages, Object.class));
-				data.put("completion", parsed);
+				data.put("timings", JsonUtil.fromJson(timingsObj, Object.class));
+				data.put("llamaBinPath", llamaBinPath);
+				try {
+					String safeModelId = modelId == null ? "unknown" : modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+					String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+					String fileName = safeModelId + "_V2.jsonl";
+					File dir = new File("benchmarks");
+					if (!dir.exists()) {
+						dir.mkdirs();
+					}
+					File outFile = new File(dir, fileName);
+					try (FileOutputStream fos = new FileOutputStream(outFile, true)) {
+						JsonObject record = new JsonObject();
+						record.addProperty("timestamp", timestamp);
+						record.addProperty("modelId", modelId);
+						record.addProperty("promptTokens", promptTokens);
+						record.addProperty("maxTokens", maxTokens);
+						record.addProperty("llamaBinPath", llamaBinPath);
+						record.add("timings", timingsObj);
+						String line = JsonUtil.toJson(record) + System.lineSeparator();
+						fos.write(line.getBytes(StandardCharsets.UTF_8));
+					}
+					data.put("savedPath", outFile.getAbsolutePath());
+				} catch (Exception ex) {
+					logger.info("保存基准测试V2结果到文件失败", ex);
+				}
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 			} else {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型返回错误: " + responseBody));
@@ -749,6 +800,48 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取基准测试结果列表失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleModelBenchmarkV2Get(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		
+		try {
+			String query = request.uri();
+			Map<String, String> params = ParamTool.getQueryParam(query);
+			String modelId = params.get("modelId");
+			if (modelId != null) modelId = modelId.trim();
+			if (modelId == null || modelId.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
+			}
+			String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+			File dir = new File("benchmarks");
+			String fileName = safeModelId + "_V2.jsonl";
+			File target = new File(dir, fileName);
+			if (!target.exists() || !target.isFile()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				return;
+			}
+			List<String> lines = Files.readAllLines(target.toPath(), StandardCharsets.UTF_8);
+			List<Object> records = new ArrayList<>();
+			for (String line : lines) {
+				if (line == null) continue;
+				String trimmed = line.trim();
+				if (trimmed.isEmpty()) continue;
+				Object obj = JsonUtil.fromJson(trimmed, Object.class);
+				if (obj != null) {
+					records.add(obj);
+				}
+			}
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("fileName", fileName);
+			data.put("records", records);
+			data.put("savedPath", target.getAbsolutePath());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取基准测试V2结果失败: " + e.getMessage()));
 		}
 	}
 	
@@ -985,6 +1078,25 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取props失败: " + e.getMessage()));
 		}
 	}
+	
+	
+	/**
+	 * 	断开连接。
+	 */
+	@Override
+	public void inactive(ChannelHandlerContext ctx) {
+		// 如果不为null，就关闭连接
+		HttpURLConnection connection = this.connections.get(ctx);
+		if(connection != null) {
+			try {
+				connection.disconnect();
+			}catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	
 	
 	/**
 	 * 	
