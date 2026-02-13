@@ -136,6 +136,14 @@
       border-color: rgba(99, 102, 241, 0.75);
       background: rgba(99, 102, 241, 0.14);
     }
+    .model-menu-item.loaded:not(.active) {
+      border-color: rgba(16, 185, 129, 0.55);
+      background: rgba(16, 185, 129, 0.10);
+    }
+    .model-menu-item.loaded:not(.active):hover {
+      border-color: rgba(16, 185, 129, 0.75);
+      background: rgba(16, 185, 129, 0.16);
+    }
     .model-menu-item .name {
       font-weight: 700;
       font-size: 13px;
@@ -150,6 +158,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .selected-model-text {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-primary);
+      font-size: 12px;
+      width: fit-content;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .table-wrap {
       background: var(--card-bg);
@@ -265,6 +288,7 @@
       <div class="card record-card">
         <div class="row" style="grid-template-columns: 1fr;">
           <strong data-i18n="page.benchmark_v2.section.records">测试记录</strong>
+          <div id="selectedModelText" class="selected-model-text" style="display:none;"></div>
           <span id="statusText" class="hint"></span>
           <div class="table-wrap">
             <table class="result-table">
@@ -301,6 +325,7 @@
       allModelsList: document.getElementById('allModelsList'),
       allModelsMeta: document.getElementById('allModelsMeta'),
       resultBody: document.getElementById('resultBody'),
+      selectedModelText: document.getElementById('selectedModelText'),
       status: document.getElementById('statusText')
     };
     
@@ -309,6 +334,8 @@
     let loadedModelIds = new Set();
     let selectedModelId = null;
     let currentRecordKeys = new Set();
+    let benchmarkAbortController = null;
+    let isBenchmarkRunning = false;
 
     function t(key, fallback) {
       if (window.I18N && typeof window.I18N.t === 'function') {
@@ -379,6 +406,18 @@
       });
     }
 
+    function updateSelectedModelText() {
+      if (!els.selectedModelText) return;
+      const id = (selectedModelId || '').trim();
+      if (!id) {
+        els.selectedModelText.textContent = '';
+        els.selectedModelText.style.display = 'none';
+        return;
+      }
+      els.selectedModelText.textContent = tf('page.benchmark_v2.hint.selected_model', { model: id }, `模型：${id}`);
+      els.selectedModelText.style.display = '';
+    }
+
     function renderAllModelsList() {
       if (!els.allModelsList) return;
       els.allModelsList.innerHTML = '';
@@ -407,6 +446,9 @@
         btn.type = 'button';
         btn.className = 'model-menu-item';
         btn.dataset.modelId = id;
+        if (loadedModelIds && loadedModelIds.has(id)) {
+          btn.classList.add('loaded');
+        }
 
         const nameEl = document.createElement('div');
         nameEl.className = 'name';
@@ -434,6 +476,7 @@
         currentRecordKeys = new Set();
       }
       updateActiveAllModelItem();
+      updateSelectedModelText();
 
       const mode = options && options.mode ? options.mode : (prev === id ? 'append' : 'replace');
       loadBenchmarkRecords(id, { mode });
@@ -688,6 +731,7 @@
     }
     
     async function runBenchmark() {
+      if (isBenchmarkRunning) return;
       const modelId = (els.modelSelect.value || '').trim();
       const promptTokens = parseInt(els.promptTokens.value, 10);
       const maxTokens = parseInt(els.maxTokens.value, 10);
@@ -706,7 +750,9 @@
       if (!validateTokenLimit()) {
         return;
       }
-      els.runBtn.disabled = true;
+      isBenchmarkRunning = true;
+      benchmarkAbortController = new AbortController();
+      if (els.runBtn) els.runBtn.textContent = t('page.benchmark_v2.action.cancel', '取消测试');
       setStatus(t('page.benchmark_v2.status.running', '执行中…'));
       try {
         const payload = {
@@ -717,7 +763,8 @@
         const data = await fetchJson('/api/v2/models/benchmark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: benchmarkAbortController.signal
         });
         setStatus(data.success ? t('page.benchmark_v2.status.done', '完成') : (data.error || t('page.benchmark_v2.status.failed', '失败')));
         if (data && data.success) {
@@ -725,13 +772,35 @@
           selectModelForRecords(modelId, { mode });
         }
       } catch (e) {
-        setStatus(e.message || t('page.benchmark_v2.status.request_failed', '请求失败'));
+        if (e && e.name === 'AbortError') {
+          setStatus(t('page.benchmark_v2.status.cancelled', '已取消'));
+          return;
+        }
+        setStatus((e && e.message) ? e.message : t('page.benchmark_v2.status.request_failed', '请求失败'));
       } finally {
-        els.runBtn.disabled = false;
+        isBenchmarkRunning = false;
+        benchmarkAbortController = null;
+        if (els.runBtn) els.runBtn.textContent = t('page.benchmark_v2.action.run', '开始测试');
       }
     }
+
+    function cancelBenchmark() {
+      if (!isBenchmarkRunning) return;
+      if (benchmarkAbortController) {
+        benchmarkAbortController.abort();
+      }
+      setStatus(t('page.benchmark_v2.status.cancelling', '取消中…'));
+    }
+
+    function handleRunButtonClick() {
+      if (isBenchmarkRunning) {
+        cancelBenchmark();
+        return;
+      }
+      runBenchmark();
+    }
     
-    els.runBtn.addEventListener('click', runBenchmark);
+    els.runBtn.addEventListener('click', handleRunButtonClick);
     els.refreshBtn.addEventListener('click', loadPageModels);
     els.modelSelect.addEventListener('change', () => {
       validateTokenLimit();

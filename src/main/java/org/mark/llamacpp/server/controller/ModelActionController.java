@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -17,7 +16,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.mark.llamacpp.gguf.GGUFMetaData;
@@ -35,7 +33,6 @@ import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -52,11 +49,10 @@ public class ModelActionController implements BaseController {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelActionController.class);
 	
-	
 	/**
-	 * 	这是给性能测试用的。
+	 * 	
 	 */
-	private ConcurrentHashMap<ChannelHandlerContext, HttpURLConnection> connections = new ConcurrentHashMap<>();
+	private BenchmarkService benchmarkService = new BenchmarkService();
 	
 	
 	public ModelActionController() {
@@ -640,114 +636,18 @@ public class ModelActionController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
-			String modelId = JsonUtil.getJsonString(json, "modelId", null);
-			if (modelId != null) modelId = modelId.trim();
-			if (modelId == null || modelId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
-				return;
-			}
-			Integer promptTokens = JsonUtil.getJsonInt(json, "promptTokens", null);
-			if (promptTokens == null || promptTokens.intValue() <= 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的promptTokens参数"));
-				return;
-			}
-			Integer maxTokens = JsonUtil.getJsonInt(json, "maxTokens", null);
-			if (maxTokens == null || maxTokens.intValue() <= 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的maxTokens参数"));
-				return;
-			}
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (!manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
-				return;
-			}
-			Integer port = manager.getModelPort(modelId);
-			if (port == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到模型端口: " + modelId));
-				return;
-			}
-			LlamaCppProcess process = manager.getLoadedProcesses().get(modelId);
-			final String llamaBinPath = process.getLlamaBinPath();
-			
-			JsonArray messages = normalizeMessages(json.get("messages"));
-			JsonObject bench = new BenchmarkService().generatePromptForTargetTokens(modelId, messages, promptTokens.intValue() - 1);
-			String contentText = bench.has("content") ? bench.get("content").getAsString() : "";
-			JsonObject userMsg = ensureUserMessage(messages);
-			userMsg.addProperty("content", contentText);
-			
-			JsonObject forward = new JsonObject();
-			forward.addProperty("model", modelId);
-			forward.add("messages", messages);
-			forward.addProperty("max_tokens", maxTokens.intValue());
-			forward.addProperty("stream", false);
-			
-			String targetUrl = String.format("http://localhost:%d/v1/chat/completions", port.intValue());
-			URL url = URI.create(targetUrl).toURL();
-			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-			connection.setRequestMethod("POST");
-			connection.setDoOutput(true);
-			connection.setConnectTimeout(3600 * 7 * 24);
-			connection.setReadTimeout(3600 * 7 * 24);
-			connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-			
-			// 缓存
-			this.connections.put(ctx, connection);
-			
-			byte[] outBytes = JsonUtil.toJson(forward).getBytes(StandardCharsets.UTF_8);
-			//connection.setRequestProperty("Content-Length", String.valueOf(outBytes.length));
-			try (OutputStream os = connection.getOutputStream()) {
-				os.write(outBytes);
-			}
-			
-			int responseCode = connection.getResponseCode();
-			String responseBody = readBody(connection, responseCode >= 200 && responseCode < 300);
-			if (responseCode >= 200 && responseCode < 300) {
-				JsonObject respObj = JsonUtil.fromJson(responseBody, JsonObject.class);
-				JsonObject timingsObj = (respObj != null && respObj.has("timings") && respObj.get("timings").isJsonObject())
-						? respObj.getAsJsonObject("timings")
-						: null;
-				if (timingsObj == null) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型返回内容缺少timings"));
-					return;
-				}
-				Map<String, Object> data = new HashMap<>();
-				data.put("modelId", modelId);
-				data.put("promptTokens", promptTokens);
-				data.put("maxTokens", maxTokens);
-				data.put("timings", JsonUtil.fromJson(timingsObj, Object.class));
-				data.put("llamaBinPath", llamaBinPath);
-				try {
-					String safeModelId = modelId == null ? "unknown" : modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
-					String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-					String fileName = safeModelId + "_V2.jsonl";
-					File dir = new File("benchmarks");
-					if (!dir.exists()) {
-						dir.mkdirs();
-					}
-					File outFile = new File(dir, fileName);
-					try (FileOutputStream fos = new FileOutputStream(outFile, true)) {
-						JsonObject record = new JsonObject();
-						record.addProperty("timestamp", timestamp);
-						record.addProperty("modelId", modelId);
-						record.addProperty("promptTokens", promptTokens);
-						record.addProperty("maxTokens", maxTokens);
-						record.addProperty("llamaBinPath", llamaBinPath);
-						record.add("timings", timingsObj);
-						String line = JsonUtil.toJson(record) + System.lineSeparator();
-						fos.write(line.getBytes(StandardCharsets.UTF_8));
-					}
-					data.put("savedPath", outFile.getAbsolutePath());
-				} catch (Exception ex) {
-					logger.info("保存基准测试V2结果到文件失败", ex);
-				}
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型返回错误: " + responseBody));
-			}
-			connection.disconnect();
+			Map<String, Object> data = this.benchmarkService.handleBenchmark(ctx, json);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("执行模型基准测试V2时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
+			String msg = e.getMessage();
+			if (msg != null && msg.startsWith("执行模型基准测试失败")) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(msg));
+			} else {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
+			}
 		}
 	}
 	
@@ -1085,18 +985,12 @@ public class ModelActionController implements BaseController {
 	 */
 	@Override
 	public void inactive(ChannelHandlerContext ctx) {
-		// 如果不为null，就关闭连接
-		HttpURLConnection connection = this.connections.get(ctx);
-		if(connection != null) {
-			try {
-				connection.disconnect();
-			}catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			this.benchmarkService.channelInactive(ctx);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
-	
-	
 	
 	/**
 	 * 	
@@ -1125,51 +1019,5 @@ public class ModelActionController implements BaseController {
 			out.add(a);
 		}
 		return out;
-	}
-	
-	private static JsonArray normalizeMessages(JsonElement el) {
-		if (el != null && el.isJsonArray()) {
-			return el.getAsJsonArray().deepCopy();
-		}
-		return new JsonArray();
-	}
-	
-	private static JsonObject ensureUserMessage(JsonArray messages) {
-		JsonObject lastUser = null;
-		for (int i = messages.size() - 1; i >= 0; i--) {
-			JsonElement el = messages.get(i);
-			if (el == null || !el.isJsonObject()) {
-				continue;
-			}
-			JsonObject obj = el.getAsJsonObject();
-			String role = JsonUtil.getJsonString(obj, "role", "");
-			if ("user".equals(role)) {
-				lastUser = obj;
-				break;
-			}
-		}
-		if (lastUser == null) {
-			lastUser = new JsonObject();
-			lastUser.addProperty("role", "user");
-			lastUser.addProperty("content", "");
-			messages.add(lastUser);
-		}
-		return lastUser;
-	}
-	
-	private static String readBody(HttpURLConnection connection, boolean ok) {
-		if (connection == null) return "";
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(
-				ok ? connection.getInputStream() : connection.getErrorStream(),
-				StandardCharsets.UTF_8))) {
-			StringBuilder sb = new StringBuilder();
-			String line;
-			while ((line = br.readLine()) != null) {
-				sb.append(line);
-			}
-			return sb.toString();
-		} catch (Exception e) {
-			return "";
-		}
 	}
 }
