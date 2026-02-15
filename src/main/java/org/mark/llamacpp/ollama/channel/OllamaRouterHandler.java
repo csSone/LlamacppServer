@@ -10,6 +10,7 @@ import org.mark.llamacpp.ollama.OllamaShowService;
 import org.mark.llamacpp.ollama.OllamaTagsService;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.exception.RequestMethodException;
+import org.mark.llamacpp.server.service.OpenAIService;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -57,6 +58,9 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 	 * 	
 	 */
 	private OllamaEmbedService ollamaEmbedService = new OllamaEmbedService();
+	
+	
+	private OpenAIService openAIService = new OpenAIService();
 	
 	
 	public OllamaRouterHandler() {
@@ -158,6 +162,25 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			this.ollamaTagsService.handleLoadedModel(ctx, request);
 			return true;
 		}
+		// 补上openAI的通用端点
+		// 聊天补全
+		if (uri.startsWith("/v1/models") || uri.startsWith("/models")) {
+			this.openAIService.handleOpenAIModelsRequest(ctx, request);
+			return true;
+		}
+		if (uri.startsWith("/v1/chat/completions") || uri.startsWith("/v1/chat/completion") || uri.startsWith("/chat/completion")) {
+			this.openAIService.handleOpenAIChatCompletionsRequest(ctx, request);
+			return true;
+		}
+		// 文本补全
+		if (uri.startsWith("/v1/completions") || uri.startsWith("/completions")) {
+			this.openAIService.handleOpenAICompletionsRequest(ctx, request);
+			return true;
+		}
+		if (uri.startsWith("/v1/embeddings") || uri.startsWith("/embeddings")) {
+			this.openAIService.handleOpenAIEmbeddingsRequest(ctx, request);
+			return true;
+		}
 		
 		// 这些端点不能使用
 		// /api/copy /api/delete /api/pull /api/push /api/generate
@@ -189,6 +212,7 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 		logger.info("ollama 客户端连接关闭：{}", ctx);
 		this.ollamaChatService.channelInactive(ctx);
+		this.openAIService.channelInactive(ctx);
 		super.channelInactive(ctx);
 	}
 	

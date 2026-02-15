@@ -167,6 +167,7 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 		logger.info("LMS 客户端连接关闭：{}", ctx);
 		// 事件通知
 		this.lmStudioService.channelInactive(ctx);
+		this.openAIService.channelInactive(ctx);
 		super.channelInactive(ctx);
 	}
 
