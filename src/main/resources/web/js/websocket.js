@@ -1,8 +1,15 @@
 let websocket = null;
 let reconnectAttempts = 0;
-const reconnectInterval = 1000;
 const wsDecoder = new TextDecoder('utf-8');
 let reconnectTimer = null;
+
+// 重连配置（指数退避策略）
+const wsConfig = {
+    maxReconnectAttempts: 10,      // 最大重试次数
+    baseReconnectInterval: 1000,   // 基础间隔 1 秒
+    maxReconnectInterval: 30000,   // 最大间隔 30 秒
+    enableJitter: true             // 启用抖动避免雷群效应
+};
 
 function triggerModelListLoad() {
     if (typeof loadModels !== 'function') return;
@@ -21,6 +28,16 @@ function triggerModelListLoad() {
 }
 
 function initWebSocket() {
+    // 如果处于离线状态，等待网络恢复
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        console.log('Network is offline, waiting for connection...');
+        window.addEventListener('online', function onlineHandler() {
+            window.removeEventListener('online', onlineHandler);
+            initWebSocket();
+        }, { once: true });
+        return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -42,14 +59,47 @@ function initWebSocket() {
         websocket.onclose = function(event) {
             console.log('WebSocket Closed');
             reconnectAttempts++;
+
+            // 检查是否超过最大重试次数
+            if (reconnectAttempts > wsConfig.maxReconnectAttempts) {
+                console.error('WebSocket reconnect limit reached');
+                if (typeof showToast === 'function') {
+                    showToast('Connection Failed', 'Please refresh the page to reconnect', 'error');
+                }
+                return;
+            }
+
+            // 指数退避计算：从 1 秒开始，指数增长，最大 30 秒
+            const rawInterval = wsConfig.baseReconnectInterval * Math.pow(2, Math.max(0, reconnectAttempts - 1));
+            let interval = Math.min(rawInterval, wsConfig.maxReconnectInterval);
+
+            // 添加抖动 (±50%) 避免雷群效应
+            if (wsConfig.enableJitter) {
+                interval = Math.floor(interval * (0.5 + Math.random() * 0.5));
+            }
+
+            console.log(`WebSocket reconnecting in ${interval}ms (attempt ${reconnectAttempts}/${wsConfig.maxReconnectAttempts})`);
+
             if (reconnectTimer) {
                 clearTimeout(reconnectTimer);
             }
-            reconnectTimer = setTimeout(initWebSocket, reconnectInterval);
+            reconnectTimer = setTimeout(initWebSocket, interval);
         };
         websocket.onerror = function(error) { console.error('WebSocket Error:', error); };
     } catch (error) { console.error('WebSocket Init Failed:', error); }
 }
+
+// 页面卸载时清理资源
+window.addEventListener('beforeunload', function() {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    if (websocket) {
+        websocket.close();
+        websocket = null;
+    }
+});
 
 function handleWebSocketMessage(message) {
     try {

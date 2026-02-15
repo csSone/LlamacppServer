@@ -86,9 +86,9 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 		String uri = request.uri();
 		logger.info("收到请求：{}", uri);
-		// 傻逼浏览器不知道为什么一直在他妈的访问/.well-known/appspecific/com.chrome.devtools.json
+		// Chrome DevTools 内部请求，直接返回 404
 		if ("/.well-known/appspecific/com.chrome.devtools.json".equals(uri)) {
-			ctx.close();
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "Not Found");
 			return;
 		}
 		if (request.method() == HttpMethod.OPTIONS) {

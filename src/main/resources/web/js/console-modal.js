@@ -83,6 +83,14 @@
         });
     }
 
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopConsoleAuto();
+        } else if (autoRefreshConsole && autoRefreshConsole.checked) {
+            startConsoleAuto();
+        }
+    });
+
     window.openConsoleModal = openConsoleModal;
     window.appendLogLine = appendLogLine;
     window.stopConsoleAuto = stopConsoleAuto;

@@ -1237,7 +1237,9 @@ public class LlamaServerManager {
 		}
 		sb.append(" --alias ").append(targetModel.getModelId());
 		
-		sb.append(" --timeout 36000");
+		if (!cmdHasFlag(allArgs, "--timeout")) {
+			sb.append(" --timeout 36000");
+		}
 		
 		return sb.toString().trim();
 	}
